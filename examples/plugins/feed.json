@@ -1,0 +1,6 @@
+{
+  "name": "Local blocklist",
+  "exe": "powershell.exe",
+  "args": "-NoProfile -ExecutionPolicy Bypass -File C:\\tools\\feed.ps1",
+  "timeoutMs": 6000
+}

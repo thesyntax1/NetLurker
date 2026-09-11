@@ -1,0 +1,59 @@
+name: release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build (MSVC)
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+          if errorlevel 1 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+          build.bat
+
+      - name: Bundle language files
+        shell: pwsh
+        run: |
+          Copy-Item lang build\lang -Recurse -Force
+
+      - name: Sign (optional, when the certificate secret is set)
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          if ($env:WINDOWS_CERT_BASE64) {
+            $bytes = [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
+            [IO.File]::WriteAllBytes("$env:RUNNER_TEMP\cert.pfx", $bytes)
+            & .\tools\sign_release.ps1 -File build\NetLurker.exe `
+              -Cert "$env:RUNNER_TEMP\cert.pfx" -Password $env:WINDOWS_CERT_PASSWORD
+          } else {
+            Write-Host "Imzalama sertifikasi tanimli degil; imzasiz surulecek."
+          }
+
+      - name: Package (zip + SHA256SUMS)
+        shell: pwsh
+        run: |
+          $v = $env:GITHUB_REF_NAME.TrimStart('v')
+          $zip = "NetLurker-v$v-win64.zip"
+          Compress-Archive -Path build\NetLurker.exe, build\lang -DestinationPath $zip
+          Get-FileHash $zip -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $($_.Path | Split-Path -Leaf)" } |
+            Out-File SHA256SUMS -Encoding ascii
+          Write-Host "artefakt: $zip"
+
+      - name: GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.zip
+            SHA256SUMS
+          generate_release_notes: true

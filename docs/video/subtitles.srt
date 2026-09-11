@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:03,000
+Real-time Windows Network Intelligence
+
+2
+00:00:03,000 --> 00:00:06,000
+No installer. No account. No telemetry.
+
+3
+00:00:06,000 --> 00:00:09,000
+Try the demo — no API keys needed
+
+4
+00:00:09,000 --> 00:00:14,000
+Every socket, enriched: signature, geo, ASN, RDAP, VT, TLS
+
+5
+00:00:14,000 --> 00:00:17,000
+88/100 CRITICAL — here's why
+
+6
+00:00:17,000 --> 00:00:21,000
+One keypress: a structured analyst verdict
+
+7
+00:00:21,000 --> 00:00:24,000
+See the whole picture as a graph
+
+8
+00:00:24,000 --> 00:00:27,000
+Anomaly alerts. One-click HTML report.
+
+9
+00:00:27,000 --> 00:00:30,000
+github.com/thesyntax11/NetLurker — Free, MIT

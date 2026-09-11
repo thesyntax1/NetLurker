@@ -1,0 +1,93 @@
+#include <windows.h>
+#include "../src/resource.h"
+
+1 RT_MANIFEST "netlurker.manifest"
+
+IDI_APPICON ICON "netlurker.ico"
+
+IDD_SETTINGS DIALOGEX 0, 0, 320, 374
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "NetLurker - Ayarlar"
+FONT 9, "Segoe UI", 400, 0, 0x0
+BEGIN
+    LTEXT           "AI ucu (OpenAI uyumlu chat/completions URL):", IDC_ST_ENDPOINT, 12, 10, 296, 9
+    EDITTEXT        IDC_ED_ENDPOINT, 12, 22, 296, 14, ES_AUTOHSCROLL
+
+    LTEXT           "Model:", IDC_ST_MODEL, 12, 44, 40, 9
+    EDITTEXT        IDC_ED_MODEL, 52, 42, 110, 14, ES_AUTOHSCROLL
+
+    LTEXT           "Yenileme (x100 ms):", IDC_ST_INTERVAL, 176, 44, 76, 9
+    EDITTEXT        IDC_ED_INTERVAL, 256, 42, 52, 14, ES_AUTOHSCROLL | ES_NUMBER
+
+    LTEXT           "API anahtari:", IDC_ST_KEY, 12, 66, 60, 9
+    EDITTEXT        IDC_ED_KEY, 12, 78, 296, 14, ES_AUTOHSCROLL | ES_PASSWORD
+
+    AUTOCHECKBOX    "IP konum/organizasyon sorgusu (ip-api.com) etkin", IDC_CHK_GEO, 12, 100, 296, 12
+    AUTOCHECKBOX    "Riskli baglantida masaustu bildirimi goster", IDC_CHK_NOTIFY, 12, 116, 296, 12
+    AUTOCHECKBOX    "Bildirimde uyari sesi cal", IDC_CHK_SOUND, 12, 132, 296, 12
+
+    AUTOCHECKBOX    "Sureci sonlandirmadan once onay iste", IDC_CHK_CONFIRM, 12, 148, 296, 12
+
+    LTEXT           "Bildirim risk esigi (20-100):", IDC_ST_RISKMIN, 12, 168, 100, 9
+    EDITTEXT        IDC_ED_RISKMIN, 116, 166, 46, 14, ES_AUTOHSCROLL | ES_NUMBER
+
+    LTEXT           "TEHDIT ISTIHBARATI", IDC_ST_THREAT, 12, 186, 296, 9
+    AUTOCHECKBOX    "Tehdit istihbarati etkin (AbuseIPDB + DNS kara listeleri + CIRCL pasif DNS + TLS sertifika analizi)",
+                    IDC_CHK_THREAT, 12, 198, 296, 12
+    AUTOCHECKBOX    "RDAP sahiplik sorgusu etkin (ag/org/iletisim/tescil tarihi)", IDC_CHK_RDAP, 12, 214, 296, 12
+    AUTOCHECKBOX    "HTTP banner tespiti etkin (uzak sunucu yazilimi)", IDC_CHK_BANNER, 12, 230, 296, 12
+
+    LTEXT           "AbuseIPDB API anahtari (bos birakilabilir, abuseipdb.com ucretsiz):", IDC_ST_ABUSEKEY, 12, 248, 296, 9
+    EDITTEXT        IDC_ED_ABUSEKEY, 12, 260, 296, 14, ES_AUTOHSCROLL
+
+    LTEXT           "VirusTotal API anahtari (bos = kapali; ucretsiz plan: dakikada 4 sorgu):", IDC_ST_VTKEY, 12, 282, 296, 9
+    EDITTEXT        IDC_ED_VTKEY, 12, 294, 296, 14, ES_AUTOHSCROLL
+
+    LTEXT           "Dil / Language:", IDC_ST_LANG, 12, 318, 60, 9
+    COMBOBOX        IDC_CMB_LANG, 76, 316, 232, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP
+
+    LTEXT           "AI anahtari %APPDATA%\\NetLurker\\config.ini icine kaydedilir. Bos birakilirsa OPENAI_API_KEY ortam degiskeni kullanilir; o da yoksa yerel sezgisel analiz calisir.",
+                    IDC_ST_INFO, 12, 336, 296, 20
+
+    DEFPUSHBUTTON   "Kaydet", IDOK, 196, 352, 52, 16
+    PUSHBUTTON      "Iptal", IDCANCEL, 256, 352, 52, 16
+END
+
+1 VERSIONINFO
+FILEVERSION 6,0,0,0
+PRODUCTVERSION 6,0,0,0
+FILEFLAGSMASK 0x3fL
+FILEFLAGS 0x0L
+FILEOS 0x40004L
+FILETYPE 0x1L
+FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904b0"
+        BEGIN
+            VALUE "CompanyName", "NetLurker"
+            VALUE "FileDescription", "NetLurker - Real-time Windows Network Intelligence"
+            VALUE "FileVersion", "6.0.0"
+            VALUE "InternalName", "NetLurker"
+            VALUE "OriginalFilename", "NetLurker.exe"
+            VALUE "ProductName", "NetLurker"
+            VALUE "ProductVersion", "6.0.0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END
+
+IDD_ELEVATE DIALOGEX 0, 0, 320, 224
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "NetLurker"
+FONT 9, "Segoe UI", 400, 0, 0x0
+BEGIN
+    LTEXT           "Yonetici haklari gerekli", IDC_ST_ELEVATE, 12, 10, 296, 12
+    LTEXT           "", IDC_ST_NOTICE, 12, 30, 296, 150
+    DEFPUSHBUTTON   "Yonetici olarak devam et", IDC_BTN_ELEVATE, 12, 190, 156, 16
+    PUSHBUTTON      "Bu sekilde devam et", IDC_BTN_NORMAL, 176, 190, 132, 16
+END

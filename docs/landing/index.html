@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetLurker — Real-time Windows Network Intelligence</title>
+<meta name="description" content="NetLurker is a free, open-source real-time network intelligence tool for Windows. See every connection your processes make — signature, country, threat feeds, TLS, and more. No telemetry.">
+<style>
+  :root {
+    --bg: #0e1116; --panel: #151a21; --line: #232a33;
+    --text: #dbe2ea; --dim: #8fa2b8; --faint: #7d8791;
+    --cyan: #6cb6ff; --green: #30a46c; --orange: #f5a623; --red: #e5484d;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text);
+         font-family: 'Segoe UI', system-ui, Arial, sans-serif; line-height: 1.6; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+  header { border-bottom: 1px solid var(--line); padding: 18px 0; }
+  .nav { display: flex; align-items: center; justify-content: space-between; }
+  .brand { font-weight: 700; font-size: 20px; color: var(--cyan); letter-spacing: .5px; }
+  .brand small { color: var(--faint); font-weight: 400; }
+  .nav a { color: var(--dim); text-decoration: none; margin-left: 22px; font-size: 14px; }
+  .nav a:hover { color: var(--text); }
+  .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center;
+          padding: 64px 0 40px; }
+  .hero img { width: 100%; border: 1px solid var(--line); border-radius: 12px;
+              box-shadow: 0 24px 60px rgba(0,0,0,.45); }
+  h1 { font-size: 42px; line-height: 1.15; color: #fff; margin-bottom: 12px; }
+  h1 .cy { color: var(--cyan); }
+  .tag { color: var(--dim); font-size: 18px; margin-bottom: 24px; }
+  .checks { list-style: none; margin-bottom: 28px; }
+  .checks li { color: var(--text); margin: 8px 0; }
+  .checks li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+  .btn { display: inline-block; background: var(--cyan); color: #06121f; font-weight: 700;
+         padding: 12px 26px; border-radius: 8px; text-decoration: none; margin-right: 12px; }
+  .btn:hover { filter: brightness(1.1); }
+  .btn.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); }
+  .badges { margin-top: 22px; font-size: 13px; color: var(--faint); }
+  .badges span { border: 1px solid var(--line); border-radius: 20px; padding: 3px 12px;
+                 margin-right: 8px; }
+  h2 { color: #fff; font-size: 26px; margin: 56px 0 20px; }
+  h2 .dim { color: var(--faint); font-size: 16px; font-weight: 400; display: block; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          padding: 20px; }
+  .card b { color: var(--cyan); display: block; margin-bottom: 6px; font-size: 16px; }
+  .card p { color: var(--dim); font-size: 14px; }
+  .risk { display: inline-block; border-radius: 10px; padding: 1px 9px; font-weight: 700;
+          font-size: 12px; }
+  .r-hi { background: rgba(229,72,77,.15); color: var(--red); }
+  .r-med { background: rgba(245,166,35,.15); color: var(--orange); }
+  .r-ok { background: rgba(48,164,108,.15); color: var(--green); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px;
+          background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
+          overflow: hidden; }
+  th { background: #10151c; color: var(--dim); text-align: left; padding: 8px 12px;
+       border-bottom: 1px solid var(--line); }
+  td { padding: 7px 12px; border-bottom: 1px solid #1c232c; color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  .privacy { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .ok { color: var(--green); font-weight: 700; }
+  .langs { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .langs span { border: 1px solid var(--line); border-radius: 6px; padding: 4px 14px;
+                color: var(--dim); font-size: 14px; }
+  footer { border-top: 1px solid var(--line); margin-top: 64px; padding: 26px 0 40px;
+           color: var(--faint); font-size: 13px; }
+  footer a { color: var(--dim); }
+  @media (max-width: 860px) {
+    .hero { grid-template-columns: 1fr; }
+    .grid, .privacy { grid-template-columns: 1fr; }
+    h1 { font-size: 32px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap nav">
+    <div class="brand">NETLURKER <small>// network intelligence</small></div>
+    <nav>
+      <a href="#features">Features</a>
+      <a href="#privacy">Privacy</a>
+      <a href="#download">Download</a>
+      <a href="https://github.com/thesyntax11/NetLurker">GitHub</a>
+    </nav>
+  </div>
+</header>
+
+<section class="wrap hero">
+  <div>
+    <h1>See every connection<br>your Windows PC makes.<br><span class="cy">In real time.</span></h1>
+    <p class="tag">NetLurker turns raw socket tables into actionable network intelligence —
+    process, signature, country, threat feeds, TLS, and behavioral baselines — in one dark,
+    keyboard-driven window.</p>
+    <ul class="checks">
+      <li>All processing happens on your device — no account, no cloud</li>
+      <li>8 languages, single portable executable, zero dependencies</li>
+      <li>Free and open source (MIT)</li>
+    </ul>
+    <a class="btn" href="https://github.com/thesyntax11/NetLurker/releases">Download for Windows</a>
+    <a class="btn ghost" href="https://github.com/thesyntax11/NetLurker">Source on GitHub</a>
+    <div class="badges">
+      <span>C++17</span><span>Win32 API</span><span>x64</span><span>Windows 7+</span>
+    </div>
+  </div>
+  <figure style="margin:0">
+    <img src="hero.png" alt="NetLurker dashboard (illustration)">
+    <figcaption style="color:var(--faint);font-size:12px;margin-top:8px">
+      UI concept render — not a screenshot. The real capture is below.
+    </figcaption>
+  </figure>
+</section>
+
+<section class="wrap" id="real">
+  <h2>Real screenshot <span class="dim">actual running app (Turkish UI, v4 interface)</span></h2>
+  <figure style="margin:0">
+    <img src="preview.png" alt="NetLurker real application screenshot" style="width:100%;border:1px solid var(--line);border-radius:12px">
+    <figcaption style="color:var(--faint);font-size:12px;margin-top:8px">
+      NetLurker running on a real system. The current v6 interface adds filter chips,
+      network graph, anomaly detection and the AI analysis panel.
+    </figcaption>
+  </figure>
+</section>
+
+<section class="wrap" id="features">
+  <h2>What it shows <span class="dim">every row is a live socket, enriched in real time</span></h2>
+  <table>
+    <tr><th>Process</th><th>Destination</th><th>Country · Org</th><th>Signature</th><th>Threat</th><th>Risk</th></tr>
+    <tr><td>chrome.exe <span style="color:var(--faint)">[4820]</span></td><td>142.250.186.46:443</td><td>DE · Google LLC</td><td>Google LLC</td><td>0/100</td><td><span class="risk r-ok">NORMAL</span></td></tr>
+    <tr><td>svchost.exe <span style="color:var(--faint)">[1208]</span></td><td>8.8.8.8:53</td><td>US · Google LLC</td><td>Microsoft</td><td>—</td><td><span class="risk r-ok">NORMAL</span></td></tr>
+    <tr><td>updater.exe <span style="color:var(--faint)">[3101]</span></td><td>45.155.205.86:4444</td><td>NL · M247 Europe</td><td><span style="color:var(--orange)">UNSIGNED</span></td><td>88/100</td><td><span class="risk r-hi">CRITICAL</span></td></tr>
+    <tr><td>winsvchost.exe <span style="color:var(--faint)">[2977]</span></td><td>103.148.244.178:3333</td><td>SG · hosting</td><td><span style="color:var(--red)">INVALID</span></td><td>56/100</td><td><span class="risk r-med">SUSPICIOUS</span></td></tr>
+  </table>
+
+  <div class="grid" style="margin-top:24px">
+    <div class="card"><b>🔍 Identity &amp; enrichment</b>
+      <p>Authenticode signatures, publisher, command line, owning module, geo/ASN, reverse DNS,
+      RDAP ownership, TLS certificate analysis, HTTP banner &amp; EOL detection.</p></div>
+    <div class="card"><b>📈 Risk engine 0–100</b>
+      <p>Heuristic scoring with MITRE-mapped reasons: C2 beacon patterns, persistence, rare
+      privileged ports, unsigned processes, datacenter targets, exfiltration ratios.</p></div>
+    <div class="card"><b>🧠 Structured AI analyst</b>
+      <p>One keypress turns evidence into a structured verdict — decision, confidence, reasons,
+      concerns, recommendation, follow-up actions. Works fully offline without an API key.</p></div>
+    <div class="card"><b>📊 Network graph</b>
+      <p>Process ↔ endpoint graph colored by risk, edge thickness by data flow, endpoints
+      labeled with country codes.</p></div>
+    <div class="card"><b>🚨 Behavioral anomaly</b>
+      <p>Per-process connection baselines (EMA + variance). A process that suddenly talks
+      3× more than usual triggers a toast, a notification, and a report entry.</p></div>
+    <div class="card"><b>🧩 Plugin providers</b>
+      <p>Drop a JSON definition in <code>plugins\</code> and feed your own intelligence
+      source: IP on stdin, JSON verdict on stdout.</p></div>
+  </div>
+</section>
+
+<section class="wrap" id="privacy">
+  <h2>Privacy, by design <span class="dim">the Privacy Center inside the app says the same thing</span></h2>
+  <div class="privacy">
+    <div class="card">
+      <b>✓ Local processing</b><p>Network data never leaves your device.</p>
+      <b style="margin-top:14px">✓ No telemetry</b><p>No analytics, no ads, no account.</p>
+      <b style="margin-top:14px">✓ Explicit lookups</b>
+      <p>External services are only queried when you enable them: ip-api.com, AbuseIPDB +
+      DNS blacklists + CIRCL, rdap.org, VirusTotal (only with your key), a single TLS
+      ClientHello and a single HTTP HEAD per target.</p>
+    </div>
+    <div class="card">
+      <b>Speaks your language</b>
+      <p>English by default — UI, errors, risk reasons, column headers, tooltips, AI prompts,
+      reports, and dates are fully localized.</p>
+      <div class="langs">
+        <span>English</span><span>Türkçe</span><span>Español</span><span>Deutsch</span>
+        <span>Français</span><span>日本語</span><span>中文</span><span>Português</span>
+      </div>
+      <b style="margin-top:18px">Verified releases</b>
+      <p>Every release ships a zip plus a SHA256SUMS file so you can verify integrity
+      before you run it.</p>
+    </div>
+  </div>
+</section>
+
+<section class="wrap" id="download">
+  <h2>Get started <span class="dim">Windows 7+ · x64 · ~2 MB portable executable</span></h2>
+  <a class="btn" href="https://github.com/thesyntax11/NetLurker/releases">Download latest release</a>
+  <a class="btn ghost" href="https://github.com/thesyntax11/NetLurker#derleme">Build from source</a>
+  <p style="color:var(--faint); margin-top:18px; font-size:13px">
+  No installer needed. First run shows a quick-start card and a demo mode with realistic
+  sample data — no API keys required. Use Ctrl+D to switch between demo and real data.</p>
+</section>
+
+<footer>
+  <div class="wrap">
+    NetLurker — Real-time Windows Network Intelligence · MIT License ·
+    <a href="https://github.com/thesyntax11/NetLurker">github.com/thesyntax11/NetLurker</a><br>
+    Findings are heuristic, not verdicts. Run it only on systems you are authorized to monitor.
+  </div>
+</footer>
+</body>
+</html>
