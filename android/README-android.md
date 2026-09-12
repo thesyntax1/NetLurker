@@ -103,6 +103,23 @@ Release signing is optional: drop a `keystore.properties` next to `settings.grad
 the release APK is signed with it; otherwise it is left unsigned and the workflow says so
 instead of implying it is distributable.
 
+## Continuous integration
+
+`.github/workflows/build.yml` builds both platforms on every push and uploads the results as
+run artifacts, so a build never has to happen on a developer machine:
+
+| Artifact | Contents |
+| --- | --- |
+| `NetLurker-windows-x64` | `NetLurker.exe` (MSVC x64, static runtime), `lang/*.ini`, `SHA256SUMS.txt` |
+| `NetLurker-debug-apk` | debug-signed APK, installable as-is |
+| `NetLurker-release-apk` | minified APK, unsigned unless `keystore.properties` was present |
+| `android-build-log` | the Gradle output of the Android job |
+
+The Windows job deletes the `build/NetLurker.exe` that is checked into the repository before
+compiling. Without that step a failed compile would still leave the committed binary behind
+and the artifact would look like a success. Both jobs also run their string-catalog check
+first, so a missing translation fails the build rather than reaching a user.
+
 ## Not included (and why)
 
 - **Connection / socket table** — blocked without root or a VPN capture; not faked.

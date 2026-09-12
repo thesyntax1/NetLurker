@@ -1,14 +1,14 @@
-name: Android
+name: Build
 
-# NetLurker for Android.
+# Every platform NetLurker ships on, in one pipeline.
 #
-# The build is reproducible on purpose: pinned Gradle/AGP/Kotlin versions, no floating
-# dependency, and the string catalog is verified before compilation so a missing
-# translation fails the job instead of shipping a raw key to the user.
+#   windows -> NetLurker.exe (MSVC, build.bat) plus the lang/*.ini files it reads at runtime
+#   android -> debug and release APKs (Gradle, Kotlin + Compose)
 #
-# Every Gradle step tees its output to build.log, and on failure the last job publishes the
-# compiler/test errors as a check run so they are readable through the REST API instead of
-# only from the log viewer.
+# Each job verifies its string catalog before compiling, so a missing translation fails the
+# build instead of shipping a raw key to the user. Gradle output is teed to build.log and the
+# Android job publishes test totals and compiler errors as a check run, which keeps them
+# readable through the REST API and not only in the log viewer.
 
 on:
   push:
@@ -22,12 +22,73 @@ permissions:
   checks: write
 
 concurrency:
-  group: android-${{ github.ref }}
+  group: build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  build:
-    name: Build and verify
+  windows:
+    name: Windows x64 (MSVC)
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Verify the desktop language catalog
+        run: python tools/gen_lang.py --check
+
+      - name: Discard the executable that is checked into the repository
+        shell: pwsh
+        run: |
+          # build/NetLurker.exe is tracked in git, so a failed compile would still leave a
+          # stale binary behind and the artifact would look like a success. Delete it first
+          # so the file uploaded below can only be one this job produced.
+          Get-ChildItem build -Filter *.exe -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "removing checked-in $($_.Name)"
+            Remove-Item $_.FullName -Force
+          }
+
+      - name: Build with MSVC
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+          if errorlevel 1 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+          if errorlevel 1 call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
+          where cl
+          if errorlevel 1 exit /b 1
+          call build.bat
+
+      - name: Inspect the executable
+        shell: pwsh
+        run: |
+          $exe = "build\NetLurker.exe"
+          if (-not (Test-Path $exe)) { throw "build.bat did not produce $exe" }
+          $item = Get-Item $exe
+          "NetLurker.exe : {0:N0} bytes, written {1:yyyy-MM-dd HH:mm:ss} UTC" -f $item.Length, $item.LastWriteTimeUtc
+          $head = [IO.File]::ReadAllBytes($exe)[0..1]
+          if ([Text.Encoding]::ASCII.GetString($head) -ne "MZ") { throw "$exe is not a PE executable" }
+          "PE header     : MZ ok"
+          $lang = Get-ChildItem build\lang\*.ini -ErrorAction SilentlyContinue
+          if (-not $lang) { throw "no language files were bundled" }
+          "lang files    : $($lang.Count)"
+          $lang | ForEach-Object { "  {0,-8} {1,8:N0} bytes" -f $_.Name, $_.Length }
+          Get-FileHash $exe -Algorithm SHA256 |
+            ForEach-Object { "{0}  NetLurker.exe" -f $_.Hash.ToLower() } |
+            Tee-Object build\SHA256SUMS.txt
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: NetLurker-windows-x64
+          path: |
+            build/NetLurker.exe
+            build/lang/*.ini
+            build/SHA256SUMS.txt
+          if-no-files-found: error
+
+  android:
+    name: Android (Kotlin + Compose)
     runs-on: ubuntu-22.04
     timeout-minutes: 45
 
