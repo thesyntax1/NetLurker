@@ -127,4 +127,6 @@ The end-of-life banner check uses the desktop's signature list but not its match
 and the desktop calls a current server end of life. The Android build keeps the same list and
 requires a signature ending in a digit to stop at a version boundary, so `nginx/1.2.9` and
 `apache/1.3.41` still match while `nginx/1.25.3` and `PHP/8.3.1` do not. The cases are pinned
-in `ProbeParsingTest`.
+in `ProbeParsingTest`. The trade-off runs the other way for one signature: `lighttpd/1.4.2`
+no longer reaches `lighttpd/1.4.25`. Missing a 2011 web server is preferable to accusing a
+current one.

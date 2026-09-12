@@ -191,8 +191,10 @@ object BannerProbe {
      *
      * The signature list is the desktop's, but a plain substring search would accuse
      * current software: "nginx/1.2" is a prefix of "nginx/1.25.3". A signature that ends
-     * in a digit must therefore stop at a version boundary, so 1.2.x still matches while
-     * 1.25.x does not. Signatures ending in a dot ("apache/1.") are already unambiguous.
+     * in a digit must therefore not run straight into another digit, so nginx 1.2.9 still
+     * matches while 1.25.3 does not. A following dot is a version separator and is fine —
+     * that is what lets "apache/2.2" match "Apache/2.2.15". Signatures that already end in
+     * a dot ("apache/1.") cannot over-match at all.
      */
     fun matchesEndOfLife(server: String): Boolean {
         if (server.isBlank()) return false
@@ -200,7 +202,7 @@ object BannerProbe {
         return endOfLifeSignatures.any { signature ->
             val at = lower.indexOf(signature)
             at >= 0 && (signature.endsWith('.') || at + signature.length >= lower.length ||
-                !lower[at + signature.length].let { next -> next.isDigit() || next == '.' })
+                !lower[at + signature.length].isDigit())
         }
     }
 }

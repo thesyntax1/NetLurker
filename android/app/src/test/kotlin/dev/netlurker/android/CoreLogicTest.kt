@@ -366,6 +366,9 @@ class ProbeParsingTest {
         assertFalse(BannerProbe.matchesEndOfLife("nginx/1.25.3"))
         assertFalse(BannerProbe.matchesEndOfLife("nginx/1.24.0"))
         assertFalse(BannerProbe.matchesEndOfLife("PHP/8.3.1"))
+        // The trade-off for that rule: the desktop's "lighttpd/1.4.2" signature no longer
+        // reaches 1.4.25. Missing an old server is preferable to accusing a current one.
+        assertFalse(BannerProbe.matchesEndOfLife("lighttpd/1.4.25"))
         assertFalse(BannerProbe.matchesEndOfLife(""))
     }
 
