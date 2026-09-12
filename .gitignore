@@ -11,3 +11,7 @@ android/keystore.properties
 android/.kotlin/
 *.keystore
 *.jks
+
+# Python bytecode from the catalog generators
+__pycache__/
+*.pyc
