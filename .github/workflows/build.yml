@@ -49,12 +49,31 @@ jobs:
             Remove-Item $_.FullName -Force
           }
 
+      - name: Set up the MSVC x64 toolchain
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Show the toolchain
+        shell: cmd
+        run: |
+          (
+            echo --- image ---
+            echo %ImageOS% %ImageVersion%
+            echo --- Visual Studio installations ---
+            dir /b "C:\Program Files\Microsoft Visual Studio\2022" 2>nul
+            echo --- compiler on PATH ---
+            where cl 2>nul
+            where rc 2>nul
+            where link 2>nul
+            echo --- compiler banner ---
+            cl 2>&1
+          ) > toolchain.log 2>&1
+          type toolchain.log
+
       - name: Build with MSVC
         shell: cmd
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
-          if errorlevel 1 call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
-          if errorlevel 1 call "C:\Program Files\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvars64.bat" >nul 2>&1
           where cl
           if errorlevel 1 exit /b 1
           call build.bat > build-output.log 2>&1
@@ -86,6 +105,10 @@ jobs:
               parts.extend(lines[-160:])
           else:
               parts.append("(no build-output.log: the build never started)")
+          if os.path.exists("toolchain.log"):
+              parts.append("=== toolchain ===")
+              parts.extend(open("toolchain.log", encoding="utf-8",
+                                 errors="replace").read().splitlines()[:80])
           body = "\n".join(parts)
           print(json.dumps({
               "name": "windows-build-report",
