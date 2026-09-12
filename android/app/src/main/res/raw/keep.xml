@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Strings are resolved by name at runtime (see ui/Strings.kt), so the resource shrinker
+  cannot see the references. Keep the whole catalog; unused keys are still caught by
+  android/tools/gen_strings.py in check mode, which is the stricter of the two.
+-->
+<resources xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@string/*" />

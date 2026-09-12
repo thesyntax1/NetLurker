@@ -1,5 +1,13 @@
-__pycache__/
-*.pyc
-build/*.o
-build/*.res
-build/*.pdb
+# Windows desktop build
+/build/*.exe
+/dist/*.zip
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/keystore.properties
+android/.kotlin/
+*.keystore
+*.jks

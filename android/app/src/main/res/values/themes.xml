@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.NetLurker" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/nl_bg</item>
+        <item name="android:statusBarColor">@color/nl_bg</item>
+        <item name="android:navigationBarColor">@color/nl_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowLightNavigationBar">false</item>
+        <item name="android:colorAccent">@color/nl_accent</item>
+    </style>
+</resources>
