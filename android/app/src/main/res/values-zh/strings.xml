@@ -217,6 +217,7 @@
     <string name="geo.status.unavailable">不适用</string>
     <string name="graph.download">下载</string>
     <string name="graph.no_edges">Android 不会告知无 root 应用哪个应用打开了哪个套接字，因此此处不绘制应用↔目标连线。</string>
+    <string name="graph.peak">峰值 {value}</string>
     <string name="graph.upload">上传</string>
     <string name="graph.what_is_shown">替代展示的是：每个应用的数据量，以及已调查目标的位置。两个图表均来自真实计数器和真实查询。</string>
     <string name="history.no_traffic_yet">尚未测量到应用流量。</string>

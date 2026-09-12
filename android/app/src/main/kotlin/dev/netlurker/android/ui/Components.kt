@@ -236,7 +236,7 @@ fun SparklineLegend(peakBytesPerSec: Double) {
             Text(strings()("graph.upload"), color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
         }
         Text(
-            text = "peak ${Format.bytesPerSec(peakBytesPerSec)}",
+            text = strings()("graph.peak", "value" to Format.bytesPerSec(peakBytesPerSec)),
             color = NL.TextFaint,
             style = MaterialTheme.typography.labelSmall
         )

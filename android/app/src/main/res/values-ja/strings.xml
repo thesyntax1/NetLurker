@@ -217,6 +217,7 @@
     <string name="geo.status.unavailable">対象外</string>
     <string name="graph.download">受信</string>
     <string name="graph.no_edges">Androidはrootなしのアプリにどのアプリがどのソケットを開いたか教えないため、アプリ↔接続先のエッジは描画しません。</string>
+    <string name="graph.peak">ピーク {value}</string>
     <string name="graph.upload">送信</string>
     <string name="graph.what_is_shown">代わりに表示するのは各アプリの通信量と調査済み接続先の所在地です。両方のグラフは実際のカウンタと照会結果に基づきます。</string>
     <string name="history.no_traffic_yet">アプリ通信はまだ測定されていません。</string>

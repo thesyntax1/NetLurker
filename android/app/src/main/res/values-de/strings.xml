@@ -217,6 +217,7 @@
     <string name="geo.status.unavailable">nicht zutreffend</string>
     <string name="graph.download">Download</string>
     <string name="graph.no_edges">Android teilt einer App ohne Root nicht mit, welche Anwendung welchen Socket öffnete; NetLurker zeichnet daher keine Kanten Anwendung ↔ Ziel.</string>
+    <string name="graph.peak">Spitzenwert {value}</string>
     <string name="graph.upload">Upload</string>
     <string name="graph.what_is_shown">Stattdessen: wie viel jede Anwendung bewegt hat und wo die untersuchten Ziele liegen. Beide Diagramme stammen aus echten Zählern und Abfragen.</string>
     <string name="history.no_traffic_yet">Es wurde noch kein Anwendungsdatenverkehr gemessen.</string>

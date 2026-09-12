@@ -1,6 +1,7 @@
 package dev.netlurker.android.ui
 
 import android.content.Context
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 
 /**

@@ -217,6 +217,7 @@
     <string name="geo.status.unavailable">no aplicable</string>
     <string name="graph.download">descarga</string>
     <string name="graph.no_edges">Android no dice a una app sin root qué aplicación abrió cada socket, así que NetLurker no dibuja aristas aplicación ↔ destino.</string>
+    <string name="graph.peak">pico {value}</string>
     <string name="graph.upload">subida</string>
     <string name="graph.what_is_shown">En su lugar se muestra: cuánto movió cada aplicación y dónde están los destinos investigados. Ambos gráficos provienen de contadores y consultas reales.</string>
     <string name="history.no_traffic_yet">Aún no se ha medido tráfico de aplicaciones.</string>

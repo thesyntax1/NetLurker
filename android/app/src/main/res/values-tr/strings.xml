@@ -217,6 +217,7 @@
     <string name="geo.status.unavailable">geçerli değil</string>
     <string name="graph.download">indirme</string>
     <string name="graph.no_edges">Android, root\'suz bir uygulamaya hangi uygulamanın hangi soketi açtığını söylemez; bu yüzden NetLurker burada uygulama ↔ hedef çizgisi çizmez.</string>
+    <string name="graph.peak">tepe değer {value}</string>
     <string name="graph.upload">yükleme</string>
     <string name="graph.what_is_shown">Bunun yerine gösterilen: her uygulamanın ne kadar veri taşıdığı ve incelenen hedeflerin nerede olduğu. İki grafik gerçek sayaçlardan ve gerçek sorgulardan gelir.</string>
     <string name="history.no_traffic_yet">Henüz uygulama trafiği ölçülmedi.</string>
