@@ -29,7 +29,6 @@ class BaselineTracker(
         var lastRate: Double = 0.0
     ) {
         val standardDeviation: Double get() = sqrt(variance)
-        val warmedUp: Boolean get() = samples >= warmupSamples
     }
 
     private val stats = LinkedHashMap<String, Stat>()

@@ -318,6 +318,13 @@ fun ExportDialog(
     val context = LocalContext.current
 
 
+    fun finishExport(uri: android.net.Uri?, kind: String) {
+        if (uri == null) return
+        val ok = writeExport(context, uri, exportContent(kind, viewModel))
+        onMessage(if (ok) s("export.done") else s("export.failed"))
+        onDismiss()
+    }
+
     // One launcher per format: the document contract takes its MIME type at construction.
     val jsonLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -331,13 +338,6 @@ fun ExportDialog(
     val txtLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/plain")
     ) { uri -> finishExport(uri, "txt") }
-
-    fun finishExport(uri: android.net.Uri?, kind: String) {
-        if (uri == null) return
-        val ok = writeExport(context, uri, exportContent(kind, viewModel))
-        onMessage(if (ok) s("export.done") else s("export.failed"))
-        onDismiss()
-    }
 
     WideDialog(onDismiss = onDismiss) {
         DialogTitle(s("export.dialog.title"))

@@ -126,7 +126,8 @@ class SessionHistory {
         val grouped = LinkedHashMap<String, Int>()
         for (target in targets) {
             val geo = target.geo.value ?: continue
-            val label = geo.country.ifBlank { continue }
+            val label = geo.country
+            if (label.isBlank()) continue
             grouped[label] = (grouped[label] ?: 0) + 1
         }
         return grouped.entries.sortedByDescending { it.value }.take(limit).map {

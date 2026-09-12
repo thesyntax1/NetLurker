@@ -43,6 +43,7 @@ class Strings(private val context: Context) {
 val LocalStrings = staticCompositionLocalOf<Strings?> { null }
 
 /** Convenience for composables: fails loudly in debug if used outside the provider. */
+@Composable
 fun strings(): Strings = checkNotNull(LocalStrings.current) {
     "LocalStrings is not provided; wrap the tree in NetLurkerTheme"
 }

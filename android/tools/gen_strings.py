@@ -151,7 +151,8 @@ def render(locale: str, catalog: dict[str, dict[str, str]]) -> str:
 def used_keys() -> set[str]:
     """Every literal string key the Kotlin code asks for."""
     pattern = re.compile(r'(?:\bs|\bstrings\(\)|\blabel)\("([^"$]+)"')
-    # Keys published as constants (ReasonKeys) are resolved indirectly by the UI.
+    # AiClient substitutes catalog arguments through fill(label, "key", "name" to value).
+    fill_pattern = re.compile(r'\bfill\([^,]+,\s*"([^"$]+)"')
     # ReasonKeys publishes the verdict reasons as constants that the UI resolves
     # indirectly, so their values count as usage too.
     const_pattern = re.compile(r'const val [A-Z0-9_]+\s*=\s*"(risk\.[a-z0-9_.]+)"')
@@ -162,11 +163,12 @@ def used_keys() -> set[str]:
                 continue
             with open(os.path.join(directory, name), encoding="utf-8") as handle:
                 source = handle.read()
-            for match in pattern.finditer(source):
-                key = match.group(1)
-                if key.startswith("port_"):
-                    continue
-                keys.add(key)
+            for matcher in (pattern, fill_pattern):
+                for match in matcher.finditer(source):
+                    key = match.group(1)
+                    if key.startswith("port_"):
+                        continue
+                    keys.add(key)
             for match in const_pattern.finditer(source):
                 keys.add(match.group(1))
     for expansions in DYNAMIC_KEYS.values():

@@ -35,6 +35,13 @@ class NetworkSource(private val context: Context) {
             address.address?.hostAddress?.let { Ip.stripZone(it) + "/" + address.prefixLength }
         }.orEmpty()
 
+        // LinkProperties exposes the DNS search path as a string collection; filter it here
+        // so the platform shape never reaches the UI.
+        val searchDomains: List<String> = when (val raw = link?.domains) {
+            is Collection<*> -> raw.mapNotNull { (it as? String)?.takeIf { d -> d.isNotBlank() } }
+            else -> emptyList()
+        }
+
         return LinkInfo(
             networkName = transportName(capabilities),
             transport = transportName(capabilities),
@@ -45,7 +52,7 @@ class NetworkSource(private val context: Context) {
             captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
             localAddresses = localAddresses,
             dnsServers = link?.dnsServers?.mapNotNull { it.hostAddress?.let(Ip::stripZone) }.orEmpty(),
-            domains = link?.domains?.filter { it.isNotBlank() }.orEmpty(),
+            domains = searchDomains,
             routes = link?.routes?.mapNotNull { route ->
                 val destination = route.destination
                 val gateway = route.gateway?.hostAddress
@@ -54,7 +61,7 @@ class NetworkSource(private val context: Context) {
                 } else {
                     "${Ip.stripZone(destination.address?.hostAddress ?: "0.0.0.0")}/${destination.prefixLength}"
                 }
-                if (gateway.isNullOrBlank()) text else "$text via $gateway (${route.iface})"
+                if (gateway.isNullOrBlank()) text else "$text via $gateway"
             }.orEmpty(),
             mtu = link?.mtu ?: 0
         )

@@ -65,7 +65,8 @@ class Notifier(private val context: Context) {
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
-        runCatching { manager.notify(alert.subject.hashCode(), notification) }
+        val notifications = manager ?: return
+        runCatching { notifications.notify(alert.subject.hashCode(), notification) }
     }
 
     private companion object {

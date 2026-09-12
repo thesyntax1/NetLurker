@@ -3,6 +3,7 @@ package dev.netlurker.android.intel
 import android.annotation.SuppressLint
 import dev.netlurker.android.core.BannerInfo
 import dev.netlurker.android.core.CertInfo
+import java.net.InetAddress
 import java.security.MessageDigest
 import java.security.cert.X509Certificate
 import javax.net.ssl.SSLContext

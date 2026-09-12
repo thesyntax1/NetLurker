@@ -189,7 +189,7 @@ class AiClient(private val settings: Settings) {
             // Fall back to the local engine but say so, rather than showing an empty panel.
             val fallback = localHeuristic(target, label)
             return Report(
-                text = label("ai.remote_failed", "error" to (response.error ?: "unknown error")) +
+                text = fill(label, "ai.remote_failed", "error" to (response.error ?: "unknown error")) +
                     "\n\n" + fallback,
                 local = true,
                 error = response.error
@@ -281,25 +281,35 @@ class AiClient(private val settings: Settings) {
         target.reverseDns.status == IntelStatus.OK
     ).count { it }
 
+    /**
+     * Substitutes catalog arguments. The catalog uses `{name}` placeholders, and the
+     * resolver handed to this class is a plain `(String) -> String`.
+     */
+    private fun fill(label: (String) -> String, key: String, vararg args: Pair<String, String>): String {
+        var text = label(key)
+        for ((name, value) in args) text = text.replace("{$name}", value)
+        return text
+    }
+
     private fun concernsFor(target: Target, label: (String) -> String): List<String> {
         val out = mutableListOf<String>()
         val pending = listOf(
-            target.geo.status to "geolocation",
-            target.threat.status to "threat",
-            target.cert.status to "certificate",
-            target.banner.status to "banner"
+            target.geo.status to label("source.geo"),
+            target.threat.status to label("source.threat"),
+            target.cert.status to label("source.cert"),
+            target.banner.status to label("source.banner")
         ).filter { it.first == IntelStatus.PENDING }.map { it.second }
         if (pending.isNotEmpty()) {
-            out += label("ai.concern.pending", "sources" to pending.joinToString(", "))
+            out += fill(label, "ai.concern.pending", "sources" to pending.joinToString(", "))
         }
         val disabled = listOf(
-            target.geo.status to "geolocation",
-            target.threat.status to "threat",
-            target.cert.status to "certificate",
-            target.banner.status to "banner"
+            target.geo.status to label("source.geo"),
+            target.threat.status to label("source.threat"),
+            target.cert.status to label("source.cert"),
+            target.banner.status to label("source.banner")
         ).filter { it.first == IntelStatus.DISABLED }.map { it.second }
         if (disabled.isNotEmpty()) {
-            out += label("ai.concern.disabled", "sources" to disabled.joinToString(", "))
+            out += fill(label, "ai.concern.disabled", "sources" to disabled.joinToString(", "))
         }
         if (target.threat.value?.abuseScore == -1 && target.threat.status == IntelStatus.OK) {
             out += label("ai.concern.no_abuse_key")
