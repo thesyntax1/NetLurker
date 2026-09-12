@@ -35,10 +35,15 @@ class NetworkSource(private val context: Context) {
             address.address?.hostAddress?.let { Ip.stripZone(it) + "/" + address.prefixLength }
         }.orEmpty()
 
-        // LinkProperties exposes the DNS search path as a string collection; filter it here
-        // so the platform shape never reaches the UI.
-        val searchDomains: List<String> = when (val raw = link?.domains) {
-            is Collection<*> -> raw.mapNotNull { (it as? String)?.takeIf { d -> d.isNotBlank() } }
+        // The platform hands the DNS search path back in more than one shape across API
+        // levels, so read it through Any? and normalise instead of trusting a single one.
+        val searchDomains: List<String> = when (val raw: Any? = link?.domains) {
+            is Collection<*> -> raw.mapNotNull { entry ->
+                (entry as? String)?.trim()?.takeIf { domain -> domain.isNotEmpty() }
+            }
+            is String -> raw.split(',', ';', ' ').mapNotNull { domain ->
+                domain.trim().takeIf { candidate -> candidate.isNotEmpty() }
+            }
             else -> emptyList()
         }
 
