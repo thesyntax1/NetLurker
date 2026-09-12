@@ -29,10 +29,10 @@ echo.
 if exist lang\*.ini (
   if not exist build\lang mkdir build\lang
   copy /Y lang\*.ini build\lang\ >nul
-  echo [3/3] Language files copied -> build\lang\
+  echo [3/3] Language files copied -^> build\lang\
 )
 echo.
-echo done -> build\NetLurker.exe
+echo done -^> build\NetLurker.exe
 exit /b 0
 
 :fail
