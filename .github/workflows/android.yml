@@ -60,7 +60,11 @@ jobs:
         working-directory: android
         run: |
           set -o pipefail
-          gradle --no-daemon --console=plain lintDebug 2>&1 | tee -a build.log
+          gradle --no-daemon --console=plain lintDebug 2>&1 | tee -a build.log || {
+            echo "----- lint report -----" | tee -a build.log
+            cat app/build/reports/lint-results-debug.txt 2>/dev/null | tee -a build.log
+            exit 1
+          }
 
       - name: Assemble debug APK
         working-directory: android
@@ -102,13 +106,20 @@ jobs:
           log = "android/build.log"
           if os.path.exists(log):
               text = open(log, encoding="utf-8", errors="replace").read()
-              errors = [l for l in text.splitlines()
-                        if re.match(r"^(e: |w: .*(error|unresolved))|.*FAILURE:|.*What went wrong|.*> Task .* FAILED", l)]
+              keep = re.compile(
+                  r"^(e: |w: )"
+                  r"|.*FAILURE:|.*What went wrong|.*> Task .* FAILED"
+                  r"|^\s*Error:|Lint found|^\s*\d+ errors?,|Explanation for issue"
+              )
+              errors = [l for l in text.splitlines() if keep.search(l)]
               parts.append("=== build.log errors (%d) ===" % len(errors))
               parts.extend(errors[:200])
               tail = text.splitlines()[-160:]
               parts.append("=== build.log tail ===")
               parts.extend(tail)
+          for report in sorted(glob.glob("android/app/build/reports/lint-results-*.txt")):
+              parts.append("=== %s ===" % report)
+              parts.extend(open(report, encoding="utf-8", errors="replace").read().splitlines()[:300])
           for xml in sorted(glob.glob("android/app/build/test-results/**/*.xml", recursive=True)):
               content = open(xml, encoding="utf-8", errors="replace").read()
               if "failure" in content or "error message" in content:
