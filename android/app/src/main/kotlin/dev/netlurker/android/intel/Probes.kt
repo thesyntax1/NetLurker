@@ -186,9 +186,21 @@ object BannerProbe {
         )
     }
 
+    /**
+     * True when the banner names software the desktop build treats as end of life.
+     *
+     * The signature list is the desktop's, but a plain substring search would accuse
+     * current software: "nginx/1.2" is a prefix of "nginx/1.25.3". A signature that ends
+     * in a digit must therefore stop at a version boundary, so 1.2.x still matches while
+     * 1.25.x does not. Signatures ending in a dot ("apache/1.") are already unambiguous.
+     */
     fun matchesEndOfLife(server: String): Boolean {
         if (server.isBlank()) return false
         val lower = server.lowercase()
-        return endOfLifeSignatures.any { lower.contains(it) }
+        return endOfLifeSignatures.any { signature ->
+            val at = lower.indexOf(signature)
+            at >= 0 && (signature.endsWith('.') || at + signature.length >= lower.length ||
+                !lower[at + signature.length].let { next -> next.isDigit() || next == '.' })
+        }
     }
 }

@@ -119,3 +119,12 @@ applications behind the traffic counters), and — only if you grant them at run
 permission: exports go through the Storage Access Framework, to a location you pick.
 
 No telemetry, no analytics, no account.
+
+## One deliberate difference from the desktop
+
+The end-of-life banner check uses the desktop's signature list but not its matching rule.
+`src/banner.cpp` searches for a plain substring, so `nginx/1.2` also matches `nginx/1.25.3`
+and the desktop calls a current server end of life. The Android build keeps the same list and
+requires a signature ending in a digit to stop at a version boundary, so `nginx/1.2.9` and
+`apache/1.3.41` still match while `nginx/1.25.3` and `PHP/8.3.1` do not. The cases are pinned
+in `ProbeParsingTest`.

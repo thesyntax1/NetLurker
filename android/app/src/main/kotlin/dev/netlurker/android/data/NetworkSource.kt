@@ -35,17 +35,12 @@ class NetworkSource(private val context: Context) {
             address.address?.hostAddress?.let { Ip.stripZone(it) + "/" + address.prefixLength }
         }.orEmpty()
 
-        // The platform hands the DNS search path back in more than one shape across API
-        // levels, so read it through Any? and normalise instead of trusting a single one.
-        val searchDomains: List<String> = when (val raw: Any? = link?.domains) {
-            is Collection<*> -> raw.mapNotNull { entry ->
-                (entry as? String)?.trim()?.takeIf { domain -> domain.isNotEmpty() }
-            }
-            is String -> raw.split(',', ';', ' ').mapNotNull { domain ->
-                domain.trim().takeIf { candidate -> candidate.isNotEmpty() }
-            }
-            else -> emptyList()
-        }
+        // LinkProperties hands the DNS search path back as one delimited string; split it
+        // here so the UI never has to know about the platform's formatting.
+        val searchDomains: List<String> = link?.domains
+            ?.split(',', ';', ' ')
+            ?.mapNotNull { domain -> domain.trim().takeIf { candidate -> candidate.isNotEmpty() } }
+            ?: emptyList()
 
         return LinkInfo(
             networkName = transportName(capabilities),
@@ -59,13 +54,10 @@ class NetworkSource(private val context: Context) {
             dnsServers = link?.dnsServers?.mapNotNull { it.hostAddress?.let(Ip::stripZone) }.orEmpty(),
             domains = searchDomains,
             routes = link?.routes?.mapNotNull { route ->
-                val destination = route.destination
+                val host = route.destination?.address?.hostAddress?.let(Ip::stripZone)
+                val prefixLength = route.destination?.prefixLength ?: 0
                 val gateway = route.gateway?.hostAddress
-                val text = if (destination == null) {
-                    "default"
-                } else {
-                    "${Ip.stripZone(destination.address?.hostAddress ?: "0.0.0.0")}/${destination.prefixLength}"
-                }
+                val text = if (host == null) "default" else "$host/$prefixLength"
                 if (gateway.isNullOrBlank()) text else "$text via $gateway"
             }.orEmpty(),
             mtu = link?.mtu ?: 0

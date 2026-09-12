@@ -257,7 +257,9 @@ class ExportTest {
 
     @Test
     fun `json export contains the evidence and the honesty fields`() {
-        val json = Export.json(snapshot())
+        // The writer indents for readability; strip whitespace so these assertions test
+        // the structure and the values rather than the layout.
+        val json = Export.json(snapshot()).replace(Regex("\\s+"), "")
         assertTrue(json.contains("\"platform\":\"android\""))
         assertTrue(json.contains("\"trafficCountersSupported\":true"))
         assertTrue(json.contains("\"dnsblHits\":[\"SBL/XBL\"]"))
@@ -356,7 +358,14 @@ class ProbeParsingTest {
         assertTrue(BannerProbe.matchesEndOfLife("Apache/2.2.15 (CentOS)"))
         assertTrue(BannerProbe.matchesEndOfLife("nginx/1.4.6"))
         assertTrue(BannerProbe.matchesEndOfLife("Microsoft-IIS/7.5"))
+        // A signature ending in a dot is already unambiguous, so 1.3.x must still match.
+        assertTrue(BannerProbe.matchesEndOfLife("Apache/1.3.41 (Unix)"))
+        // A letter suffix is a patch level, not a new minor version.
+        assertTrue(BannerProbe.matchesEndOfLife("OpenSSL/1.0.1e-fips"))
+        // Substring matching alone would accuse current software of being end of life.
         assertFalse(BannerProbe.matchesEndOfLife("nginx/1.25.3"))
+        assertFalse(BannerProbe.matchesEndOfLife("nginx/1.24.0"))
+        assertFalse(BannerProbe.matchesEndOfLife("PHP/8.3.1"))
         assertFalse(BannerProbe.matchesEndOfLife(""))
     }
 
@@ -377,7 +386,9 @@ class InputParsingTest {
         assertEquals("93.184.216.34" to 8443, dev.netlurker.android.ui.parseInput("93.184.216.34:8443"))
         assertEquals("example.com" to 443, dev.netlurker.android.ui.parseInput(" example.com:443 "))
         assertEquals("example.com" to null, dev.netlurker.android.ui.parseInput("example.com"))
-        assertEquals("example.com" to null, dev.netlurker.android.ui.parseInput("example.com:99999"))
+        // 99999 is not a port, so nothing is split off: rewriting it to "example.com"
+        // would quietly investigate a target the user never typed.
+        assertEquals("example.com:99999" to null, dev.netlurker.android.ui.parseInput("example.com:99999"))
         assertEquals("example.com:x" to null, dev.netlurker.android.ui.parseInput("example.com:x"))
         // ":0" is not a usable port, so the whole string stays the host and no port is set.
         assertEquals("93.184.216.34:0" to null, dev.netlurker.android.ui.parseInput("93.184.216.34:0"))

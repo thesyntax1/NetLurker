@@ -83,7 +83,8 @@ class RiskEngineTest {
         )
         val reason = verdict.reasons.first { it.key == ReasonKeys.DNSBL_LISTED }
         assertEquals(30, reason.points)
-        assertEquals(listOf("SBL/XBL", "Barracuda"), reason.args)
+        // risk.dnsbl_listed carries one {arg0}, so the zones arrive pre-joined.
+        assertEquals(listOf("SBL/XBL, Barracuda"), reason.args)
     }
 
     @Test
