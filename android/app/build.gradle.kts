@@ -85,7 +85,13 @@ android {
         abortOnError = true
         warningsAsErrors = false
         checkReleaseBuilds = false
-        baseline = file("lint-baseline.xml")
+        // Each of these is a deliberate decision, not an excuse:
+        //  Typos / ButtonCase - lint's dictionary is English; the catalog is eight
+        //    languages and "{arg1}" is a placeholder name, not a misspelling.
+        //  DiscouragedApi - getIdentifier is what lets one catalog serve every locale.
+        //  GradleDependency - versions are pinned so a build is reproducible.
+        //  OldTargetApi - targetSdk cannot exceed compileSdk, which AGP 8.7 caps at 35.
+        disable += setOf("Typos", "ButtonCase", "DiscouragedApi", "GradleDependency", "OldTargetApi")
     }
 }
 

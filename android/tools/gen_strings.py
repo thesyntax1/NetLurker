@@ -142,7 +142,10 @@ def render(locale: str, catalog: dict[str, dict[str, str]]) -> str:
     ]
     for key in sorted(catalog):
         value = escape(catalog[key][locale])
-        lines.append(f'    <string name="{key}">{value}</string>')
+        # formatted="false" because substitution is done in Kotlin with {name}
+        # placeholders: a literal percent sign in a translation (Turkish writes "%80")
+        # must reach the user verbatim instead of being parsed as a format specifier.
+        lines.append(f'    <string name="{key}" formatted="false">{value}</string>')
     lines.append("</resources>")
     lines.append("")
     return "\n".join(lines)

@@ -47,7 +47,10 @@ class NetworkSource(private val context: Context) {
             transport = transportName(capabilities),
             validated = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED),
             metered = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED),
-            roaming = !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING),
+            // The roaming capability constant only exists from API 28; below that the
+            // framework cannot answer, so report "not roaming" rather than guessing.
+            roaming = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                !capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_NOT_ROAMING),
             vpn = capabilities.hasTransport(NetworkCapabilities.TRANSPORT_VPN),
             captivePortal = capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_CAPTIVE_PORTAL),
             localAddresses = localAddresses,
@@ -60,7 +63,9 @@ class NetworkSource(private val context: Context) {
                 val text = if (host == null) "default" else "$host/$prefixLength"
                 if (gateway.isNullOrBlank()) text else "$text via $gateway"
             }.orEmpty(),
-            mtu = link?.mtu ?: 0
+            // LinkProperties.getMtu() landed in API 29. Below that the value is unknown
+            // and stays 0, which the network panel renders as an explicit dash.
+            mtu = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) link?.mtu ?: 0 else 0
         )
     }
 
@@ -126,7 +131,7 @@ class NetworkSource(private val context: Context) {
             !locationGranted -> "SSID hidden: Android requires location permission to read it"
             else -> "SSID not reported by the system"
         }
-        val frequency = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) info.frequency else 0
+        val frequency = info.frequency
         val linkProperties = cm.activeNetwork?.let { runCatching { cm.getLinkProperties(it) }.getOrNull() }
         val ip = linkProperties?.linkAddresses
             ?.firstOrNull { it.address is Inet4Address }
@@ -167,14 +172,11 @@ class NetworkSource(private val context: Context) {
             as? android.telephony.TelephonyManager
             ?: return CellularInfo(false, null, null, false, "no telephony radio on this device")
         val operator = runCatching { manager.networkOperatorName }.getOrNull()?.ifBlank { null }
+        // dataNetworkType needs API 24 and minSdk is 26, so the deprecated voice-era
+        // networkType fallback is dead code here.
         val type = runCatching {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                @Suppress("MissingPermission")
-                manager.dataNetworkType
-            } else {
-                @Suppress("DEPRECATION", "MissingPermission")
-                manager.networkType
-            }
+            @Suppress("MissingPermission")
+            manager.dataNetworkType
         }.getOrNull()
         val roaming = runCatching { manager.isNetworkRoaming }.getOrNull()
         val detail = if (type == null && operator == null) {

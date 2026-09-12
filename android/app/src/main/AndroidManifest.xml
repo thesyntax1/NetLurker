@@ -9,6 +9,7 @@
     <!-- Only used to read the SSID of the network you are already on. Runtime permission,
          never required: without it the Wi-Fi panel says "SSID unavailable". -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <!-- Enumerating the installed applications so per-app traffic can be attributed to a
          name and an icon. Without it NetLurker would show bare UIDs instead of apps. -->
     <uses-permission
@@ -37,7 +38,6 @@
             android:name=".MainActivity"
             android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
             android:exported="true"
-            android:label="@string/app_name"
             android:launchMode="singleTop"
             android:theme="@style/Theme.NetLurker"
             android:windowSoftInputMode="adjustResize">
