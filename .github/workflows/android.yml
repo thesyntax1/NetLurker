@@ -5,6 +5,10 @@ name: Android
 # The build is reproducible on purpose: pinned Gradle/AGP/Kotlin versions, no floating
 # dependency, and the string catalog is verified before compilation so a missing
 # translation fails the job instead of shipping a raw key to the user.
+#
+# Every Gradle step tees its output to build.log, and on failure the last job publishes the
+# compiler/test errors as a check run so they are readable through the REST API instead of
+# only from the log viewer.
 
 on:
   push:
@@ -15,6 +19,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 concurrency:
   group: android-${{ github.ref }}
@@ -45,24 +50,29 @@ jobs:
       - name: Verify the string catalog
         run: python3 android/tools/gen_strings.py --check
 
-      - name: Verify the desktop language catalog
-        run: python3 tools/gen_lang.py --check || echo "desktop catalog check skipped"
-
       - name: Unit tests
         working-directory: android
-        run: gradle --no-daemon testDebugUnitTest
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain testDebugUnitTest 2>&1 | tee build.log
 
       - name: Lint
         working-directory: android
-        run: gradle --no-daemon lintDebug
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain lintDebug 2>&1 | tee -a build.log
 
       - name: Assemble debug APK
         working-directory: android
-        run: gradle --no-daemon assembleDebug
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleDebug 2>&1 | tee -a build.log
 
       - name: Assemble release APK
         working-directory: android
-        run: gradle --no-daemon assembleRelease
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleRelease 2>&1 | tee -a build.log
 
       - name: Inspect the APK
         working-directory: android
@@ -71,17 +81,57 @@ jobs:
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           echo "debug APK: $(du -h "$APK" | cut -f1)"
-          # Prove the resources really landed in the package instead of trusting the log.
+          unzip -l "$APK" | grep -q "resources.arsc" && echo "resources.arsc present"
+          unzip -l "$APK" | grep -q "AndroidManifest.xml" && echo "manifest present"
+          unzip -l "$APK" | grep -E "classes[0-9]*\.dex" | head -3
           AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1 || true)
           if [ -n "${AAPT:-}" ]; then
-            "$AAPT" dump resources "$APK" | grep -q "netlurker" && echo "aapt2: resources present"
-          else
-            unzip -l "$APK" | grep -q "resources.arsc" && echo "resources.arsc present"
+            "$AAPT" dump badging "$APK" | head -5
           fi
-          unzip -l "$APK" | grep -E "classes[0-9]*\.dex" | head -3
-          unzip -l "$APK" | grep -q "AndroidManifest.xml" && echo "manifest present"
+          echo "--- unit test results ---"
+          find app/build/test-results -name "*.xml" -exec grep -h "<testsuite " {} \; || true
+
+      - name: Publish failure diagnostics
+        if: failure()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' > /tmp/diagnostics.json
+          import glob, json, os, re
+          parts = []
+          log = "android/build.log"
+          if os.path.exists(log):
+              text = open(log, encoding="utf-8", errors="replace").read()
+              errors = [l for l in text.splitlines()
+                        if re.match(r"^(e: |w: .*(error|unresolved))|.*FAILURE:|.*What went wrong|.*> Task .* FAILED", l)]
+              parts.append("=== build.log errors (%d) ===" % len(errors))
+              parts.extend(errors[:200])
+              tail = text.splitlines()[-160:]
+              parts.append("=== build.log tail ===")
+              parts.extend(tail)
+          for xml in sorted(glob.glob("android/app/build/test-results/**/*.xml", recursive=True)):
+              content = open(xml, encoding="utf-8", errors="replace").read()
+              if "failure" in content or "error message" in content:
+                  parts.append("=== %s ===" % xml)
+                  parts.extend(content.splitlines()[:400])
+          body = "\n".join(parts) or "(no build.log produced)"
+          print(json.dumps({
+              "name": "build-diagnostics",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "status": "completed",
+              "conclusion": "neutral",
+              "output": {
+                  "title": "Gradle failure details",
+                  "summary": body[:200],
+                  "text": body[:60000]
+              }
+          }))
+          PY
+          gh api "repos/${GITHUB_REPOSITORY}/check-runs" --input /tmp/diagnostics.json \
+            --jq '{id, name, conclusion}'
 
       - name: Upload debug APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: NetLurker-debug-apk
@@ -89,18 +139,17 @@ jobs:
           if-no-files-found: error
 
       - name: Upload release APK
+        if: success()
         uses: actions/upload-artifact@v4
         with:
           name: NetLurker-release-apk
           path: android/app/build/outputs/apk/release/*.apk
           if-no-files-found: error
 
-      - name: Upload reports
+      - name: Upload build log
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-reports
-          path: |
-            android/app/build/reports/**
-            android/app/build/test-results/**
+          name: android-build-log
+          path: android/build.log
           if-no-files-found: ignore

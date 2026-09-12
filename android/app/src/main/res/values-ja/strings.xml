@@ -380,6 +380,11 @@
     <string name="sort.name">名前</string>
     <string name="sort.rate">速度</string>
     <string name="sort.traffic">通信量</string>
+    <string name="source.banner">HTTP</string>
+    <string name="source.cert">TLS</string>
+    <string name="source.geo">地理</string>
+    <string name="source.rdns">逆引き</string>
+    <string name="source.threat">脅威</string>
     <string name="status.disabled">オフ</string>
     <string name="status.failed">照会失敗</string>
     <string name="status.idle">未開始</string>

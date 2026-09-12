@@ -380,6 +380,11 @@
     <string name="sort.name">Name</string>
     <string name="sort.rate">Rate</string>
     <string name="sort.traffic">Traffic</string>
+    <string name="source.banner">HTTP</string>
+    <string name="source.cert">TLS</string>
+    <string name="source.geo">geo</string>
+    <string name="source.rdns">rDNS</string>
+    <string name="source.threat">threat</string>
     <string name="status.disabled">turned off</string>
     <string name="status.failed">lookup failed</string>
     <string name="status.idle">not started</string>

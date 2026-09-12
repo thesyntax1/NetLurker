@@ -380,6 +380,11 @@
     <string name="sort.name">名称</string>
     <string name="sort.rate">速率</string>
     <string name="sort.traffic">流量</string>
+    <string name="source.banner">HTTP</string>
+    <string name="source.cert">TLS</string>
+    <string name="source.geo">地理</string>
+    <string name="source.rdns">反向DNS</string>
+    <string name="source.threat">威胁</string>
     <string name="status.disabled">已关闭</string>
     <string name="status.failed">查询失败</string>
     <string name="status.idle">未开始</string>

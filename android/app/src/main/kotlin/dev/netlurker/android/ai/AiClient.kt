@@ -189,8 +189,8 @@ class AiClient(private val settings: Settings) {
             // Fall back to the local engine but say so, rather than showing an empty panel.
             val fallback = localHeuristic(target, label)
             return Report(
-                text = label("ai.remote_failed")
-                    .replace("%s", response.error ?: "unknown error") + "\n\n" + fallback,
+                text = label("ai.remote_failed", "error" to (response.error ?: "unknown error")) +
+                    "\n\n" + fallback,
                 local = true,
                 error = response.error
             )
@@ -290,7 +290,7 @@ class AiClient(private val settings: Settings) {
             target.banner.status to "banner"
         ).filter { it.first == IntelStatus.PENDING }.map { it.second }
         if (pending.isNotEmpty()) {
-            out += label("ai.concern.pending").replace("%s", pending.joinToString(", "))
+            out += label("ai.concern.pending", "sources" to pending.joinToString(", "))
         }
         val disabled = listOf(
             target.geo.status to "geolocation",
@@ -299,7 +299,7 @@ class AiClient(private val settings: Settings) {
             target.banner.status to "banner"
         ).filter { it.first == IntelStatus.DISABLED }.map { it.second }
         if (disabled.isNotEmpty()) {
-            out += label("ai.concern.disabled").replace("%s", disabled.joinToString(", "))
+            out += label("ai.concern.disabled", "sources" to disabled.joinToString(", "))
         }
         if (target.threat.value?.abuseScore == -1 && target.threat.status == IntelStatus.OK) {
             out += label("ai.concern.no_abuse_key")

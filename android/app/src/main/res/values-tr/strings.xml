@@ -380,6 +380,11 @@
     <string name="sort.name">Ad</string>
     <string name="sort.rate">Hız</string>
     <string name="sort.traffic">Trafik</string>
+    <string name="source.banner">HTTP</string>
+    <string name="source.cert">TLS</string>
+    <string name="source.geo">konum</string>
+    <string name="source.rdns">ters DNS</string>
+    <string name="source.threat">tehdit</string>
     <string name="status.disabled">kapalı</string>
     <string name="status.failed">sorgu başarısız</string>
     <string name="status.idle">başlatılmadı</string>

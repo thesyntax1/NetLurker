@@ -380,6 +380,11 @@
     <string name="sort.name">Nom</string>
     <string name="sort.rate">Débit</string>
     <string name="sort.traffic">Trafic</string>
+    <string name="source.banner">HTTP</string>
+    <string name="source.cert">TLS</string>
+    <string name="source.geo">géo</string>
+    <string name="source.rdns">DNS inv.</string>
+    <string name="source.threat">menaces</string>
     <string name="status.disabled">désactivé</string>
     <string name="status.failed">échec de la requête</string>
     <string name="status.idle">pas démarré</string>

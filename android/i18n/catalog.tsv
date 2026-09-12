@@ -359,3 +359,8 @@ geo.status.disabled	turned off	kapalı	desactivado	deaktiviert	désactivé	オ�
 geo.status.unavailable	not applicable	geçerli değil	no aplicable	nicht zutreffend	non applicable	対象外	不适用	não aplicável
 kpi.session_down	Session download	Oturum indirmesi	Descarga de la sesión	Sitzungs-Download	Téléchargement de la session	セッション受信	会话下载	Download da sessão
 kpi.session_up	Session upload	Oturum yüklemesi	Subida de la sesión	Sitzungs-Upload	Envoi de la session	セッション送信	会话上传	Upload da sessão
+source.rdns	rDNS	ters DNS	DNS inv.	Reverse-DNS	DNS inv.	逆引き	反向DNS	DNS rev.
+source.geo	geo	konum	geo	Geo	géo	地理	地理	geo
+source.threat	threat	tehdit	amenazas	Threat	menaces	脅威	威胁	ameaças
+source.cert	TLS	TLS	TLS	TLS	TLS	TLS	TLS	TLS
+source.banner	HTTP	HTTP	HTTP	HTTP	HTTP	HTTP	HTTP	HTTP

@@ -203,11 +203,11 @@ private fun TargetCard(
 
         Spacer(Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            SourceDot("rdns", target.reverseDns.status)
-            SourceDot("geo", target.geo.status)
-            SourceDot("threat", target.threat.status)
-            SourceDot("cert", target.cert.status)
-            SourceDot("banner", target.banner.status)
+            SourceDot(s("source.rdns"), target.reverseDns.status)
+            SourceDot(s("source.geo"), target.geo.status)
+            SourceDot(s("source.threat"), target.threat.status)
+            SourceDot(s("source.cert"), target.cert.status)
+            SourceDot(s("source.banner"), target.banner.status)
         }
 
         if (!expanded) return@Column
@@ -474,7 +474,7 @@ private fun TargetCard(
 }
 
 @Composable
-private fun SourceDot(key: String, status: IntelStatus) {
+private fun SourceDot(label: String, status: IntelStatus) {
     val color = statusColor(status)
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box(
@@ -485,7 +485,7 @@ private fun SourceDot(key: String, status: IntelStatus) {
         )
         Spacer(Modifier.width(3.dp))
         Text(
-            text = strings()(key),
+            text = label,
             color = NL.TextFaint,
             style = MaterialTheme.typography.labelSmall
         )
