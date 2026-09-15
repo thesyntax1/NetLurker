@@ -4,6 +4,8 @@ name: Build
 #
 #   windows -> NetLurker.exe (MSVC, build.bat) plus the lang/*.ini files it reads at runtime
 #   android -> debug and release APKs (Gradle, Kotlin + Compose)
+#   smoke   -> boots an emulator, launches the app, renders every tab. On demand only:
+#              tick "run-emulator" on a manual dispatch, see the job comment for why.
 #
 # Each job verifies its string catalog before compiling, so a missing translation fails the
 # build instead of shipping a raw key to the user. Gradle output is teed to build.log and the
@@ -16,6 +18,11 @@ on:
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
+    inputs:
+      run-emulator:
+        description: "Boot an emulator and run the instrumented UI tests (the most expensive job)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -339,8 +346,13 @@ jobs:
           if-no-files-found: ignore
 
   smoke:
-    name: Android emulator smoke test
+    # Opt-in, because this is the one job that boots a virtual device: it costs more
+    # runner minutes than the two builds combined, and on a private repository those
+    # minutes are billed. Every push still produces both APKs and the Windows exe; tick
+    # "run-emulator" on a manual dispatch when you want the device evidence too.
+    name: Android emulator smoke test (on demand)
     needs: android
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run-emulator }}
     runs-on: ubuntu-latest
     timeout-minutes: 70
 

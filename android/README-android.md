@@ -146,10 +146,23 @@ import and enum reference in the Kotlin sources. It is not a compiler and it doe
 to be: it exists because "Unresolved reference" is the one failure mode that costs a full
 cold CI run to discover, and it takes a second to catch locally.
 
-A third job boots an API 34 emulator, installs the debug APK, launches the activity and
-watches logcat for a crash, then runs `connectedDebugAndroidTest` against it — the
+A third job boots an API 34 emulator, installs the debug APK, launches the activity,
+watches logcat for a crash and then runs `connectedDebugAndroidTest` against it — the
 instrumented tests compose all five tabs for real. That is the only automated evidence the
 app renders, since no unit test can tell you a composable survived missing data.
+
+It is **on demand**, not on every push: booting a virtual device costs more runner minutes
+than the two builds combined, and on a private repository those minutes are billed. Tick
+`run-emulator` when you trigger the workflow manually and the job runs; otherwise it is
+skipped and every push still produces both APKs and the Windows exe.
+
+```
+gh workflow run Build --ref <branch> -f run-emulator=true
+```
+
+The job's verdict is published as the `android-smoke-report` check run — logcat crash
+markers, the resumed activity, every script step's exit code and the instrumented test
+result — because run artifacts cannot be read through the API, only check runs can.
 
 ## Not included (and why)
 
