@@ -201,10 +201,11 @@ fun NetworkScreen(viewModel: MainViewModel, onRequestLocation: () -> Unit) {
                         "count" to hosts.entries.toString(),
                         "ips" to hosts.redirectedIps.size.toString())
                     InfoRow(s("field.hosts"), summary)
-                    for ((ip, names) in hosts.namesByIp.entries.take(6)) {
+                    for ((ip, _names) in hosts.namesByIp.entries.take(6)) {
                         InfoRow(
                             ip,
-                            s("hosts.redirected_names", "ip" to ip, "names" to names.joinToString(", ")),
+                            s("hosts.redirected_names", "ip" to ip,
+                                "names" to hosts.namesFor(ip).joinToString(", ")),
                             valueColor = NL.Yellow,
                             mono = true
                         )

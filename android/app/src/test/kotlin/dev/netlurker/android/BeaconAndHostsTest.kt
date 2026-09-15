@@ -135,12 +135,12 @@ class BeaconAndHostsTest {
     @Test
     fun `names are kept per address so the ui can show what was redirected`() {
         val snapshot = HostsFile.parse("0.0.0.0 ads.example tracker.example\n0.0.0.0 other.example")
-        assertEquals(setOf("ads.example", "tracker.example", "other.example"),
-            snapshot.namesByIp["0.0.0.0"]!!.toSet())
         assertEquals(
-            "ads.example, tracker.example, other.example",
+            listOf("ads.example", "tracker.example", "other.example"),
             snapshot.namesFor("0.0.0.0")
         )
+        // An address nobody redirected answers with an empty list, never null.
+        assertTrue(snapshot.namesFor("93.184.216.34").isEmpty())
     }
 
     @Test
