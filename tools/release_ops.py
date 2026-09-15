@@ -265,7 +265,11 @@ def publish(directory: Path, tag: str, revision: str, release_id: int):
     missing = plan_upload(local, assets(repo, release_id), lambda asset: asset_digest(repo, asset))
     for name in missing:
         target()
-        gh("release", "upload", tag, str(directory / name), "--repo", repo, binary=True)
+        # Address the immutable release ID, not a fresh tag lookup, so a concurrent
+        # delete/recreate cannot redirect an upload to a different release.
+        url = f"https://uploads.github.com/repos/{repo}/releases/{release_id}/assets?name={quote(name, safe='')}"
+        gh("api", url, "--method", "POST", "-H", "Content-Type: application/octet-stream",
+           "--input", str(directory / name))
     if plan_upload(local, assets(repo, release_id), lambda asset: asset_digest(repo, asset)):
         raise ValueError("Uploaded asset verification incomplete")
     release = target()

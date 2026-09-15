@@ -165,8 +165,10 @@ class BundleTest(unittest.TestCase):
                 return remote.copy()
             return release.copy()
         def fake_gh(*args, **kwargs):
-            if args[:2] == ("release", "upload"):
-                path = Path(args[3])
+            if args[0] == "api" and args[1].startswith("https://uploads.github.com/"):
+                self.assertIn("/releases/7/assets?name=", args[1])
+                self.assertEqual(args[2:4], ("--method", "POST"))
+                path = Path(args[-1])
                 self.assertNotIn("--clobber", args)
                 remote.append({"name": path.name, "state": "uploaded", "digest": "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()})
             else:

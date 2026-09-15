@@ -173,7 +173,7 @@ jobs:
         shell: bash
         run: |
           python - <<'PY' > "$RUNNER_TEMP/report.json"
-          import json, os, re
+          import json, os, re, subprocess
           parts = []
           exe = "build/NetLurker.exe"
           parts.append("NetLurker.exe present: %s" % os.path.exists(exe))
@@ -203,7 +203,7 @@ jobs:
           body = "\n".join(parts)
           print(json.dumps({
               "name": "windows-build-report",
-              "head_sha": os.environ["GITHUB_SHA"],
+              "head_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "status": "completed",
               "conclusion": "neutral",
               "output": {
@@ -250,6 +250,10 @@ jobs:
           if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is required on the Windows runner" }
           & $iscc "/DAppVersion=$($version.version)" "/DNumericVersion=$($version.windows_version)" installer/NetLurker.iss
           if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+          # Exercise the hyphenated textual version separately. This fixture is NOT uploaded.
+          & $iscc '/DAppVersion=0.0.0-rc.1' '/DNumericVersion=0.0.0.401' installer/NetLurker.iss
+          if ($LASTEXITCODE -ne 0) { throw "Prerelease installer version compilation failed" }
+          if ((Get-Item dist/NetLurker-v0.0.0-rc.1-setup.exe).VersionInfo.ProductVersion -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch" }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -355,13 +359,16 @@ jobs:
           echo "--- unit test results ---"
           find app/build/test-results -name "*.xml" -exec grep -h "<testsuite " {} \; || true
 
+      - name: Exercise Android release signing with a disposable test key (never uploaded)
+        run: python3 tests/android_signing_smoke.py
+
       - name: Publish build report
         if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY' > /tmp/diagnostics.json
-          import glob, json, os, re, xml.etree.ElementTree as ET
+          import glob, json, os, re, subprocess, xml.etree.ElementTree as ET
           parts = []
 
           # Test totals, straight from the JUnit XML the build produced.
@@ -417,7 +424,7 @@ jobs:
           body = "\n".join(parts) or "(nothing to report)"
           print(json.dumps({
               "name": "build-diagnostics",
-              "head_sha": os.environ["GITHUB_SHA"],
+              "head_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "status": "completed",
               "conclusion": "neutral",
               "output": {
@@ -545,7 +552,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           python3 - <<'PY' > /tmp/smoke.json
-          import json, os, re
+          import json, os, re, subprocess
           parts = []
           crashed = resumed = False
           if os.path.exists("logcat.txt"):
@@ -603,7 +610,7 @@ jobs:
           body = "\n".join(parts)
           print(json.dumps({
               "name": "android-smoke-report",
-              "head_sha": os.environ["GITHUB_SHA"],
+              "head_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
               "status": "completed",
               "conclusion": "neutral",
               "output": {

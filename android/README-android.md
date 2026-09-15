@@ -70,7 +70,9 @@ keyPassword=<local secret>
 Never commit the file or the keystore. Keep a secure offline backup of the release key;
 updates must use the same signing identity. Verify with Android SDK `apksigner verify
 --verbose --print-certs`, record the certificate fingerprint, and test upgrade installation
-before distribution. This repository does not currently automate Android production signing.
+before distribution. Public release automation supports these checks with repository
+signing secrets; see the setup section below. Ordinary CI exercises the signing path
+with a disposable fixture key, never with your production key, and never uploads that fixture APK.
 
 ## CI and evidence
 

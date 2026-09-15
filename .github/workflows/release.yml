@@ -119,6 +119,7 @@ jobs:
           if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is required on the Windows runner" }
           & $iscc "/DAppVersion=$env:VERSION" "/DNumericVersion=$env:NUMERIC_VERSION" installer/NetLurker.iss
           if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+          if ((Get-Item "dist/NetLurker-v$env:VERSION-setup.exe").VersionInfo.ProductVersion -ne $env:VERSION) { throw "Installer version mismatch" }
       - name: Sign the installer when configured
         if: needs.prepare.outputs.windows_signed == 'true'
         shell: pwsh

@@ -76,7 +76,9 @@ keytool -list -v -keystore /secure/location/netlurker-release.jks -alias netlurk
 Workflow keystore’u geçici dizinde açar; parolaları `apksigner`a ortam değişkeniyle
 aktarır. APK zipalign, imza, sertifika parmak izi, uygulama kimliği, sürüm ve debug
 bayrağı kontrollerinden geçer. Geçici anahtar temizlenir; artifact olarak yüklenmez.
-Normal CI/PR işlerine üretim imza sırları verilmez.
+Normal CI/PR işlerine üretim imza sırları verilmez. CI aynı imzalama yolunu geçici
+bir test anahtarıyla da çalıştırır; bu test APK’sı/anahtarı dağıtılmaz ve üretim imzası
+doğrulanmış gibi sunulmaz.
 
 - Dört Android sırrının **hiçbiri yoksa** Windows yayını yapılır; APK açık gerekçeyle
   atlanır. Debug ya da imzasız APK, yerine konulmaz.
