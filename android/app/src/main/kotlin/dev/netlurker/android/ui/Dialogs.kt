@@ -21,6 +21,21 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Button
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import kotlinx.coroutines.launch
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
@@ -46,29 +61,37 @@ import androidx.compose.ui.window.DialogProperties
 import dev.netlurker.android.MainViewModel
 import dev.netlurker.android.data.Settings
 
-/** Full-width scrollable dialog; the content is dense and needs the room. */
+/** The form scrolls independently; primary actions never live at the end of that scroll. */
 @Composable
-private fun WideDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
+internal fun WideDialog(
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
+    footer: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Dialog(
         onDismissRequest = onDismiss,
-        properties = DialogProperties(usePlatformDefaultWidth = false)
+        properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)
     ) {
-        Box(
-            Modifier
+        Column(
+            modifier
                 .widthIn(max = 640.dp)
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 24.dp)
+                .imePadding()
+                .safeDrawingPadding()
+                .padding(12.dp)
                 .heightIn(max = 640.dp)
                 .background(NL.Bg, RoundedCornerShape(14.dp))
                 .border(1.dp, NL.Border, RoundedCornerShape(14.dp))
+                .testTag("dialog-surface")
         ) {
             Column(
-                Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
-            ) {
-                content()
+                Modifier.weight(1f, fill = false).fillMaxWidth()
+                    .verticalScroll(rememberScrollState()).padding(16.dp),
+                content = content
+            )
+            if (footer != null) {
+                Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) { footer() }
             }
         }
     }
@@ -86,7 +109,7 @@ private fun DialogTitle(text: String) {
 }
 
 @Composable
-private fun ToggleRow(label: String, detail: String?, checked: Boolean, onChange: (Boolean) -> Unit) {
+private fun ToggleRow(label: String, detail: String?, checked: Boolean, enabled: Boolean = true, onChange: (Boolean) -> Unit) {
     Row(
         Modifier.fillMaxWidth().padding(vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -99,6 +122,7 @@ private fun ToggleRow(label: String, detail: String?, checked: Boolean, onChange
         }
         Switch(
             checked = checked,
+            enabled = enabled,
             onCheckedChange = onChange,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = NL.Bg,
@@ -112,13 +136,16 @@ private fun ToggleRow(label: String, detail: String?, checked: Boolean, onChange
 }
 
 @Composable
-private fun KeyField(label: String, value: String, hint: String, onChange: (String) -> Unit) {
+private fun KeyField(label: String, value: String, hint: String, secret: Boolean = false, enabled: Boolean = true, tag: String = label, onChange: (String) -> Unit) {
     Column(Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Text(text = label, color = NL.TextDim, style = MaterialTheme.typography.bodySmall)
         OutlinedTextField(
             value = value,
             onValueChange = onChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag(tag),
+            label = { Text(label) },
+            enabled = enabled,
+            visualTransformation = if (secret) PasswordVisualTransformation() else VisualTransformation.None,
+            keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.Password else KeyboardType.Text),
             singleLine = true,
             placeholder = { Text(hint, color = NL.TextFaint, style = MaterialTheme.typography.bodySmall) },
             textStyle = MaterialTheme.typography.bodySmall,
@@ -145,187 +172,225 @@ private fun KeyField(label: String, value: String, hint: String, onChange: (Stri
 fun SettingsDialog(
     viewModel: MainViewModel,
     onRequestLocation: () -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    val s = strings()
-    val settings = viewModel.settings
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    var draft by remember { mutableStateOf(viewModel.settings.snapshot()) }
+    var saving by remember { mutableStateOf(false) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var cacheSizes by remember { mutableStateOf(viewModel.intel.cacheSizes()) }
+    val scope = rememberCoroutineScope()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val s = remember(context, configuration, draft.language) { Strings(context, draft.language) }
+    val dismiss = { if (!saving) onDismiss() }
 
-    // Local mirrors so toggling recomposes immediately; every write goes straight to prefs.
-    var geo by remember { mutableStateOf(settings.geoEnabled) }
-    var threat by remember { mutableStateOf(settings.threatEnabled) }
-    var rdap by remember { mutableStateOf(settings.rdapEnabled) }
-    var vt by remember { mutableStateOf(settings.vtEnabled) }
-    var tls by remember { mutableStateOf(settings.tlsEnabled) }
-    var banner by remember { mutableStateOf(settings.bannerEnabled) }
-    var publicIp by remember { mutableStateOf(settings.publicIpEnabled) }
-    var notify by remember { mutableStateOf(settings.anomalyNotifications) }
-    var refresh by remember { mutableStateOf(settings.refreshMs.toFloat()) }
-    var abuseKey by remember { mutableStateOf(settings.abuseIpDbKey) }
-    var vtKey by remember { mutableStateOf(settings.virusTotalKey) }
-    var aiEndpoint by remember { mutableStateOf(settings.aiEndpoint) }
-    var aiModel by remember { mutableStateOf(settings.aiModel) }
-    var aiKey by remember { mutableStateOf(settings.aiApiKey) }
-
-    WideDialog(onDismiss = onDismiss) {
-        DialogTitle(s("settings.title"))
-
-        SectionHeader(s("settings.language"))
-        var languageMenu by remember { mutableStateOf(false) }
-        Box {
-            TextButton(onClick = { languageMenu = true }) {
-                Text(Strings.supportedLanguages.first { it.first == s.language }.second, color = NL.Accent)
-            }
-            DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
-                Strings.supportedLanguages.forEach { (code, label) ->
-                    DropdownMenuItem(
-                        text = { Text(label, color = if (s.language == code) NL.Accent else NL.Text) },
-                        onClick = {
-                            settings.languageOverride = code
-                            languageMenu = false
+    CompositionLocalProvider(LocalStrings provides s) {
+        WideDialog(onDismiss = dismiss, modifier = modifier, footer = {
+            error?.let { Text(s(it), color = NL.Red, style = MaterialTheme.typography.bodySmall) }
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(onClick = dismiss, enabled = !saving, modifier = Modifier.weight(1f).testTag("settings-cancel")) {
+                    Text(s("action.cancel"))
+                }
+                Button(onClick = {
+                    val values = draft.normalized()
+                    error = values.validationError()
+                    if (error == null) {
+                        keyboard?.hide()
+                        saving = true
+                        scope.launch {
+                            val saved = viewModel.saveSettings(values)
+                            saving = false
+                            if (saved) onDismiss() else error = "settings.error.save"
                         }
-                    )
+                    }
+                }, enabled = !saving, modifier = Modifier.weight(1f).testTag("settings-save")) {
+                    Text(if (saving) s("settings.saving") else s("action.save"))
                 }
             }
-        }
+        }) {
+            DialogTitle(s("settings.title"))
 
-        SectionHeader(s("section.sources"))
-        ToggleRow(
-            label = s("settings.geo"),
-            detail = s("settings.geo.detail"),
-            checked = geo
-        ) { geo = it; settings.geoEnabled = it }
-        ToggleRow(
-            label = s("settings.threat"),
-            detail = s("settings.threat.detail"),
-            checked = threat
-        ) { threat = it; settings.threatEnabled = it }
-        ToggleRow(
-            label = s("settings.rdap"),
-            detail = s("settings.rdap.detail"),
-            checked = rdap
-        ) { rdap = it; settings.rdapEnabled = it }
-        ToggleRow(
-            label = s("settings.tls"),
-            detail = s("settings.tls.detail"),
-            checked = tls
-        ) { tls = it; settings.tlsEnabled = it }
-        ToggleRow(
-            label = s("settings.banner"),
-            detail = s("settings.banner.detail"),
-            checked = banner
-        ) { banner = it; settings.bannerEnabled = it }
-        ToggleRow(
-            label = s("settings.vt"),
-            detail = s("settings.vt.detail"),
-            checked = vt
-        ) { vt = it; settings.vtEnabled = it }
-        ToggleRow(
-            label = s("settings.public_ip"),
-            detail = s("settings.public_ip.detail"),
-            checked = publicIp
-        ) {
-            publicIp = it
-            settings.publicIpEnabled = it
-            viewModel.refreshNetwork()
-        }
-        ToggleRow(
-            label = s("settings.notify"),
-            detail = s("settings.notify.detail"),
-            checked = notify
-        ) { notify = it; settings.anomalyNotifications = it }
+            SectionHeader(s("settings.language"))
+            var languageMenu by remember { mutableStateOf(false) }
+            Box {
+                TextButton(onClick = { languageMenu = true }, enabled = !saving) {
+                    Text(Strings.supportedLanguages.first { it.first == s.language }.second, color = NL.Accent)
+                }
+                DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
+                    Strings.supportedLanguages.forEach { (code, label) ->
+                        DropdownMenuItem(
+                            text = { Text(label, color = if (s.language == code) NL.Accent else NL.Text) },
+                            onClick = {
+                                draft = draft.copy(language = code)
+                                languageMenu = false
+                            }
+                        )
+                    }
+                }
+            }
 
-        SectionHeader(s("section.refresh"))
-        Text(
-            text = s("settings.refresh", "ms" to refresh.toInt().toString()),
-            color = NL.TextDim,
-            style = MaterialTheme.typography.bodySmall
-        )
-        Slider(
-            value = refresh,
-            onValueChange = { refresh = it },
-            onValueChangeFinished = { settings.refreshMs = refresh.toLong() },
-            valueRange = 1000f..10000f,
-            steps = 8,
-            colors = SliderDefaults.colors(
-                thumbColor = NL.Accent,
-                activeTrackColor = NL.Accent,
-                inactiveTrackColor = NL.Border
+            SectionHeader(s("section.sources"))
+            ToggleRow(
+                label = s("settings.geo"),
+                detail = s("settings.geo.detail"),
+                checked = draft.geo,
+                enabled = !saving
+            ) { draft = draft.copy(geo = it) }
+            ToggleRow(
+                label = s("settings.threat"),
+                detail = s("settings.threat.detail"),
+                checked = draft.threat,
+                enabled = !saving
+            ) { draft = draft.copy(threat = it) }
+            ToggleRow(
+                label = s("settings.rdap"),
+                detail = s("settings.rdap.detail"),
+                checked = draft.rdap,
+                enabled = !saving
+            ) { draft = draft.copy(rdap = it) }
+            ToggleRow(
+                label = s("settings.tls"),
+                detail = s("settings.tls.detail"),
+                checked = draft.tls,
+                enabled = !saving
+            ) { draft = draft.copy(tls = it) }
+            ToggleRow(
+                label = s("settings.banner"),
+                detail = s("settings.banner.detail"),
+                checked = draft.banner,
+                enabled = !saving
+            ) { draft = draft.copy(banner = it) }
+            ToggleRow(
+                label = s("settings.vt"),
+                detail = s("settings.vt.detail"),
+                checked = draft.vt,
+                enabled = !saving
+            ) { draft = draft.copy(vt = it) }
+            ToggleRow(
+                label = s("settings.public_ip"),
+                detail = s("settings.public_ip.detail"),
+                checked = draft.publicIp,
+                enabled = !saving
+            ) {
+                draft = draft.copy(publicIp = it)
+            }
+            ToggleRow(
+                label = s("settings.notify"),
+                detail = s("settings.notify.detail"),
+                checked = draft.notify,
+                enabled = !saving
+            ) { draft = draft.copy(notify = it) }
+
+            SectionHeader(s("section.refresh"))
+            Text(
+                text = s("settings.refresh", "ms" to draft.refreshMs.toString()),
+                color = NL.TextDim,
+                style = MaterialTheme.typography.bodySmall
             )
-        )
-        TextButton(onClick = onRequestLocation) {
-            Text(s("action.grant_location"), color = NL.Accent, style = MaterialTheme.typography.labelSmall)
-        }
-
-        SectionHeader(s("section.keys"))
-        KeyField(
-            label = s("settings.abuse_key"),
-            value = abuseKey,
-            hint = s("settings.key.optional")
-        ) { abuseKey = it; settings.abuseIpDbKey = it }
-        KeyField(
-            label = s("settings.vt_key"),
-            value = vtKey,
-            hint = s("settings.key.optional")
-        ) { vtKey = it; settings.virusTotalKey = it }
-
-        SectionHeader(s("section.ai"))
-        Text(
-            text = s("settings.ai.detail"),
-            color = NL.TextFaint,
-            style = MaterialTheme.typography.bodySmall
-        )
-        KeyField(
-            label = s("settings.ai.endpoint"),
-            value = aiEndpoint,
-            hint = Settings.DEFAULT_AI_ENDPOINT
-        ) { aiEndpoint = it; settings.aiEndpoint = it }
-        KeyField(
-            label = s("settings.ai.model"),
-            value = aiModel,
-            hint = Settings.DEFAULT_AI_MODEL
-        ) { aiModel = it; settings.aiModel = it }
-        KeyField(
-            label = s("settings.ai.key"),
-            value = aiKey,
-            hint = s("settings.key.optional")
-        ) { aiKey = it; settings.aiApiKey = it }
-        Text(
-            text = if (settings.aiConfigured()) s("settings.ai.ready") else s("settings.ai.local"),
-            color = if (settings.aiConfigured()) NL.Green else NL.Yellow,
-            style = MaterialTheme.typography.bodySmall
-        )
-
-        SectionHeader(s("section.cache"))
-        val sizes = viewModel.intel.cacheSizes()
-        Text(
-            text = sizes.entries.joinToString("  ·  ") { "${it.key}: ${it.value}" },
-            color = NL.TextDim,
-            style = MaterialTheme.typography.labelSmall
-        )
-        Text(
-            text = s("settings.cache.detail"),
-            color = NL.TextFaint,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.padding(top = 4.dp)
-        )
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = { viewModel.intel.clearCaches() }) {
-                Text(s("action.clear_cache"), color = NL.Red, style = MaterialTheme.typography.labelSmall)
+            Slider(
+                value = draft.refreshMs.toFloat(),
+                enabled = !saving,
+                onValueChange = { draft = draft.copy(refreshMs = it.toLong()) },
+                valueRange = 1000f..30000f,
+                steps = 28,
+                colors = SliderDefaults.colors(
+                    thumbColor = NL.Accent,
+                    activeTrackColor = NL.Accent,
+                    inactiveTrackColor = NL.Border
+                )
+            )
+            TextButton(onClick = onRequestLocation) {
+                Text(s("action.grant_location"), color = NL.Accent, style = MaterialTheme.typography.labelSmall)
             }
-            TextButton(onClick = { viewModel.persist() }) {
-                Text(s("action.save_cache"), color = NL.Accent, style = MaterialTheme.typography.labelSmall)
-            }
-        }
 
-        SectionHeader(s("section.privacy"))
-        Text(
-            text = s("privacy.body"),
-            color = NL.TextDim,
-            style = MaterialTheme.typography.bodySmall
-        )
-        Spacer(Modifier.height(12.dp))
-        TextButton(onClick = onDismiss) {
-            Text(s("action.close"), color = NL.Accent, style = MaterialTheme.typography.labelMedium)
+            SectionHeader(s("section.keys"))
+            KeyField(
+                label = s("settings.abuse_key"),
+                value = draft.abuseKey,
+                enabled = !saving,
+                secret = true,
+                tag = "settings.abuse_key",
+                hint = s("settings.key.optional")
+            ) { draft = draft.copy(abuseKey = it) }
+            KeyField(
+                label = s("settings.vt_key"),
+                value = draft.vtKey,
+                enabled = !saving,
+                secret = true,
+                tag = "settings.vt_key",
+                hint = s("settings.key.optional")
+            ) { draft = draft.copy(vtKey = it) }
+
+            SectionHeader(s("section.ai"))
+            Text(
+                text = s("settings.ai.detail"),
+                color = NL.TextFaint,
+                style = MaterialTheme.typography.bodySmall
+            )
+            KeyField(
+                label = s("settings.ai.endpoint"),
+                value = draft.aiEndpoint,
+                enabled = !saving,
+                secret = false,
+                tag = "settings.ai.endpoint",
+                hint = Settings.DEFAULT_AI_ENDPOINT
+            ) { draft = draft.copy(aiEndpoint = it) }
+            KeyField(
+                label = s("settings.ai.model"),
+                value = draft.aiModel,
+                enabled = !saving,
+                secret = false,
+                tag = "settings.ai.model",
+                hint = Settings.DEFAULT_AI_MODEL
+            ) { draft = draft.copy(aiModel = it) }
+            KeyField(
+                label = s("settings.ai.key"),
+                value = draft.aiKey,
+                enabled = !saving,
+                secret = true,
+                tag = "settings.ai.key",
+                hint = s("settings.key.optional")
+            ) { draft = draft.copy(aiKey = it) }
+            Text(
+                text = if (draft.aiConfigured()) s("settings.ai.ready") else s("settings.ai.local"),
+                color = if (draft.aiConfigured()) NL.Green else NL.Yellow,
+                style = MaterialTheme.typography.bodySmall
+            )
+
+            SectionHeader(s("section.cache"))
+            Text(
+                text = cacheSizes.entries.joinToString("  ·  ") { "${it.key}: ${it.value}" },
+                color = NL.TextDim,
+                style = MaterialTheme.typography.labelSmall
+            )
+            Text(
+                text = s("settings.cache.detail"),
+                color = NL.TextFaint,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.padding(top = 4.dp)
+            )
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = {
+                    scope.launch {
+                        viewModel.clearIntelCaches()
+                        cacheSizes = viewModel.intel.cacheSizes()
+                    }
+                }, enabled = !saving) {
+                    Text(s("action.clear_cache"), color = NL.Red, style = MaterialTheme.typography.labelSmall)
+                }
+                TextButton(onClick = { viewModel.persist() }) {
+                    Text(s("action.save_cache"), color = NL.Accent, style = MaterialTheme.typography.labelSmall)
+                }
+            }
+
+            SectionHeader(s("section.privacy"))
+            Text(
+                text = s("privacy.body"),
+                color = NL.TextDim,
+                style = MaterialTheme.typography.bodySmall
+            )
         }
     }
 }

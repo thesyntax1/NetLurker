@@ -35,4 +35,21 @@ inline FlowLayout PackToolbar(const std::vector<int>& widths, int available,
     return result;
 }
 
+struct SettingsFrame {
+    FlowItem body, save, cancel;
+};
+
+// Footer is measured first, then the remaining height belongs to the scroll viewport.
+inline SettingsFrame PlaceSettingsFrame(int width, int height, int padding, int buttonHeight) {
+    width = (std::max)(2, width);
+    height = (std::max)(1, height);
+    const int gap = (std::max)(0, (std::min)(padding, (width - 2) / 3));
+    const int bottom = (std::min)(gap, height / 8);
+    const int bh = (std::max)(1, (std::min)(buttonHeight, height - bottom));
+    const int bw = (width - 3 * gap) / 2;
+    const int y = height - bottom - bh;
+    return {{0, 0, width, (std::max)(0, y - bottom)},
+            {gap, y, bw, bh}, {2 * gap + bw, y, width - 3 * gap - bw, bh}};
+}
+
 } // namespace nl

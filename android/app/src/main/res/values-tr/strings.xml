@@ -3,6 +3,7 @@
      Do not edit by hand: edit the catalog and re-run the generator. -->
 <resources>
     <string name="action.ai_analyze" formatted="false">AI analiz</string>
+    <string name="action.cancel" formatted="false">İptal</string>
     <string name="action.clear_baselines" formatted="false">Taban çizgilerini sil</string>
     <string name="action.clear_cache" formatted="false">Önbelleği temizle</string>
     <string name="action.close" formatted="false">Kapat</string>
@@ -19,6 +20,7 @@
     <string name="action.remove" formatted="false">Kaldır</string>
     <string name="action.reset_session" formatted="false">Oturumu sıfırla</string>
     <string name="action.resume" formatted="false">Devam et</string>
+    <string name="action.save" formatted="false">Kaydet</string>
     <string name="action.save_cache" formatted="false">Önbelleği kaydet</string>
     <string name="action.skip" formatted="false">Atla</string>
     <string name="ai.concern.disabled" formatted="false">Bu kaynaklar kapalı; yoklukları kanıt değildir: {sources}</string>
@@ -364,6 +366,9 @@
     <string name="settings.banner" formatted="false">HTTP banner sondası</string>
     <string name="settings.banner.detail" formatted="false">Hedefe tek bir HEAD isteği; durum satırını ve Server başlığını okur.</string>
     <string name="settings.cache.detail" formatted="false">Yalnızca başarılı yanıtlar, alındıkları zamanla birlikte önbelleğe alınır. Başarısızlıklar asla saklanmaz; böylece bir ağ sorunu kalıcı bir karara dönüşemez.</string>
+    <string name="settings.error.endpoint" formatted="false">Kullanıcı bilgisi veya # bölümü içermeyen geçerli bir HTTPS AI adresi girin.</string>
+    <string name="settings.error.model" formatted="false">AI model adı girin veya yerel analiz için anahtarı kaldırın.</string>
+    <string name="settings.error.save" formatted="false">Ayarlar kaydedilemedi. Boş depolama alanını kontrol edip tekrar deneyin. Değişiklikleriniz bu pencerede duruyor.</string>
     <string name="settings.geo" formatted="false">IP konumu (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">Yalnızca incelediğiniz IP adreslerini gönderir. Ücretsiz katman düz HTTP\'dir.</string>
     <string name="settings.key.optional" formatted="false">isteğe bağlı — atlamak için boş bırakın</string>
@@ -375,6 +380,7 @@
     <string name="settings.rdap" formatted="false">RDAP sahipliği</string>
     <string name="settings.rdap.detail" formatted="false">Adres bloğunun sahibi ve kötüye kullanım bildirim adresi, rdap.org üzerinden.</string>
     <string name="settings.refresh" formatted="false">Her {ms} ms\'de bir yokla</string>
+    <string name="settings.saving" formatted="false">Kaydediliyor…</string>
     <string name="settings.threat" formatted="false">Tehdit istihbaratı</string>
     <string name="settings.threat.detail" formatted="false">5 DNS kara listesi, CIRCL pasif DNS ve anahtar girerseniz AbuseIPDB.</string>
     <string name="settings.title" formatted="false">Ayarlar</string>

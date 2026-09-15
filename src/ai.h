@@ -12,8 +12,9 @@ struct AiConfig {
     bool Valid() const { return !apiKey.empty() && !endpoint.empty() && !model.empty(); }
 };
 
-AiConfig LoadAiConfig();
-void     SaveAiConfig(const AiConfig& cfg);
+std::wstring AiEnvironmentKey();
+AiConfig LoadAiConfig(bool includeEnvironmentKey = true);
+bool     SaveAiConfig(const AiConfig& cfg);
 std::wstring ConfigPath();
 
 struct ProcContext {

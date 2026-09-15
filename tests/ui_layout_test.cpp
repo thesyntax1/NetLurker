@@ -51,5 +51,21 @@ int main() {
         for (unsigned i = 0, n = random() % 40; i < n; ++i) widths.push_back(random() % 700);
         Check(widths, random() % 3000, 28, 6);
     }
+    int frames = 0;
+    for (int dpi : {96, 120, 144, 192, 240, 288, 384}) {
+        for (int width : {240, 320, 480, 640, 1024, 1920}) {
+            for (int height : {120, 240, 320, 480, 768, 1080}) {
+                const auto f = nl::PlaceSettingsFrame(width, height, 12 * dpi / 96, 48 * dpi / 96);
+                assert(f.body.y + f.body.height <= f.save.y);
+                assert(f.save.y >= 0 && f.save.y + f.save.height <= height);
+                assert(f.cancel.y >= 0 && f.cancel.y + f.cancel.height <= height);
+                assert(f.save.x >= 0 && f.save.x + f.save.width <= f.cancel.x);
+                assert(f.cancel.x + f.cancel.width <= width);
+                assert(f.save.width > 0 && f.cancel.width > 0);
+                ++frames;
+            }
+        }
+    }
+    std::cout << "Settings footer: " << frames << " DPI/viewport cases passed\n";
     std::cout << "Toolbar layout: boundary cases, 126 DPI/translation cases, 10000 randomized cases passed\n";
 }

@@ -24,6 +24,9 @@
 #include <shellapi.h>
 #include <dwmapi.h>
 #include <windowsx.h>
+#include "settings_dialog.h"
+#include "config_store.h"
+#include "http_url.h"
 #include <mutex>
 #include <thread>
 #include <memory>
@@ -617,17 +620,18 @@ void App::LoadPrefs() {
 
 void App::SavePrefs() {
     const std::wstring p = ConfigPath();
+    std::vector<IniValue> values;
     auto put = [&](const wchar_t* k, int v) {
-        WritePrivateProfileStringW(L"ui", k, std::to_wstring(v).c_str(), p.c_str());
+        values.push_back({L"ui", k, std::to_wstring(v)});
     };
     put(L"geo", m_geoOnline ? 1 : 0);
-    WritePrivateProfileStringW(L"ui", L"lang", m_lang.c_str(), p.c_str());
+    values.push_back({L"ui", L"lang", m_lang});
     put(L"threat", m_threatOnline ? 1 : 0);
     put(L"rdap", m_rdapOnline ? 1 : 0);
     put(L"banner", m_bannerOnline ? 1 : 0);
     put(L"sortcols", 5);
-    WritePrivateProfileStringW(L"threat", L"abusekey", m_abuseKey.c_str(), p.c_str());
-    WritePrivateProfileStringW(L"threat", L"vtkey", m_vtKey.c_str(), p.c_str());
+    values.push_back({L"threat", L"abusekey", m_abuseKey});
+    values.push_back({L"threat", L"vtkey", m_vtKey});
     put(L"notify", m_notify ? 1 : 0);
     put(L"sound", m_soundAlert ? 1 : 0);
     put(L"notifymin", m_notifyMin);
@@ -645,7 +649,7 @@ void App::SavePrefs() {
         wp.length = sizeof(wp);
         if (GetWindowPlacement(m_hwnd, &wp)) {
             auto putw = [&](const wchar_t* k, int v) {
-                WritePrivateProfileStringW(L"win", k, std::to_wstring(v).c_str(), p.c_str());
+                values.push_back({L"win", k, std::to_wstring(v)});
             };
             const RECT& n = wp.rcNormalPosition;
             putw(L"x", n.left);
@@ -655,6 +659,7 @@ void App::SavePrefs() {
             putw(L"max", (wp.showCmd == SW_SHOWMAXIMIZED) ? 1 : 0);
         }
     }
+    UpdateIniAtomically(p, values);
 }
 
 void App::SetupTray() {
@@ -4989,63 +4994,86 @@ INT_PTR CALLBACK App::ElevateProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
-    static App* self = nullptr;
+    auto* self = reinterpret_cast<App*>(GetWindowLongPtrW(dlg, GWLP_USERDATA));
+    auto* layout = reinterpret_cast<SettingsDialogLayout*>(GetPropW(dlg, L"SettingsLayout"));
+    HWND fields = layout ? layout->Body() : dlg;
     static HBRUSH brBg = nullptr, brEdit = nullptr;
     switch (msg) {
         case WM_INITDIALOG: {
             self = reinterpret_cast<App*>(lp);
+            SetWindowLongPtrW(dlg, GWLP_USERDATA, lp);
             if (!brBg)   brBg   = CreateSolidBrush(clr::Bg);
             if (!brEdit) brEdit = CreateSolidBrush(clr::Surface);
-            AiConfig cfg = LoadAiConfig();
-            SetDlgItemTextW(dlg, IDC_ED_ENDPOINT, cfg.endpoint.c_str());
-            SetDlgItemTextW(dlg, IDC_ED_MODEL,    cfg.model.c_str());
-            SetDlgItemTextW(dlg, IDC_ED_KEY,      cfg.apiKey.c_str());
+            AiConfig cfg = LoadAiConfig(false);
+            SetDlgItemTextW(fields, IDC_ED_ENDPOINT, cfg.endpoint.c_str());
+            SetDlgItemTextW(fields, IDC_ED_MODEL,    cfg.model.c_str());
+            SetDlgItemTextW(fields, IDC_ED_KEY,      cfg.apiKey.c_str());
             if (self) {
-                CheckDlgButton(dlg, IDC_CHK_GEO,    self->m_geoOnline  ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_NOTIFY, self->m_notify     ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_SOUND,  self->m_soundAlert ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_CONFIRM,self->m_confirmKill ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_THREAT, self->m_threatOnline ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_RDAP,   self->m_rdapOnline   ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_BANNER, self->m_bannerOnline ? BST_CHECKED : BST_UNCHECKED);
-                SetDlgItemInt(dlg, IDC_ED_INTERVAL,  (UINT)(self->m_interval / 100), FALSE);
-                SetDlgItemInt(dlg, IDC_ED_RISKMIN,   (UINT)self->m_notifyMin, FALSE);
-                SetDlgItemTextW(dlg, IDC_ED_ABUSEKEY, self->m_abuseKey.c_str());
-                SetDlgItemTextW(dlg, IDC_ED_VTKEY,    self->m_vtKey.c_str());
+                CheckDlgButton(fields, IDC_CHK_GEO,    self->m_geoOnline  ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_NOTIFY, self->m_notify     ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_SOUND,  self->m_soundAlert ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_CONFIRM,self->m_confirmKill ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_THREAT, self->m_threatOnline ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_RDAP,   self->m_rdapOnline   ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_BANNER, self->m_bannerOnline ? BST_CHECKED : BST_UNCHECKED);
+                SetDlgItemInt(fields, IDC_ED_INTERVAL,  (UINT)(self->m_interval / 100), FALSE);
+                SetDlgItemInt(fields, IDC_ED_RISKMIN,   (UINT)self->m_notifyMin, FALSE);
+                SetDlgItemTextW(fields, IDC_ED_ABUSEKEY, self->m_abuseKey.c_str());
+                SetDlgItemTextW(fields, IDC_ED_VTKEY,    self->m_vtKey.c_str());
                 int langIdx = 0;
                 for (const auto& l : I18nLanguages()) {
-                    int i = (int)SendDlgItemMessageW(dlg, IDC_CMB_LANG, CB_ADDSTRING, 0,
+                    int i = (int)SendDlgItemMessageW(fields, IDC_CMB_LANG, CB_ADDSTRING, 0,
                                                      (LPARAM)l.second.c_str());
                     if (l.first == self->m_lang) langIdx = i;
                 }
-                SendDlgItemMessageW(dlg, IDC_CMB_LANG, CB_SETCURSEL, (WPARAM)langIdx, 0);
+                SendDlgItemMessageW(fields, IDC_CMB_LANG, CB_SETCURSEL, (WPARAM)langIdx, 0);
             }
 
             SetWindowTextW(dlg, Tr(L"NetLurker - Settings"));
-            SetDlgItemTextW(dlg, IDC_ST_ENDPOINT, Tr(L"AI endpoint (OpenAI-compatible chat/completions URL):"));
-            SetDlgItemTextW(dlg, IDC_ST_MODEL,    Tr(L"Model:"));
-            SetDlgItemTextW(dlg, IDC_ST_INTERVAL, Tr(L"Refresh (x100 ms):"));
-            SetDlgItemTextW(dlg, IDC_ST_KEY,      Tr(L"API key:"));
-            SetDlgItemTextW(dlg, IDC_ST_RISKMIN,  Tr(L"Notification risk threshold (20-100):"));
-            SetDlgItemTextW(dlg, IDC_ST_THREAT,   Tr(L"THREAT INTELLIGENCE"));
-            SetDlgItemTextW(dlg, IDC_ST_ABUSEKEY, Tr(L"AbuseIPDB API key (optional, free at abuseipdb.com):"));
-            SetDlgItemTextW(dlg, IDC_ST_VTKEY,    Tr(L"VirusTotal API key (empty = off; free plan: 4 lookups/minute):"));
-            SetDlgItemTextW(dlg, IDC_ST_LANG,     Tr(L"Language:"));
-            SetDlgItemTextW(dlg, IDC_ST_INFO,     Tr(L"The AI key is stored in %APPDATA%\\NetLurker\\config.ini. If left empty, the OPENAI_API_KEY environment variable is used; otherwise local heuristic analysis runs."));
-            SetDlgItemTextW(dlg, IDC_CHK_GEO,     Tr(L"Enable IP geolocation/org lookup (ip-api.com)"));
-            SetDlgItemTextW(dlg, IDC_CHK_NOTIFY,  Tr(L"Show desktop notification on risky connection"));
-            SetDlgItemTextW(dlg, IDC_CHK_SOUND,   Tr(L"Play alert sound on notification"));
-            SetDlgItemTextW(dlg, IDC_CHK_CONFIRM, Tr(L"Ask for confirmation before killing a process"));
-            SetDlgItemTextW(dlg, IDC_CHK_THREAT,  Tr(L"Enable threat intelligence (AbuseIPDB + DNS blacklists + CIRCL passive DNS + TLS certificate analysis)"));
-            SetDlgItemTextW(dlg, IDC_CHK_RDAP,    Tr(L"Enable RDAP ownership lookup (network/org/contact/registration date)"));
-            SetDlgItemTextW(dlg, IDC_CHK_BANNER,  Tr(L"Enable HTTP banner detection (remote server software)"));
+            SetDlgItemTextW(fields, IDC_ST_ENDPOINT, Tr(L"AI endpoint (OpenAI-compatible chat/completions URL):"));
+            SetDlgItemTextW(fields, IDC_ST_MODEL,    Tr(L"Model:"));
+            SetDlgItemTextW(fields, IDC_ST_INTERVAL, Tr(L"Refresh (x100 ms):"));
+            SetDlgItemTextW(fields, IDC_ST_KEY,      Tr(L"API key:"));
+            SetDlgItemTextW(fields, IDC_ST_RISKMIN,  Tr(L"Notification risk threshold (20-100):"));
+            SetDlgItemTextW(fields, IDC_ST_THREAT,   Tr(L"THREAT INTELLIGENCE"));
+            SetDlgItemTextW(fields, IDC_ST_ABUSEKEY, Tr(L"AbuseIPDB API key (optional, free at abuseipdb.com):"));
+            SetDlgItemTextW(fields, IDC_ST_VTKEY,    Tr(L"VirusTotal API key (empty = off; free plan: 4 lookups/minute):"));
+            SetDlgItemTextW(fields, IDC_ST_LANG,     Tr(L"Language:"));
+            SetDlgItemTextW(fields, IDC_ST_INFO,     Tr(L"The AI key is stored in %APPDATA%\\NetLurker\\config.ini. If left empty, the OPENAI_API_KEY environment variable is used; otherwise local heuristic analysis runs."));
+            SetDlgItemTextW(fields, IDC_CHK_GEO,     Tr(L"Enable IP geolocation/org lookup (ip-api.com)"));
+            SetDlgItemTextW(fields, IDC_CHK_NOTIFY,  Tr(L"Show desktop notification on risky connection"));
+            SetDlgItemTextW(fields, IDC_CHK_SOUND,   Tr(L"Play alert sound on notification"));
+            SetDlgItemTextW(fields, IDC_CHK_CONFIRM, Tr(L"Ask for confirmation before killing a process"));
+            SetDlgItemTextW(fields, IDC_CHK_THREAT,  Tr(L"Enable threat intelligence (AbuseIPDB + DNS blacklists + CIRCL passive DNS + TLS certificate analysis)"));
+            SetDlgItemTextW(fields, IDC_CHK_RDAP,    Tr(L"Enable RDAP ownership lookup (network/org/contact/registration date)"));
+            SetDlgItemTextW(fields, IDC_CHK_BANNER,  Tr(L"Enable HTTP banner detection (remote server software)"));
             SetDlgItemTextW(dlg, IDOK,            Tr(L"Save"));
             SetDlgItemTextW(dlg, IDCANCEL,        Tr(L"Cancel"));
             BOOL dark = TRUE;
             DwmSetWindowAttribute(dlg, 20, &dark, sizeof(dark));
             DwmSetWindowAttribute(dlg, 19, &dark, sizeof(dark));
+            layout = new SettingsDialogLayout(dlg, brBg);
+            if (!SetPropW(dlg, L"SettingsLayout", layout)) { delete layout; EndDialog(dlg, -1); return TRUE; }
+            if (!layout->Initialize()) { EndDialog(dlg, -1); return TRUE; }
             return TRUE;
         }
+        case WM_SIZE:
+            if (layout) layout->Layout();
+            return TRUE;
+        case WM_GETMINMAXINFO:
+            if (layout) layout->MinMax(reinterpret_cast<MINMAXINFO*>(lp));
+            return TRUE;
+        case WM_DPICHANGED:
+            if (layout) layout->ChangeDpi(HIWORD(wp), *reinterpret_cast<RECT*>(lp));
+            return TRUE;
+        case WM_SETTINGCHANGE:
+        case WM_DISPLAYCHANGE:
+            if (layout) { RECT r{}; GetWindowRect(dlg, &r); layout->Clamp(r); layout->Layout(); }
+            break;
+        case WM_NCDESTROY:
+            RemovePropW(dlg, L"SettingsLayout");
+            delete layout;
+            break;
         case WM_CTLCOLORDLG:
         case WM_CTLCOLORBTN:
         case WM_CTLCOLORSTATIC: {
@@ -5061,38 +5089,64 @@ INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             return (INT_PTR)brEdit;
         }
         case WM_COMMAND:
-            if (LOWORD(wp) == IDOK) {
+            if (LOWORD(wp) == IDOK && self && fields) {
                 AiConfig cfg;
                 wchar_t buf[1024];
-                GetDlgItemTextW(dlg, IDC_ED_ENDPOINT, buf, 1024); cfg.endpoint = Trim(buf);
-                GetDlgItemTextW(dlg, IDC_ED_MODEL,    buf, 1024); cfg.model    = Trim(buf);
-                GetDlgItemTextW(dlg, IDC_ED_KEY,      buf, 1024); cfg.apiKey   = Trim(buf);
-                SaveAiConfig(cfg);
+                GetDlgItemTextW(fields, IDC_ED_ENDPOINT, buf, 1024); cfg.endpoint = Trim(buf);
+                GetDlgItemTextW(fields, IDC_ED_MODEL,    buf, 1024); cfg.model    = Trim(buf);
+                GetDlgItemTextW(fields, IDC_ED_KEY,      buf, 1024); cfg.apiKey   = Trim(buf);
+                auto read = [&](int id) { GetDlgItemTextW(fields, id, buf, 1024); return Trim(buf); };
+                const auto abuseKey = read(IDC_ED_ABUSEKEY), vtKey = read(IDC_ED_VTKEY);
+                BOOL intervalValid = FALSE, riskValid = FALSE;
+                const UINT interval = GetDlgItemInt(fields, IDC_ED_INTERVAL, &intervalValid, FALSE);
+                const UINT risk = GetDlgItemInt(fields, IDC_ED_RISKMIN, &riskValid, FALSE);
+                if (!intervalValid || interval < 5 || interval > 100 || !riskValid || risk < 20 || risk > 100) {
+                    MessageBoxW(dlg, Tr(L"Refresh must be 5-100 (x100 ms), and notification risk must be 20-100."), Tr(L"Settings"), MB_OK | MB_ICONWARNING);
+                    SetFocus(GetDlgItem(fields, (!intervalValid || interval < 5 || interval > 100) ? IDC_ED_INTERVAL : IDC_ED_RISKMIN));
+                    return TRUE;
+                }
+                http::ParsedUrl endpoint;
+                if ((!cfg.apiKey.empty() || !AiEnvironmentKey().empty()) &&
+                    (!http::ParseUrl(cfg.endpoint, endpoint) || (!endpoint.secure && !endpoint.Loopback()) || cfg.model.empty())) {
+                    MessageBoxW(dlg, Tr(L"Enter a valid HTTPS AI endpoint and a model. HTTP is allowed only for loopback servers."), Tr(L"Settings"), MB_OK | MB_ICONWARNING);
+                    SetFocus(GetDlgItem(fields, cfg.model.empty() ? IDC_ED_MODEL : IDC_ED_ENDPOINT));
+                    return TRUE;
+                }
+                const auto langs = I18nLanguages();
+                const int li = (int)SendDlgItemMessageW(fields, IDC_CMB_LANG, CB_GETCURSEL, 0, 0);
+                const auto language = li >= 0 && li < (int)langs.size() ? langs[li].first : self->m_lang;
+                std::vector<IniValue> values{
+                    {L"ai", L"endpoint", cfg.endpoint}, {L"ai", L"model", cfg.model}, {L"ai", L"api_key", cfg.apiKey},
+                    {L"threat", L"abusekey", abuseKey}, {L"threat", L"vtkey", vtKey},
+                    {L"ui", L"lang", language}, {L"ui", L"interval", std::to_wstring(interval * 100)},
+                    {L"ui", L"notifymin", std::to_wstring(risk)}
+                };
+                for (const auto& field : std::vector<std::pair<int, const wchar_t*>>{
+                    {IDC_CHK_GEO, L"geo"}, {IDC_CHK_NOTIFY, L"notify"}, {IDC_CHK_SOUND, L"sound"},
+                    {IDC_CHK_CONFIRM, L"confirmkill"}, {IDC_CHK_THREAT, L"threat"},
+                    {IDC_CHK_RDAP, L"rdap"}, {IDC_CHK_BANNER, L"banner"}})
+                    values.push_back({L"ui", field.second, IsDlgButtonChecked(fields, field.first) == BST_CHECKED ? L"1" : L"0"});
+                if (!UpdateIniAtomically(ConfigPath(), values)) {
+                    MessageBoxW(dlg, Tr(L"Settings could not be saved. Check available disk space and config.ini permissions, then try again. Your changes are still in this dialog."), Tr(L"Settings"), MB_OK | MB_ICONERROR);
+                    return TRUE;
+                }
                 if (self) {
-                    self->m_aiKeyMissing = cfg.apiKey.empty();
-                    self->m_geoOnline  = (IsDlgButtonChecked(dlg, IDC_CHK_GEO) == BST_CHECKED);
-                    self->m_notify     = (IsDlgButtonChecked(dlg, IDC_CHK_NOTIFY) == BST_CHECKED);
-                    self->m_soundAlert = (IsDlgButtonChecked(dlg, IDC_CHK_SOUND) == BST_CHECKED);
-                    self->m_confirmKill= (IsDlgButtonChecked(dlg, IDC_CHK_CONFIRM) == BST_CHECKED);
-                    self->m_threatOnline = (IsDlgButtonChecked(dlg, IDC_CHK_THREAT) == BST_CHECKED);
-                    self->m_rdapOnline   = (IsDlgButtonChecked(dlg, IDC_CHK_RDAP) == BST_CHECKED);
-                    self->m_bannerOnline = (IsDlgButtonChecked(dlg, IDC_CHK_BANNER) == BST_CHECKED);
-                    GetDlgItemTextW(dlg, IDC_ED_ABUSEKEY, buf, 1024);
-                    self->m_abuseKey = Trim(buf);
-                    GetDlgItemTextW(dlg, IDC_ED_VTKEY, buf, 1024);
-                    self->m_vtKey = Trim(buf);
+                    self->m_aiKeyMissing = !LoadAiConfig().Valid();
+                    self->m_geoOnline  = (IsDlgButtonChecked(fields, IDC_CHK_GEO) == BST_CHECKED);
+                    self->m_notify     = (IsDlgButtonChecked(fields, IDC_CHK_NOTIFY) == BST_CHECKED);
+                    self->m_soundAlert = (IsDlgButtonChecked(fields, IDC_CHK_SOUND) == BST_CHECKED);
+                    self->m_confirmKill= (IsDlgButtonChecked(fields, IDC_CHK_CONFIRM) == BST_CHECKED);
+                    self->m_threatOnline = (IsDlgButtonChecked(fields, IDC_CHK_THREAT) == BST_CHECKED);
+                    self->m_rdapOnline   = (IsDlgButtonChecked(fields, IDC_CHK_RDAP) == BST_CHECKED);
+                    self->m_bannerOnline = (IsDlgButtonChecked(fields, IDC_CHK_BANNER) == BST_CHECKED);
+                    self->m_abuseKey = abuseKey;
+                    self->m_vtKey = vtKey;
                     self->m_vtOnline = !self->m_vtKey.empty();
-                    {
-                        int li = (int)SendDlgItemMessageW(dlg, IDC_CMB_LANG, CB_GETCURSEL, 0, 0);
-                        const auto langs = I18nLanguages();
-                        if (li >= 0 && li < (int)langs.size()) {
-                            self->m_lang = langs[li].first;
-                            I18nSetLanguage(self->m_lang);
-                            I18nLoadFrom(ExeDir() + L"\\lang");
-                            I18nLoadFrom(AppDataDir() + L"\\lang");
-                            InvalidateRect(self->m_hwnd, nullptr, TRUE);
-                        }
-                    }
+                    self->m_lang = language;
+                    I18nSetLanguage(self->m_lang);
+                    I18nLoadFrom(ExeDir() + L"\\lang");
+                    I18nLoadFrom(AppDataDir() + L"\\lang");
+                    InvalidateRect(self->m_hwnd, nullptr, TRUE);
                     self->m_geo.SetOnline(self->m_geoOnline);
                     self->m_threat.SetOnline(self->m_threatOnline || self->m_rdapOnline || self->m_vtOnline);
                     self->m_threat.SetRdapOnline(self->m_rdapOnline);
@@ -5100,15 +5154,8 @@ INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                     self->m_threat.SetVtKey(self->m_vtKey);
                     self->m_cert.SetOnline(self->m_threatOnline);
                     self->m_banner.SetOnline(self->m_bannerOnline);
-                    UINT iv = GetDlgItemInt(dlg, IDC_ED_INTERVAL, nullptr, FALSE);
-                    if (iv < 5) iv = 5;
-                    if (iv > 100) iv = 100;
-                    self->m_interval = (int)iv * 100;
-                    UINT rm = GetDlgItemInt(dlg, IDC_ED_RISKMIN, nullptr, FALSE);
-                    if (rm < 20) rm = 20;
-                    if (rm > 100) rm = 100;
-                    self->m_notifyMin = (int)rm;
-                    self->SavePrefs();
+                    self->m_interval = (int)interval * 100;
+                    self->m_notifyMin = (int)risk;
                     self->m_effInterval = self->m_interval;
                     SetTimer(self->m_hwnd, 1, self->m_interval, nullptr);
                 }

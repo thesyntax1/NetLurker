@@ -1,4 +1,5 @@
 #include "ai.h"
+#include "config_store.h"
 #include "i18n.h"
 #include "http.h"
 #include "json.h"
@@ -29,7 +30,13 @@ static std::wstring AnswerRules() {
 
 std::wstring ConfigPath() { return AppDataDir() + L"\\config.ini"; }
 
-AiConfig LoadAiConfig() {
+std::wstring AiEnvironmentKey() {
+    wchar_t env[1024]{};
+    const DWORD length = GetEnvironmentVariableW(L"OPENAI_API_KEY", env, 1024);
+    return length > 0 && length < 1024 ? Trim(env) : L"";
+}
+
+AiConfig LoadAiConfig(bool includeEnvironmentKey) {
     AiConfig cfg;
     const std::wstring path = ConfigPath();
     wchar_t buf[1024];
@@ -41,20 +48,16 @@ AiConfig LoadAiConfig() {
     GetPrivateProfileStringW(L"ai", L"api_key", L"", buf, 1024, path.c_str());
     cfg.apiKey = Trim(buf);
 
-    if (cfg.apiKey.empty()) {
-        wchar_t env[1024] = L"";
-        if (GetEnvironmentVariableW(L"OPENAI_API_KEY", env, 1024) > 0) cfg.apiKey = Trim(env);
-    }
+    if (includeEnvironmentKey && cfg.apiKey.empty()) cfg.apiKey = AiEnvironmentKey();
     if (cfg.endpoint.empty()) cfg.endpoint = L"https://api.openai.com/v1/chat/completions";
     if (cfg.model.empty())    cfg.model    = L"gpt-4o-mini";
     return cfg;
 }
 
-void SaveAiConfig(const AiConfig& cfg) {
-    const std::wstring path = ConfigPath();
-    WritePrivateProfileStringW(L"ai", L"endpoint", cfg.endpoint.c_str(), path.c_str());
-    WritePrivateProfileStringW(L"ai", L"model",    cfg.model.c_str(),    path.c_str());
-    WritePrivateProfileStringW(L"ai", L"api_key",  cfg.apiKey.c_str(),   path.c_str());
+bool SaveAiConfig(const AiConfig& cfg) {
+    return UpdateIniAtomically(ConfigPath(), {
+        {L"ai", L"endpoint", cfg.endpoint}, {L"ai", L"model", cfg.model}, {L"ai", L"api_key", cfg.apiKey}
+    });
 }
 
 std::wstring BuildAnalysisPrompt(const Conn& c, const std::vector<Conn>& all, const ProcContext& pc) {

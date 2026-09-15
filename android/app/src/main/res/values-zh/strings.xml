@@ -3,6 +3,7 @@
      Do not edit by hand: edit the catalog and re-run the generator. -->
 <resources>
     <string name="action.ai_analyze" formatted="false">AI分析</string>
+    <string name="action.cancel" formatted="false">取消</string>
     <string name="action.clear_baselines" formatted="false">清除基线</string>
     <string name="action.clear_cache" formatted="false">清除缓存</string>
     <string name="action.close" formatted="false">关闭</string>
@@ -19,6 +20,7 @@
     <string name="action.remove" formatted="false">移除</string>
     <string name="action.reset_session" formatted="false">重置会话</string>
     <string name="action.resume" formatted="false">继续</string>
+    <string name="action.save" formatted="false">保存</string>
     <string name="action.save_cache" formatted="false">保存缓存</string>
     <string name="action.skip" formatted="false">跳过</string>
     <string name="ai.concern.disabled" formatted="false">这些信息源已关闭，缺失不代表安全：{sources}</string>
@@ -364,6 +366,9 @@
     <string name="settings.banner" formatted="false">HTTP 横幅探测</string>
     <string name="settings.banner.detail" formatted="false">向目标发送一次 HEAD 请求，读取状态行和 Server 头。</string>
     <string name="settings.cache.detail" formatted="false">仅缓存成功应答及其获取时间。失败从不存储，网络问题不会变成永久结论。</string>
+    <string name="settings.error.endpoint" formatted="false">请输入有效的 HTTPS AI 地址，不含凭据或片段。</string>
+    <string name="settings.error.model" formatted="false">请输入 AI 模型名称，或移除密钥以使用本地分析。</string>
+    <string name="settings.error.save" formatted="false">无法保存设置。请检查可用存储空间后重试。更改仍保留在此窗口。</string>
     <string name="settings.geo" formatted="false">IP 地理位置（ip-api.com）</string>
     <string name="settings.geo.detail" formatted="false">仅发送你调查的 IP 地址。免费接口为明文 HTTP。</string>
     <string name="settings.key.optional" formatted="false">可选 — 留空即跳过</string>
@@ -375,6 +380,7 @@
     <string name="settings.rdap" formatted="false">RDAP 所有权</string>
     <string name="settings.rdap.detail" formatted="false">通过 rdap.org 查询地址块所有者及滥用举报方式。</string>
     <string name="settings.refresh" formatted="false">每 {ms} 毫秒轮询</string>
+    <string name="settings.saving" formatted="false">正在保存…</string>
     <string name="settings.threat" formatted="false">威胁情报</string>
     <string name="settings.threat.detail" formatted="false">5 个 DNS 黑名单、CIRCL 被动 DNS，以及在你提供密钥时的 AbuseIPDB。</string>
     <string name="settings.title" formatted="false">设置</string>

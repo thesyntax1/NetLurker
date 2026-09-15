@@ -3,6 +3,7 @@
      Do not edit by hand: edit the catalog and re-run the generator. -->
 <resources>
     <string name="action.ai_analyze" formatted="false">AI分析</string>
+    <string name="action.cancel" formatted="false">キャンセル</string>
     <string name="action.clear_baselines" formatted="false">ベースラインを消去</string>
     <string name="action.clear_cache" formatted="false">キャッシュを消去</string>
     <string name="action.close" formatted="false">閉じる</string>
@@ -19,6 +20,7 @@
     <string name="action.remove" formatted="false">削除</string>
     <string name="action.reset_session" formatted="false">セッションをリセット</string>
     <string name="action.resume" formatted="false">再開</string>
+    <string name="action.save" formatted="false">保存</string>
     <string name="action.save_cache" formatted="false">キャッシュを保存</string>
     <string name="action.skip" formatted="false">スキップ</string>
     <string name="ai.concern.disabled" formatted="false">これらの情報源は無効です。 absenceは証拠ではありません: {sources}</string>
@@ -364,6 +366,9 @@
     <string name="settings.banner" formatted="false">HTTPバナー調査</string>
     <string name="settings.banner.detail" formatted="false">対象へHEAD要求を1回送信し、ステータスラインとServerヘッダを読みます。</string>
     <string name="settings.cache.detail" formatted="false">成功した回答のみ取得時刻付きで保存されます。失敗は保存されないため、通信障害が恒久的な判定になることはありません。</string>
+    <string name="settings.error.endpoint" formatted="false">認証情報やフラグメントを含まない有効な HTTPS AI URL を入力してください。</string>
+    <string name="settings.error.model" formatted="false">AI モデル名を入力するか、キーを削除してローカル分析を使用してください。</string>
+    <string name="settings.error.save" formatted="false">設定を保存できませんでした。空き容量を確認して再試行してください。変更はこの画面に残っています。</string>
     <string name="settings.geo" formatted="false">IP地理位置 (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">調査対象のIPアドレスのみ送信します。無料枠は平文HTTPです。</string>
     <string name="settings.key.optional" formatted="false">任意 — 空欄で省略</string>
@@ -375,6 +380,7 @@
     <string name="settings.rdap" formatted="false">RDAP所有者</string>
     <string name="settings.rdap.detail" formatted="false">アドレスブロックの所有者とabuse連絡先をrdap.org経由で取得。</string>
     <string name="settings.refresh" formatted="false">{ms} msごとに取得</string>
+    <string name="settings.saving" formatted="false">保存中…</string>
     <string name="settings.threat" formatted="false">脅威インテリジェンス</string>
     <string name="settings.threat.detail" formatted="false">5つのDNSブラックリスト、CIRCLパッシブDNS、キーがあればAbuseIPDB。</string>
     <string name="settings.title" formatted="false">設定</string>

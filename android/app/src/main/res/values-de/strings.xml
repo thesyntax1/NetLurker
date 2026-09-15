@@ -3,6 +3,7 @@
      Do not edit by hand: edit the catalog and re-run the generator. -->
 <resources>
     <string name="action.ai_analyze" formatted="false">KI-Analyse</string>
+    <string name="action.cancel" formatted="false">Abbrechen</string>
     <string name="action.clear_baselines" formatted="false">Basislinien löschen</string>
     <string name="action.clear_cache" formatted="false">Cache leeren</string>
     <string name="action.close" formatted="false">Schließen</string>
@@ -19,6 +20,7 @@
     <string name="action.remove" formatted="false">Entfernen</string>
     <string name="action.reset_session" formatted="false">Sitzung zurücksetzen</string>
     <string name="action.resume" formatted="false">Fortsetzen</string>
+    <string name="action.save" formatted="false">Speichern</string>
     <string name="action.save_cache" formatted="false">Cache speichern</string>
     <string name="action.skip" formatted="false">Überspringen</string>
     <string name="ai.concern.disabled" formatted="false">Diese Quellen sind deaktiviert; ihr Fehlen ist kein Beweis: {sources}</string>
@@ -364,6 +366,9 @@
     <string name="settings.banner" formatted="false">HTTP-Banner-Prüfung</string>
     <string name="settings.banner.detail" formatted="false">Ein HEAD-Request an das Ziel; liest Statuszeile und Server-Header.</string>
     <string name="settings.cache.detail" formatted="false">Nur erfolgreiche Antworten werden mit Zeitstempel gespeichert. Fehler werden nie gespeichert, damit ein Netzwerkproblem kein dauerhaftes Urteil wird.</string>
+    <string name="settings.error.endpoint" formatted="false">Gültige HTTPS-KI-Adresse ohne Zugangsdaten oder Fragment eingeben.</string>
+    <string name="settings.error.model" formatted="false">KI-Modell eingeben oder den Schlüssel für lokale Analyse entfernen.</string>
+    <string name="settings.error.save" formatted="false">Einstellungen nicht gespeichert. Freien Speicher prüfen und erneut versuchen. Die Änderungen bleiben im Dialog.</string>
     <string name="settings.geo" formatted="false">IP-Geolokalisierung (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">Sendet nur die untersuchten IP-Adressen. Die Gratisstufe ist normales HTTP.</string>
     <string name="settings.key.optional" formatted="false">optional — leer lassen zum Überspringen</string>
@@ -375,6 +380,7 @@
     <string name="settings.rdap" formatted="false">RDAP-Eigentum</string>
     <string name="settings.rdap.detail" formatted="false">Wem der Adressbereich gehört und wohin Missbrauch zu melden ist, über rdap.org.</string>
     <string name="settings.refresh" formatted="false">Alle {ms} ms abfragen</string>
+    <string name="settings.saving" formatted="false">Speichern…</string>
     <string name="settings.threat" formatted="false">Bedrohungsinformationen</string>
     <string name="settings.threat.detail" formatted="false">5 DNS-Blacklists, passives CIRCL-DNS und AbuseIPDB mit eigenem Schlüssel.</string>
     <string name="settings.title" formatted="false">Einstellungen</string>

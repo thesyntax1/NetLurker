@@ -8,10 +8,10 @@ import android.content.SharedPreferences
  * lookups on, anything that needs a personal API key off, and the public-IP check off
  * because it is the one lookup that reveals the device's own address to a third party.
  */
-class Settings(context: Context) {
-
-    private val prefs: SharedPreferences =
+class Settings internal constructor(private val prefs: SharedPreferences) {
+    constructor(context: Context) : this(
         context.applicationContext.getSharedPreferences("netlurker", Context.MODE_PRIVATE)
+    )
 
     var geoEnabled: Boolean
         get() = prefs.getBoolean(KEY_GEO, true)
@@ -83,6 +83,33 @@ class Settings(context: Context) {
     var aiApiKey: String
         get() = prefs.getString(KEY_AI_KEY, "").orEmpty()
         set(value) = prefs.edit().putString(KEY_AI_KEY, value.trim()).apply()
+
+    fun snapshot() = SettingsValues(
+        geoEnabled, threatEnabled, rdapEnabled, vtEnabled, tlsEnabled, bannerEnabled,
+        publicIpEnabled, anomalyNotifications, refreshMs, languageOverride,
+        abuseIpDbKey, virusTotalKey, aiEndpoint, aiModel, aiApiKey
+    )
+
+    /** Single editor transaction; call on IO, and do not dismiss the editor on failure. */
+    fun save(values: SettingsValues): Boolean {
+        val next = values.normalized()
+        if (next.validationError() != null) return false
+        val previous = snapshot()
+        val saved = runCatching { writeValues(next).commit() }.getOrDefault(false)
+        // SharedPreferences updates its in-memory map even if its disk commit fails.
+        if (!saved) writeValues(previous).apply()
+        return saved
+    }
+
+    private fun writeValues(v: SettingsValues): SharedPreferences.Editor = prefs.edit()
+        .putBoolean(KEY_GEO, v.geo).putBoolean(KEY_THREAT, v.threat)
+        .putBoolean(KEY_RDAP, v.rdap).putBoolean(KEY_VT, v.vt)
+        .putBoolean(KEY_TLS, v.tls).putBoolean(KEY_BANNER, v.banner)
+        .putBoolean(KEY_PUBLIC_IP, v.publicIp).putBoolean(KEY_NOTIFY, v.notify)
+        .putLong(KEY_REFRESH, v.refreshMs).putString(KEY_LANGUAGE, v.language)
+        .putString(KEY_ABUSE_KEY, v.abuseKey).putString(KEY_VT_KEY, v.vtKey)
+        .putString(KEY_AI_ENDPOINT, v.aiEndpoint).putString(KEY_AI_MODEL, v.aiModel)
+        .putString(KEY_AI_KEY, v.aiKey)
 
     fun aiConfigured(): Boolean =
         aiApiKey.isNotBlank() && aiEndpoint.isNotBlank() && aiModel.isNotBlank()

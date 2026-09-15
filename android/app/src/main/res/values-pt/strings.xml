@@ -3,6 +3,7 @@
      Do not edit by hand: edit the catalog and re-run the generator. -->
 <resources>
     <string name="action.ai_analyze" formatted="false">Análise IA</string>
+    <string name="action.cancel" formatted="false">Cancelar</string>
     <string name="action.clear_baselines" formatted="false">Limpar linhas base</string>
     <string name="action.clear_cache" formatted="false">Limpar cache</string>
     <string name="action.close" formatted="false">Fechar</string>
@@ -19,6 +20,7 @@
     <string name="action.remove" formatted="false">Remover</string>
     <string name="action.reset_session" formatted="false">Reiniciar sessão</string>
     <string name="action.resume" formatted="false">Retomar</string>
+    <string name="action.save" formatted="false">Salvar</string>
     <string name="action.save_cache" formatted="false">Salvar cache</string>
     <string name="action.skip" formatted="false">Ignorar</string>
     <string name="ai.concern.disabled" formatted="false">Estas fontes estão desativadas, a ausência não é evidência: {sources}</string>
@@ -364,6 +366,9 @@
     <string name="settings.banner" formatted="false">Sonda de banner HTTP</string>
     <string name="settings.banner.detail" formatted="false">Um pedido HEAD ao destino; lê a linha de estado e o cabeçalho Server.</string>
     <string name="settings.cache.detail" formatted="false">Apenas respostas bem-sucedidas são guardadas, com a hora. As falhas nunca são guardadas, para que um problema de rede não vire veredicto permanente.</string>
+    <string name="settings.error.endpoint" formatted="false">Insira uma URL HTTPS de IA válida sem credenciais ou fragmento.</string>
+    <string name="settings.error.model" formatted="false">Insira um modelo de IA ou remova a chave para usar a análise local.</string>
+    <string name="settings.error.save" formatted="false">Não foi possível salvar. Verifique o espaço livre e tente novamente. As alterações continuam aqui.</string>
     <string name="settings.geo" formatted="false">Geolocalização IP (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">Envia apenas os endereços IP investigados. O nível gratuito é HTTP simples.</string>
     <string name="settings.key.optional" formatted="false">opcional — deixe vazio para ignorar</string>
@@ -375,6 +380,7 @@
     <string name="settings.rdap" formatted="false">Propriedade RDAP</string>
     <string name="settings.rdap.detail" formatted="false">Quem detém o bloco e para onde reportar abuso, via rdap.org.</string>
     <string name="settings.refresh" formatted="false">Sondar a cada {ms} ms</string>
+    <string name="settings.saving" formatted="false">Salvando…</string>
     <string name="settings.threat" formatted="false">Inteligência de ameaças</string>
     <string name="settings.threat.detail" formatted="false">5 listas negras DNS, DNS passivo CIRCL e AbuseIPDB se fornecer chave.</string>
     <string name="settings.title" formatted="false">Definições</string>

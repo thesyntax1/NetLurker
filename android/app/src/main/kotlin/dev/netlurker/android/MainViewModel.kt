@@ -24,6 +24,7 @@ import dev.netlurker.android.data.HostsFile
 import dev.netlurker.android.data.NetworkSource
 import dev.netlurker.android.data.SessionHistory
 import dev.netlurker.android.data.Settings
+import dev.netlurker.android.data.SettingsValues
 import dev.netlurker.android.data.TrafficSource
 import dev.netlurker.android.intel.PublicIp
 import kotlinx.coroutines.Dispatchers
@@ -139,25 +140,38 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         settings.anomalyNotifications = enabled
     }
 
-    /** Re-reads everything that is not on the poll loop. */
+    suspend fun saveSettings(values: SettingsValues): Boolean {
+        val saved = withContext(Dispatchers.IO) { settings.save(values) }
+        if (saved) refreshNetwork()
+        return saved
+    }
+
+    suspend fun clearIntelCaches() = withContext(Dispatchers.IO) { intel.clearCaches() }
+
+    /** Publish on Main after cancellable IO boundaries, never from a superseded blocking lookup. */
     fun refreshNetwork() {
         networkJob?.cancel()
-        networkJob = viewModelScope.launch(Dispatchers.IO) {
-            _link.value = runCatching { network.activeLink() }.getOrNull()
-            _wifi.value = runCatching { network.wifi(locationGranted) }.getOrNull()
-            _cellular.value = runCatching { network.cellular() }.getOrNull()
-            _interfaces.value = runCatching { network.interfaces() }.getOrDefault(emptyList())
-            _hosts.value = HostsFile.read()
+        if (!settings.publicIpEnabled) {
+            _device.value = _device.value?.copy(
+                publicIp = null, publicIpStatus = IntelStatus.DISABLED, publicIpDetail = null
+            )
+        }
+        networkJob = viewModelScope.launch {
+            _link.value = withContext(Dispatchers.IO) { runCatching { network.activeLink() }.getOrNull() }
+            _wifi.value = withContext(Dispatchers.IO) { runCatching { network.wifi(locationGranted) }.getOrNull() }
+            _cellular.value = withContext(Dispatchers.IO) { runCatching { network.cellular() }.getOrNull() }
+            _interfaces.value = withContext(Dispatchers.IO) { runCatching { network.interfaces() }.getOrDefault(emptyList()) }
+            _hosts.value = withContext(Dispatchers.IO) { HostsFile.read() }
             if (settings.publicIpEnabled) {
-                _device.value = _device.value?.copy(publicIpStatus = IntelStatus.PENDING)
-                val (ip, error) = PublicIp.lookup()
-                _device.value = _device.value?.copy(
-                    publicIp = ip,
-                    publicIpStatus = if (ip != null) IntelStatus.OK else IntelStatus.FAILED,
-                    publicIpDetail = error
-                )
-            } else if (_device.value?.publicIpStatus == IntelStatus.PENDING) {
-                _device.value = _device.value?.copy(publicIpStatus = IntelStatus.DISABLED)
+                _device.value = _device.value?.copy(publicIp = null, publicIpStatus = IntelStatus.PENDING, publicIpDetail = null)
+                val (ip, error) = withContext(Dispatchers.IO) { PublicIp.lookup() }
+                if (settings.publicIpEnabled) {
+                    _device.value = _device.value?.copy(
+                        publicIp = ip,
+                        publicIpStatus = if (ip != null) IntelStatus.OK else IntelStatus.FAILED,
+                        publicIpDetail = error
+                    )
+                }
             }
         }
     }

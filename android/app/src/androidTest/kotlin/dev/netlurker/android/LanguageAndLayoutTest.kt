@@ -4,9 +4,13 @@ import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
@@ -15,6 +19,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.assertDoesNotExist
 import androidx.compose.ui.test.performClick
 import androidx.lifecycle.ViewModelStore
 import androidx.test.core.app.ApplicationProvider
@@ -90,23 +97,63 @@ class LanguageAndLayoutTest {
     }
 
     @Test
-    fun settingsPickerAppliesImmediatelyAndPersists() {
+    fun settingsPickerPreviewsButOnlySavePersists() {
         val model = MainViewModel(application)
         store.put("settings-test", model)
+        var open by mutableStateOf(true)
         compose.setContent {
             NetLurkerTheme {
-                SettingsDialog(model, onRequestLocation = {}, onDismiss = {})
+                if (open) SettingsDialog(model, onRequestLocation = {}, onDismiss = { open = false })
             }
         }
         compose.onNodeWithText("English").performClick()
         compose.onNodeWithText("Türkçe").performClick()
         compose.onNodeWithText("DİL").assertIsDisplayed()
+        assertEquals("en", Settings(application).languageOverride)
+        compose.onNodeWithTag("settings-save").assertIsDisplayed().performClick()
+        compose.waitUntil(5000) { !open }
         assertEquals("tr", Settings(application).languageOverride)
         assertEquals("Dil", Strings(application)("settings.language"))
-        compose.onNodeWithText("Türkçe").performClick()
+        compose.onNodeWithTag("settings-save").assertDoesNotExist()
+    }
+
+    @Test
+    fun cancelDiscardsTheLanguageDraft() {
+        val model = MainViewModel(application)
+        store.put("cancel-test", model)
+        var open by mutableStateOf(true)
+        compose.setContent {
+            NetLurkerTheme {
+                if (open) SettingsDialog(model, onRequestLocation = {}, onDismiss = { open = false })
+            }
+        }
         compose.onNodeWithText("English").performClick()
-        compose.onNodeWithText("LANGUAGE").assertIsDisplayed()
+        compose.onNodeWithText("Türkçe").performClick()
+        compose.onNodeWithTag("settings-cancel").performClick()
+        compose.onNodeWithTag("settings-save").assertDoesNotExist()
         assertEquals("en", Settings(application).languageOverride)
+        assertEquals("Language", Strings(application)("settings.language"))
+    }
+
+    @Test
+    fun compactSettingsKeepsBothActionsVisibleAtDoubleFontSizeEvenAfterScrolling() {
+        val model = MainViewModel(application)
+        store.put("compact-settings-test", model)
+        compose.setContent {
+            val density = LocalDensity.current.density
+            CompositionLocalProvider(LocalDensity provides Density(density, fontScale = 2f)) {
+                NetLurkerTheme {
+                    SettingsDialog(model, onRequestLocation = {}, onDismiss = {},
+                        modifier = Modifier.width(320.dp).heightIn(max = 360.dp))
+                }
+            }
+        }
+        val before = compose.onNodeWithTag("settings-save").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("settings-cancel").assertIsDisplayed()
+        compose.onNodeWithText(Strings(application)("privacy.body")).performScrollTo()
+        val after = compose.onNodeWithTag("settings-save").assertIsDisplayed().fetchSemanticsNode().boundsInRoot
+        compose.onNodeWithTag("settings-cancel").assertIsDisplayed()
+        assertEquals("Scrolling the form must not move Save", before, after)
     }
 
     @Test

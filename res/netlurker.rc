@@ -6,7 +6,7 @@
 IDI_APPICON ICON "netlurker.ico"
 
 IDD_SETTINGS DIALOGEX 0, 0, 380, 416
-STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME | WS_CLIPCHILDREN
 CAPTION "NetLurker - Settings"
 FONT 9, "Segoe UI", 400, 0, 0x0
 BEGIN
@@ -38,10 +38,10 @@ BEGIN
     AUTOCHECKBOX    "HTTP banner tespiti etkin (uzak sunucu yazilimi)", IDC_CHK_BANNER, 12, 246, 356, 12
 
     LTEXT           "AbuseIPDB API anahtari (bos birakilabilir, abuseipdb.com ucretsiz):", IDC_ST_ABUSEKEY, 12, 264, 356, 9
-    EDITTEXT        IDC_ED_ABUSEKEY, 12, 276, 356, 14, ES_AUTOHSCROLL
+    EDITTEXT        IDC_ED_ABUSEKEY, 12, 276, 356, 14, ES_AUTOHSCROLL | ES_PASSWORD
 
     LTEXT           "VirusTotal API anahtari (bos = kapali; ucretsiz plan: dakikada 4 sorgu):", IDC_ST_VTKEY, 12, 298, 356, 9
-    EDITTEXT        IDC_ED_VTKEY, 12, 310, 356, 14, ES_AUTOHSCROLL
+    EDITTEXT        IDC_ED_VTKEY, 12, 310, 356, 14, ES_AUTOHSCROLL | ES_PASSWORD
 
     LTEXT           "Dil / Language:", IDC_ST_LANG, 12, 334, 60, 9
     COMBOBOX        IDC_CMB_LANG, 76, 332, 292, 120, CBS_DROPDOWNLIST | WS_VSCROLL | WS_TABSTOP

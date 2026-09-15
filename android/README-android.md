@@ -26,7 +26,9 @@ support flags and null measurements; CSV leaves unavailable traffic fields blank
 ## First run and privacy
 
 The application starts in English regardless of the device language. Change it at the top
-of Settings; the selection applies immediately and is remembered. Exports, notifications,
+of Settings; the dialog previews your choice, and **Save** applies and remembers it.
+**Cancel** or Back discards the draft. Save/Cancel stay below the scrollable form,
+including on compact screens. Cache and OS-permission actions are separate, immediate actions. Exports, notifications,
 and the AI request language follow that selection.
 
 Review [Privacy](../PRIVACY.md): enrichment sends entered destinations to third-party
