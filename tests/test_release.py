@@ -48,6 +48,7 @@ class PackageTest(unittest.TestCase):
                 self.assertEqual(hashlib.sha256(zf.read(name)).hexdigest(), digest)
             self.assertIn("PRIVACY.md", zf.namelist())
             self.assertIn("LICENSE", zf.namelist())
+            self.assertIn("docs/RELEASES.md", zf.namelist())
         self.assertIn(hashlib.sha256(archive.read_bytes()).hexdigest(),
                       (archive.parent / "SHA256SUMS.txt").read_text())
 

@@ -48,7 +48,7 @@ def package(source: Path, output: Path, version: str, revision: str, public: boo
             raise ValueError(f"missing or stale bundled language: {code}")
         payload[f"lang/{path.name}"] = content
     for name in ("LICENSE", "README.md", "README.tr.md", "PRIVACY.md", "SECURITY.md", "CONTRIBUTING.md",
-                 "android/README-android.md", "docs/DATA-ACCURACY.md", "docs/RELEASE-CHECKLIST.md",
+                 "android/README-android.md", "docs/DATA-ACCURACY.md", "docs/RELEASE-CHECKLIST.md", "docs/RELEASES.md",
                  "docs/UI-REGRESSION-CHECKS.md", "docs/VISUAL-PROVENANCE.md"):
         payload[name] = (ROOT / name).read_bytes()
     payload["BUILDINFO.json"] = (json.dumps({
