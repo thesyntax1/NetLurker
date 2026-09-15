@@ -373,21 +373,38 @@ jobs:
           api-level: 34
           arch: x86_64
           disable-animations: true
+          # The action's own input, so the Gradle project is the working directory instead
+          # of a `cd` that silently changes where every later relative path lands.
+          working-directory: ${{ github.workspace }}/android
           script: |
             set -x
+            # Nothing in here may abort the rest: the evidence steps matter even when an
+            # earlier command fails, and every exit code is written down so a silent stop
+            # shows up in the report instead of only in a log nobody can download.
+            set +e
+            W="$GITHUB_WORKSPACE"
+            echo "begin cwd=$(pwd) W=$W" > "$W/smoke-steps.txt"
             adb wait-for-device
-            adb install -r apk/app-debug.apk
+            echo "wait_for_device=$?" >> "$W/smoke-steps.txt"
+            adb install -r "$W/apk/app-debug.apk"
+            echo "install=$?" >> "$W/smoke-steps.txt"
             adb logcat -c
             adb shell am start -W -n dev.netlurker.android.debug/dev.netlurker.android.MainActivity
+            echo "am_start=$?" >> "$W/smoke-steps.txt"
             sleep 45
-            adb shell dumpsys activity activities > activities.txt
-            adb logcat -d > logcat.txt
-            adb exec-out screencap -p > screen.png || true
+            adb shell dumpsys activity activities > "$W/activities.txt"
+            echo "dumpsys=$?" >> "$W/smoke-steps.txt"
+            adb logcat -d > "$W/logcat.txt"
+            echo "logcat=$?" >> "$W/smoke-steps.txt"
+            adb exec-out screencap -p > "$W/screen.png"
+            echo "screencap=$?" >> "$W/smoke-steps.txt"
             echo "--- instrumented UI tests: every tab, for real ---"
-            cd android
             chmod +x gradlew
-            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest 2>&1 | tee ../ui-tests.log
-            echo "${PIPESTATUS[0]}" > ../ui-tests-exit.txt
+            echo "chmod=$?" >> "$W/smoke-steps.txt"
+            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest 2>&1 | tee "$W/ui-tests.log"
+            echo "${PIPESTATUS[0]}" > "$W/ui-tests-exit.txt"
+            echo "gradle=$(cat "$W/ui-tests-exit.txt")" >> "$W/smoke-steps.txt"
+            cat "$W/smoke-steps.txt"
 
       - name: Publish smoke test report
         if: always()
@@ -435,12 +452,19 @@ jobs:
               parts.extend(log[-40:])
           else:
               parts.append("(no ui-tests-exit.txt: the instrumented test step did not run)")
+          if os.path.exists("smoke-steps.txt"):
+              parts.append("=== script step exit codes ===")
+              parts.extend(open("smoke-steps.txt").read().splitlines()[:40])
+          else:
+              parts.append("(no smoke-steps.txt: the emulator script produced no markers)")
           if crashed:
               title = "Smoke test: CRASH detected"
           elif ui_exit is not None and ui_exit != "0":
               title = "Smoke test: launched, UI tests FAILED"
           elif ui_exit == "0":
               title = "Smoke test: launched, UI tests green"
+          elif resumed:
+              title = "Smoke test: launched, activity present, UI tests did not run"
           else:
               title = "Smoke test: launched, state unclear"
           body = "\n".join(parts)
@@ -468,6 +492,7 @@ jobs:
             activities.txt
             screen.png
             ui-tests.log
+            smoke-steps.txt
           if-no-files-found: ignore
 
       # Published after the report so a UI failure is visible in the check run and still
@@ -475,7 +500,13 @@ jobs:
       - name: Fail when the instrumented UI tests failed
         if: always()
         run: |
-          if [ -f ui-tests-exit.txt ] && [ "$(cat ui-tests-exit.txt)" != "0" ]; then
+          # Absent is a failure too: it means the emulator script stopped before Gradle ran.
+          if [ ! -f ui-tests-exit.txt ]; then
+            echo "instrumented UI tests never ran (no ui-tests-exit.txt)"
+            cat smoke-steps.txt 2>/dev/null || true
+            exit 1
+          fi
+          if [ "$(cat ui-tests-exit.txt)" != "0" ]; then
             echo "instrumented UI tests failed (exit $(cat ui-tests-exit.txt))"
             tail -n 60 ui-tests.log || true
             exit 1
