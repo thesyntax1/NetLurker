@@ -243,7 +243,7 @@ class BeaconAndHostsTest {
         )
         // 25 anomaly + 20 exfiltration ratio + 25 fast heartbeat
         assertEquals(70, verdict.score)
-        assertEquals(RiskLevel.HIGH, verdict.level)
+        assertEquals(RiskLevel.DANGER, verdict.level)
         assertEquals(
             listOf(
                 ReasonKeys.APP_TRAFFIC_ANOMALY,

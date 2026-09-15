@@ -75,6 +75,25 @@ The anomaly detector is the desktop EMA + variance model unchanged (α = 0.15, w
 samples, outlier above `ema + 3σ` or `3 × ema`); only the unit changes — bytes per second
 per application instead of new connections per minute — with the floor raised accordingly.
 
+Three more desktop rules survived the port, because they need traffic rather than sockets.
+Their thresholds are the desktop's, so a score means the same thing on both platforms; only
+the unit they are applied to differs.
+
+| Rule | Desktop | Android | Points |
+| --- | --- | --- | --- |
+| Hosts-file redirect | `IsHostsRedirect()`, `src/dns.cpp` | same parse of `/system/etc/hosts`, re-read at most once a minute, scored only for public addresses | +15 |
+| Exfiltration ratio | `rateOut > 200 KiB/s` and `> 6 × rateIn` | identical, per application, and disabled entirely when the counters are unsupported | +20 |
+| Heartbeat | `netmon.cpp:948`, ≤ 24 events, 30-minute window, ≥ 4 hits, mean 2–900 s, `sd/mean < 0.25` | same arithmetic per application, fed by the rising edge over a 2 KiB/s burst floor | +25 within 120 s, else +12 |
+
+The hosts file is read, never guessed: when Android refuses it to an unprivileged app the
+network tab says so in plain words rather than showing an empty list that would read as
+"nothing is redirected".
+
+Still absent, and absent for a reason rather than an oversight: the desktop's port-scan,
+ARP, DNS-cache and listening-socket rules all need a socket table or a raw socket, and the
+Windows-only process rules (signature state, suspended, persistent) have no Android
+counterpart an unrooted app can reach.
+
 ## Languages
 
 Eight, generated from one catalog by
@@ -96,6 +115,7 @@ empty value, when a `{placeholder}` differs between languages, or when a checked
 cd android
 ./gradlew assembleDebug          # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew testDebugUnitTest      # risk model, baselines, formats, exports, parsers
+./gradlew connectedDebugAndroidTest   # needs a device: renders all five tabs
 ./gradlew lintDebug
 ```
 
@@ -114,11 +134,22 @@ run artifacts, so a build never has to happen on a developer machine:
 | `NetLurker-debug-apk` | debug-signed APK, installable as-is |
 | `NetLurker-release-apk` | minified APK, unsigned unless `keystore.properties` was present |
 | `android-build-log` | the Gradle output of the Android job |
+| `android-smoke-evidence` | emulator logcat, activity dump, screenshot, instrumented UI test log |
 
 The Windows job deletes the `build/NetLurker.exe` that is checked into the repository before
 compiling. Without that step a failed compile would still leave the committed binary behind
 and the artifact would look like a success. Both jobs also run their string-catalog check
 first, so a missing translation fails the build rather than reaching a user.
+
+Before Gradle runs at all, `android/tools/check_symbols.py` resolves every project-internal
+import and enum reference in the Kotlin sources. It is not a compiler and it does not claim
+to be: it exists because "Unresolved reference" is the one failure mode that costs a full
+cold CI run to discover, and it takes a second to catch locally.
+
+A third job boots an API 34 emulator, installs the debug APK, launches the activity and
+watches logcat for a crash, then runs `connectedDebugAndroidTest` against it — the
+instrumented tests compose all five tabs for real. That is the only automated evidence the
+app renders, since no unit test can tell you a composable survived missing data.
 
 ## Not included (and why)
 

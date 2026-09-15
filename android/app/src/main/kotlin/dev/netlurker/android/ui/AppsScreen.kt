@@ -39,7 +39,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.netlurker.android.MainViewModel
 import dev.netlurker.android.core.AppTraffic
-import dev.netlurker.android.core.RiskLevel
 import dev.netlurker.android.core.Verdict
 import dev.netlurker.android.core.Format
 
@@ -283,7 +282,7 @@ private fun AppRow(
             }
         }
 
-        if (verdict.level != RiskLevel.NONE) {
+        if (verdict.reasons.isNotEmpty()) {
             Spacer(Modifier.height(8.dp))
             VerdictPanel(verdict)
         }

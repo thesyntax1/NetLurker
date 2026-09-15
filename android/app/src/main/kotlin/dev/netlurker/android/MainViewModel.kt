@@ -14,7 +14,9 @@ import dev.netlurker.android.core.Format
 import dev.netlurker.android.core.IntelStatus
 import dev.netlurker.android.core.InterfaceInfo
 import dev.netlurker.android.core.LinkInfo
+import dev.netlurker.android.core.RiskEngine
 import dev.netlurker.android.core.Target
+import dev.netlurker.android.core.Verdict
 import dev.netlurker.android.core.WifiInfo
 import dev.netlurker.android.data.AppCatalog
 import dev.netlurker.android.data.IntelRepository
