@@ -166,6 +166,50 @@ jobs:
           Get-Content $diag
           exit $code
 
+      - name: Inspect the executable
+        shell: pwsh
+        run: |
+          git rev-parse HEAD | Set-Content build\build-revision.txt -Encoding ascii
+          Copy-Item version.json build\build-version.json
+          $version = (Get-Content version.json -Raw | ConvertFrom-Json).version
+          if ((Get-Item build\NetLurker.exe).VersionInfo.ProductVersion -ne $version) { throw "Embedded version mismatch" }
+          $exe = "build\NetLurker.exe"
+          if (-not (Test-Path $exe)) { throw "build.bat did not produce $exe" }
+          $item = Get-Item $exe
+          "NetLurker.exe : {0:N0} bytes, written {1:yyyy-MM-dd HH:mm:ss} UTC" -f $item.Length, $item.LastWriteTimeUtc
+          $head = [IO.File]::ReadAllBytes($exe)[0..1]
+          if ([Text.Encoding]::ASCII.GetString($head) -ne "MZ") { throw "$exe is not a PE executable" }
+          "PE header     : MZ ok"
+          $lang = Get-ChildItem build\lang\*.ini -ErrorAction SilentlyContinue
+          if (-not $lang) { throw "no language files were bundled" }
+          "lang files    : $($lang.Count)"
+          $lang | ForEach-Object { "  {0,-8} {1,8:N0} bytes" -f $_.Name, $_.Length }
+          Get-FileHash $exe -Algorithm SHA256 |
+            ForEach-Object { "{0}  NetLurker.exe" -f $_.Hash.ToLower() } |
+            Tee-Object build\SHA256SUMS.txt
+
+      - name: Test release ZIP and installer (no publication)
+        shell: pwsh
+        run: |
+          Start-Transcript -Path release-package.log
+          try {
+            $version = Get-Content version.json -Raw | ConvertFrom-Json
+            $revision = git rev-parse HEAD
+            python tools/package_release.py --input build --output candidate-output --version $version.version --revision $revision
+            if ($LASTEXITCODE -ne 0) { throw "Release ZIP validation failed" }
+            $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+            if (-not $iscc) { $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe' }
+            if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is required on the Windows runner" }
+            & $iscc "/DAppVersion=$($version.version)" "/DNumericVersion=$($version.windows_version)" installer/NetLurker.iss
+            if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+            # Exercise the hyphenated textual version separately. This fixture is NOT uploaded.
+            & $iscc '/DAppVersion=0.0.0-rc.1' '/DNumericVersion=0.0.0.401' installer/NetLurker.iss
+            if ($LASTEXITCODE -ne 0) { throw "Prerelease installer version compilation failed" }
+            if ((Get-Item dist/NetLurker-v0.0.0-rc.1-setup.exe).VersionInfo.ProductVersion -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch" }
+          } catch {
+            Write-Host ("::error::" + ($_.ToString() -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'))
+            throw
+          } finally { Stop-Transcript }
       - name: Publish Windows build report
         if: always()
         env:
@@ -200,6 +244,9 @@ jobs:
               parts.append("=== toolchain ===")
               parts.extend(open("toolchain.log", encoding="utf-8",
                                  errors="replace").read().splitlines()[:80])
+          if os.path.exists("release-package.log"):
+              parts.append("=== release packaging ===")
+              parts.extend(open("release-package.log", encoding="utf-8-sig", errors="replace").read().splitlines()[-100:])
           body = "\n".join(parts)
           print(json.dumps({
               "name": "windows-build-report",
@@ -215,45 +262,6 @@ jobs:
           PY
           gh api "repos/${GITHUB_REPOSITORY}/check-runs" --input "$RUNNER_TEMP/report.json" \
             --jq '{id, name, conclusion}'
-
-      - name: Inspect the executable
-        shell: pwsh
-        run: |
-          git rev-parse HEAD | Set-Content build\build-revision.txt -Encoding ascii
-          Copy-Item version.json build\build-version.json
-          $version = (Get-Content version.json -Raw | ConvertFrom-Json).version
-          if ((Get-Item build\NetLurker.exe).VersionInfo.ProductVersion -ne $version) { throw "Embedded version mismatch" }
-          $exe = "build\NetLurker.exe"
-          if (-not (Test-Path $exe)) { throw "build.bat did not produce $exe" }
-          $item = Get-Item $exe
-          "NetLurker.exe : {0:N0} bytes, written {1:yyyy-MM-dd HH:mm:ss} UTC" -f $item.Length, $item.LastWriteTimeUtc
-          $head = [IO.File]::ReadAllBytes($exe)[0..1]
-          if ([Text.Encoding]::ASCII.GetString($head) -ne "MZ") { throw "$exe is not a PE executable" }
-          "PE header     : MZ ok"
-          $lang = Get-ChildItem build\lang\*.ini -ErrorAction SilentlyContinue
-          if (-not $lang) { throw "no language files were bundled" }
-          "lang files    : $($lang.Count)"
-          $lang | ForEach-Object { "  {0,-8} {1,8:N0} bytes" -f $_.Name, $_.Length }
-          Get-FileHash $exe -Algorithm SHA256 |
-            ForEach-Object { "{0}  NetLurker.exe" -f $_.Hash.ToLower() } |
-            Tee-Object build\SHA256SUMS.txt
-
-      - name: Test release ZIP and installer (no publication)
-        shell: pwsh
-        run: |
-          $version = Get-Content version.json -Raw | ConvertFrom-Json
-          $revision = git rev-parse HEAD
-          python tools/package_release.py --input build --output candidate-output --version $version.version --revision $revision
-          if ($LASTEXITCODE -ne 0) { throw "Release ZIP validation failed" }
-          $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
-          if (-not $iscc) { $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe' }
-          if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is required on the Windows runner" }
-          & $iscc "/DAppVersion=$($version.version)" "/DNumericVersion=$($version.windows_version)" installer/NetLurker.iss
-          if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
-          # Exercise the hyphenated textual version separately. This fixture is NOT uploaded.
-          & $iscc '/DAppVersion=0.0.0-rc.1' '/DNumericVersion=0.0.0.401' installer/NetLurker.iss
-          if ($LASTEXITCODE -ne 0) { throw "Prerelease installer version compilation failed" }
-          if ((Get-Item dist/NetLurker-v0.0.0-rc.1-setup.exe).VersionInfo.ProductVersion -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch" }
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -360,7 +368,9 @@ jobs:
           find app/build/test-results -name "*.xml" -exec grep -h "<testsuite " {} \; || true
 
       - name: Exercise Android release signing with a disposable test key (never uploaded)
-        run: python3 tests/android_signing_smoke.py
+        run: |
+          set -o pipefail
+          python3 tests/android_signing_smoke.py 2>&1 | tee -a android/build.log
 
       - name: Publish build report
         if: always()
