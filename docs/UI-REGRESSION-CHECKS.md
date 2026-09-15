@@ -108,3 +108,13 @@ specific revision's CI result before treating any newly added test as passed.
    The address/detail must clear immediately; a late old result must not restore them.
 7. Cache and permission actions are immediate utilities, not draft settings: verify cache
    counts refresh after clearing, and permission prompts do not accidentally save the form.
+
+
+### Language picker discoverability
+
+Settings opens with the language picker at the top on both platforms. On Windows the
+combo box must be the first Tab stop, before the AI endpoint (checked by the native
+resource-dialog test). Android uses a full-width outlined selector with a dropdown arrow;
+the compact-dialog instrumentation checks that it opens without scrolling and offers
+Türkçe. Selection remains a draft until Save; first launch remains English. Android
+instrumentation must be executed on a device/emulator before claiming visual verification.

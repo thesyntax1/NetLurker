@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Button
 import androidx.compose.material3.OutlinedButton
@@ -214,9 +217,19 @@ fun SettingsDialog(
 
             SectionHeader(s("settings.language"))
             var languageMenu by remember { mutableStateOf(false) }
-            Box {
-                TextButton(onClick = { languageMenu = true }, enabled = !saving) {
-                    Text(Strings.supportedLanguages.first { it.first == s.language }.second, color = NL.Accent)
+            Box(Modifier.fillMaxWidth()) {
+                OutlinedButton(
+                    onClick = { keyboard?.hide(); languageMenu = true },
+                    enabled = !saving,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 56.dp).testTag("settings-language")
+                ) {
+                    Text(
+                        Strings.supportedLanguages.first { it.first == s.language }.second,
+                        color = NL.Accent,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = NL.Accent)
                 }
                 DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
                     Strings.supportedLanguages.forEach { (code, label) ->

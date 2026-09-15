@@ -33,6 +33,18 @@ int main() {
     HWND body = layout->Body();
     assert(GetParent(GetDlgItem(body, IDC_ED_KEY)) == body);
     assert(GetParent(GetDlgItem(dialog, IDOK)) == dialog);
+    HWND language = GetDlgItem(body, IDC_CMB_LANG);
+    assert(GetNextDlgTabItem(dialog, nullptr, FALSE) == language);
+    assert(GetNextDlgTabItem(dialog, language, FALSE) == GetDlgItem(body, IDC_ED_ENDPOINT));
+    RECT area{}; GetClientRect(body, &area);
+    const auto languageBounds = ChildRect(language, body);
+    const auto endpointBounds = ChildRect(GetDlgItem(body, IDC_ED_ENDPOINT), body);
+    assert(languageBounds.top >= 0 && languageBounds.bottom <= area.bottom);
+    assert(languageBounds.bottom <= endpointBounds.top);
+    SendMessageW(language, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"English"));
+    SendMessageW(language, CB_ADDSTRING, 0, reinterpret_cast<LPARAM>(L"Türkçe"));
+    SendMessageW(language, CB_SETCURSEL, 1, 0);
+    assert(SendMessageW(language, CB_GETCURSEL, 0, 0) == 1);
     assert(GetNextDlgTabItem(dialog, GetDlgItem(body, IDC_ED_ENDPOINT), FALSE) == GetDlgItem(body, IDC_ED_MODEL));
     assert(GetNextDlgTabItem(dialog, GetDlgItem(body, IDC_ED_MODEL), FALSE) == GetDlgItem(body, IDC_ED_INTERVAL));
     for (int id : {IDC_ED_KEY, IDC_ED_ABUSEKEY, IDC_ED_VTKEY})

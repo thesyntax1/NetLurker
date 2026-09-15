@@ -105,7 +105,7 @@ class LanguageAndLayoutTest {
                 if (open) SettingsDialog(model, onRequestLocation = {}, onDismiss = { open = false })
             }
         }
-        compose.onNodeWithText("English").performClick()
+        compose.onNodeWithTag("settings-language").assertIsDisplayed().performClick()
         compose.onNodeWithText("Türkçe").performClick()
         compose.onNodeWithText("DİL").assertIsDisplayed()
         assertEquals("en", Settings(application).languageOverride)
@@ -126,12 +126,30 @@ class LanguageAndLayoutTest {
                 if (open) SettingsDialog(model, onRequestLocation = {}, onDismiss = { open = false })
             }
         }
-        compose.onNodeWithText("English").performClick()
+        compose.onNodeWithTag("settings-language").assertIsDisplayed().performClick()
         compose.onNodeWithText("Türkçe").performClick()
         compose.onNodeWithTag("settings-cancel").performClick()
         compose.onNodeWithTag("settings-save").assertDoesNotExist()
         assertEquals("en", Settings(application).languageOverride)
         assertEquals("Language", Strings(application)("settings.language"))
+    }
+
+    @Test
+    fun languageSelectorIsVisibleOnOpeningCompactSettingsWithoutScrolling() {
+        val model = MainViewModel(application)
+        store.put("language-visible-test", model)
+        compose.setContent {
+            NetLurkerTheme {
+                SettingsDialog(model, onRequestLocation = {}, onDismiss = {},
+                    modifier = Modifier.width(320.dp).heightIn(max = 360.dp))
+            }
+        }
+        compose.onNodeWithTag("settings-language").assertIsDisplayed().performClick()
+        compose.onNodeWithText("Türkçe").assertIsDisplayed().performClick()
+        compose.onNodeWithText("DİL").assertIsDisplayed()
+        // Choosing previews the language; explicit Save/Cancel semantics stay intact.
+        assertEquals("en", Settings(application).languageOverride)
+        compose.onNodeWithTag("settings-save").assertIsDisplayed()
     }
 
     @Test
