@@ -118,7 +118,7 @@ void I18nLoadFrom(const std::wstring& dir) {
 
 void I18nSetLanguage(const std::wstring& code) {
     std::wstring c = Lower(Trim(code));
-    if (c == L"system" || c.empty()) c = I18nSystemLanguage();
+    if (c == L"system") c = I18nSystemLanguage();
     static const std::wstring valid[] = { L"en", L"tr", L"es", L"de", L"fr", L"ja", L"zh", L"pt" };
     bool ok = false;
     for (const auto& v : valid) if (c == v) { ok = true; break; }
@@ -137,15 +137,15 @@ std::wstring I18nLanguage() {
 
 std::vector<std::pair<std::wstring, std::wstring>> I18nLanguages() {
     return {
-        { L"system", L"Otomatik / Auto" },
+        { L"system", L"System / Auto" },
         { L"en", L"English" },
-        { L"tr", L"Turkce" },
-        { L"es", L"Espanol" },
+        { L"tr", L"Türkçe" },
+        { L"es", L"Español" },
         { L"de", L"Deutsch" },
-        { L"fr", L"Francais" },
-        { L"ja", L"Nihongo" },
-        { L"zh", L"Zhongwen" },
-        { L"pt", L"Portugues" },
+        { L"fr", L"Français" },
+        { L"ja", L"日本語" },
+        { L"zh", L"中文" },
+        { L"pt", L"Português" },
     };
 }
 
@@ -153,6 +153,12 @@ std::wstring I18nSystemLanguage() {
     LANGID lid = GetUserDefaultUILanguage();
     unsigned short prim = PRIMARYLANGID(lid);
     if (prim == LANG_TURKISH) return L"tr";
+    if (prim == LANG_SPANISH) return L"es";
+    if (prim == LANG_GERMAN) return L"de";
+    if (prim == LANG_FRENCH) return L"fr";
+    if (prim == LANG_JAPANESE) return L"ja";
+    if (prim == LANG_CHINESE) return L"zh";
+    if (prim == LANG_PORTUGUESE) return L"pt";
     return L"en";
 }
 

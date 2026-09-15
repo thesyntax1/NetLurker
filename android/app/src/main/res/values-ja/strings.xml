@@ -134,7 +134,6 @@
     <string name="field.country" formatted="false">国</string>
     <string name="field.dns" formatted="false">DNSサーバ</string>
     <string name="field.dnsbl" formatted="false">DNSブラックリスト</string>
-    <string name="field.dnsbl.clean" formatted="false">5ゾーンのいずれにも未掲載</string>
     <string name="field.eol" formatted="false">サポート終了バージョン</string>
     <string name="field.findings" formatted="false">所見</string>
     <string name="field.fingerprint" formatted="false">SHA-256フィンガープリント</string>
@@ -312,11 +311,11 @@
     <string name="risk.hosts_redirect" formatted="false">デバイスの hosts ファイルで名前解決</string>
     <string name="risk.level.danger" formatted="false">危険</string>
     <string name="risk.level.info" formatted="false">情報</string>
-    <string name="risk.level.safe" formatted="false">安全</string>
+    <string name="risk.level.safe" formatted="false">低シグナル</string>
     <string name="risk.level.warn" formatted="false">不審</string>
     <string name="risk.mit_clean_all_sources" formatted="false">{arg0} 件の情報源が有害所見なしで応答</string>
     <string name="risk.mit_common_web_port" formatted="false">標準的なWebポート {arg0}</string>
-    <string name="risk.mit_evidence_incomplete" formatted="false">照会中: {arg0}</string>
+    <string name="risk.mit_evidence_incomplete" formatted="false">不完全な証拠: {arg0}</string>
     <string name="risk.mit_private_network" formatted="false">プライベートアドレス — スコアを減点</string>
     <string name="risk.mit_rdap_known_org" formatted="false">{arg0} が所有</string>
     <string name="risk.passive_dns_many" formatted="false">このアドレスのパッシブDNS記録 {arg0} 件</string>
@@ -368,6 +367,7 @@
     <string name="settings.geo" formatted="false">IP地理位置 (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">調査対象のIPアドレスのみ送信します。無料枠は平文HTTPです。</string>
     <string name="settings.key.optional" formatted="false">任意 — 空欄で省略</string>
+    <string name="settings.language" formatted="false">言語</string>
     <string name="settings.notify" formatted="false">異常通知</string>
     <string name="settings.notify.detail" formatted="false">アプリが自身のベースラインを大きく超えると通知します。権限がなくてもアプリ内に警告は表示されます。</string>
     <string name="settings.public_ip" formatted="false">グローバルIPを表示</string>
@@ -407,7 +407,7 @@
     <string name="summary.no_destinations" formatted="false">このセッションで調査した接続先はありません。</string>
     <string name="summary.no_geo" formatted="false">地理情報はまだありません。まず接続先を調査してください。</string>
     <string name="summary.no_orgs" formatted="false">所有者情報はまだありません。</string>
-    <string name="traffic.unsupported" formatted="false">この端末はTrafficStats非対応のためアプリ別カウンタは利用できません。NetLurkerは数値を捏造しません。</string>
+    <string name="traffic.unsupported" formatted="false">Androidは他のアプリのリアルタイム通信カウンターを制限します。取得できない値は0ではなく—で表示します。端末全体の合計とは別です。</string>
     <string name="value.no" formatted="false">いいえ</string>
     <string name="value.yes" formatted="false">はい</string>
     <string name="verdict.findings" formatted="false">所見 {count} 件</string>

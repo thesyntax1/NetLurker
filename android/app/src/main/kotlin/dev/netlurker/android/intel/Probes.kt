@@ -47,7 +47,7 @@ object TlsProbe {
     }
 
     /**
-     * @param expectedName the name the address should present (typically reverse DNS).
+     * @param expectedName the name the address should present (the user-entered hostname, never an inferred PTR name).
      *   When null the name check is skipped rather than reported as a mismatch.
      */
     fun inspect(
@@ -66,6 +66,11 @@ object TlsProbe {
             // Do not let the platform verify the name: an expired or mismatched
             // certificate is the finding, not a reason to abort the probe.
             socket.useClientMode = true
+            if (!expectedName.isNullOrBlank()) {
+                socket.sslParameters = socket.sslParameters.apply {
+                    serverNames = listOf(javax.net.ssl.SNIHostName(expectedName))
+                }
+            }
             socket.connect(java.net.InetSocketAddress(host, port), timeoutMs)
             socket.startHandshake()
             val session = socket.session
@@ -80,7 +85,7 @@ object TlsProbe {
                 val candidates = if (sanNames.isNotEmpty()) sanNames else listOfNotNull(cn)
                 candidates.none { matchesName(it, expectedName) }
             }
-            val selfSigned = leaf.subjectX500Principal.name == leaf.issuerX500Principal.name ||
+            val selfSigned = leaf.subjectX500Principal == leaf.issuerX500Principal &&
                 runCatching { leaf.verify(leaf.publicKey); true }.getOrDefault(false)
 
             return CertInfo(
@@ -156,17 +161,19 @@ object BannerProbe {
         "openssl/0.9", "openssl/1.0.0", "openssl/1.0.1",
         "php/5.", "php/7.0", "php/7.1", "php/7.2", "php/7.3", "php/7.4",
         "lighttpd/1.4.2", "tomcat/4", "tomcat/5", "tomcat/6", "tomcat/7",
-        "jboss", "resin/3", "coyote/1.0"
+        "resin/3"
     )
 
     fun inspect(host: String, port: Int, timeoutMs: Int = 6_000): BannerInfo {
         val scheme = if (port == 443 || port == 8443) "https" else "http"
+        val authority = if (host.contains(':')) "[$host]" else host
         val url = if ((scheme == "http" && port == 80) || (scheme == "https" && port == 443)) {
-            "$scheme://$host/"
+            "$scheme://$authority/"
         } else {
-            "$scheme://$host:$port/"
+            "$scheme://$authority:$port/"
         }
-        val response = Http.head(url, timeoutMs = timeoutMs)
+        val response = if (scheme == "https") Http.head(url, timeoutMs = timeoutMs)
+            else plainHead(host, port, timeoutMs)
         if (!response.ok && response.status == 0) {
             throw IllegalStateException(response.error ?: "no response")
         }
@@ -184,6 +191,43 @@ object BannerProbe {
             }.orEmpty() else "",
             responseMs = response.elapsedMs
         )
+    }
+
+    // Deliberately scoped plaintext probe. No credentials/body, no redirects, and a
+    // bounded header read; the app-wide cleartext policy remains closed for API clients.
+    private fun plainHead(host: String, port: Int, timeoutMs: Int): Http.Response {
+        val started = System.nanoTime()
+        java.net.Socket().use { socket ->
+            socket.connect(java.net.InetSocketAddress(host, port), timeoutMs)
+            val authority = if (host.contains(':')) "[$host]" else host
+            socket.getOutputStream().write(
+                "HEAD / HTTP/1.1\r\nHost: $authority:$port\r\nConnection: close\r\nUser-Agent: ${Http.USER_AGENT}\r\n\r\n"
+                    .toByteArray(Charsets.US_ASCII)
+            )
+            val out = java.io.ByteArrayOutputStream()
+            val input = socket.getInputStream()
+            while (out.size() < 16384) {
+                val remaining = timeoutMs - (System.nanoTime() - started) / 1_000_000L
+                if (remaining <= 0) throw java.net.SocketTimeoutException("header timeout")
+                socket.soTimeout = remaining.toInt()
+                val byte = input.read()
+                if (byte < 0) break
+                out.write(byte)
+                if (byte == 10 && out.toString("ISO-8859-1").endsWith("\r\n\r\n")) break
+            }
+            val lines = out.toString("ISO-8859-1").split("\r\n")
+            val statusLine = lines.firstOrNull().orEmpty()
+            val status = statusLine.split(' ').getOrNull(1)?.toIntOrNull()
+            if (!statusLine.startsWith("HTTP/") || status == null || status !in 100..599)
+                throw java.io.IOException("no valid HTTP response")
+            val headers = mutableMapOf("statusLine" to statusLine)
+            for (line in lines.drop(1)) {
+                val colon = line.indexOf(':')
+                if (colon > 0) headers[line.substring(0, colon).lowercase()] = line.substring(colon + 1).trim()
+            }
+            return Http.Response(status in 200..299, status, "", null,
+                (System.nanoTime() - started) / 1_000_000, headers)
+        }
     }
 
     /**

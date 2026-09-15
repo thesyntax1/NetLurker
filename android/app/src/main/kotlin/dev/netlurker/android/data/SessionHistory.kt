@@ -28,10 +28,11 @@ class SessionHistory {
      * doing something; how *regularly* it does it is the question the detector answers.
      */
     private val burstFloor = 2048.0
-    private val beacons = BeaconDetector()
+    private var beacons = BeaconDetector()
 
     private val alerts = LinkedHashMap<String, AnomalyAlert>()
-    private val firstSampleAtMs = System.currentTimeMillis()
+    private var firstSampleAtMs = System.currentTimeMillis()
+    private var hasTotals = false
 
     var sessionInBytes = 0L
         private set
@@ -75,12 +76,14 @@ class SessionHistory {
         intervalMs: Long
     ): List<AnomalyAlert> {
         val now = System.currentTimeMillis()
-        if (intervalMs > 0) {
+        if (hasTotals && intervalMs > 0 && totalInBytes >= 0 && totalOutBytes >= 0 &&
+            sessionInBytes >= 0 && sessionOutBytes >= 0) {
             val seconds = intervalMs / 1000.0
             val rateIn = (totalInBytes - sessionInBytes).coerceAtLeast(0L) / seconds
             val rateOut = (totalOutBytes - sessionOutBytes).coerceAtLeast(0L) / seconds
             pushSample(rateWindow, RateSample(now, rateIn, rateOut))
         }
+        hasTotals = true
         sessionInBytes = totalInBytes
         sessionOutBytes = totalOutBytes
 
@@ -195,6 +198,9 @@ class SessionHistory {
     }
 
     fun reset() {
+        firstSampleAtMs = System.currentTimeMillis()
+        hasTotals = false
+        beacons = BeaconDetector()
         rateWindow.clear()
         appRates.clear()
         appTotals.clear()

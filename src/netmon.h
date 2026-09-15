@@ -54,6 +54,7 @@ struct Conn {
     unsigned long long threatLastReport = 0;
     bool         threatTor    = false;
     std::wstring threatDnsbl;
+    bool         threatDnsblIncomplete = true;
     std::wstring pluginNote;
     int          threatPdns   = 0;
     std::wstring threatPdnsNames;

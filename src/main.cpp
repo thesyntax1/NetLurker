@@ -1,3 +1,4 @@
+#include "ui_layout.h"
 #include "common.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -313,7 +314,7 @@ private:
     std::vector<int>    m_view;
     struct RateSample { unsigned long long ts = 0; double in = 0, out = 0; };
     std::deque<RateSample> m_rateHist;
-    static const unsigned long long kRateWindowMs = 300000;
+    static constexpr unsigned long long kRateWindowMs = 300000;
 
     Tab     m_tab       = Tab::Conns;
     Filter  m_filter    = Filter::All;
@@ -329,7 +330,7 @@ private:
     DWORD   m_selPid    = 0;
     bool    m_paused    = false;
     bool    m_showDetail = true;
-    std::wstring m_lang = L"system";
+    std::wstring m_lang = L"en";
     bool    m_geoOnline  = true;
     bool    m_threatOnline = true;
     bool    m_rdapOnline  = true;
@@ -569,6 +570,9 @@ void App::LoadPrefs() {
     wchar_t lkey[64] = L"";
     GetPrivateProfileStringW(L"ui", L"lang", L"en", lkey, 64, p.c_str());
     m_lang = Trim(lkey);
+    const auto languages = I18nLanguages();
+    if (std::none_of(languages.begin(), languages.end(),
+                     [&](const auto& l) { return l.first == m_lang; })) m_lang = L"en";
     wchar_t akey[1024] = L"";
     GetPrivateProfileStringW(L"threat", L"abusekey", L"", akey, 1024, p.c_str());
     m_abuseKey = Trim(akey);
@@ -737,23 +741,12 @@ void App::Layout() {
     GetClientRect(m_hwnd, &rc);
     const int W = rc.right, H = rc.bottom;
 
-    m_rcHeader  = { 0, 0, W, S(62) };
-    m_rcToolbar = { 0, m_rcHeader.bottom, W, m_rcHeader.bottom + S(46) };
-    m_rcStatus  = { 0, H - S(28), W, H };
-
-    int detailH = (m_showDetail && IsTableTab())
-                    ? (std::max)(S(160), (std::min)(S(300), (int)(H * 0.31))) : 0;
-    m_rcDetail  = { 0, m_rcStatus.top - detailH, W, m_rcStatus.top };
-    m_rcTable   = { 0, m_rcToolbar.bottom, W, m_rcDetail.top };
-    if (m_rcTable.bottom < m_rcTable.top + S(60)) m_rcTable.bottom = m_rcTable.top + S(60);
-
-    m_rcTableHead = { m_rcTable.left, m_rcTable.top, m_rcTable.right, m_rcTable.top + S(32) };
-    m_rcRows      = { m_rcTable.left, m_rcTableHead.bottom, m_rcTable.right, m_rcTable.bottom };
-    m_rcScroll    = { m_rcRows.right - S(10), m_rcRows.top, m_rcRows.right, m_rcRows.bottom };
-
+    // The navigation gets its own row; it must not compete with live rates.
+    m_rcHeader = { 0, 0, W, S(102) };
     m_buttons.clear();
     const int pad = S(12), gap = S(6), bh = S(28);
-    int y = m_rcToolbar.top + (m_rcToolbar.bottom - m_rcToolbar.top - bh) / 2;
+    const int available = (std::max)(1, W - 2 * pad);
+    std::vector<int> widths;
 
     struct ChipDef { int id; const wchar_t* txt; Filter f; };
     const ChipDef chips[] = {
@@ -779,23 +772,19 @@ void App::Layout() {
         return (int)sz.cx;
     };
 
-    const bool narrow = (W < S(1180));
-    int x = pad;
     for (const auto& c : chips) {
-        if (narrow && (c.id == ID_FILTER_TCP || c.id == ID_FILTER_UDP ||
-                       c.id == ID_FILTER_HTTPS || c.id == ID_FILTER_RECENT)) continue;
         Button b;
         b.id     = c.id;
         b.label  = c.txt;
         b.toggle = true;
         b.active = (m_filter == c.f);
         int w = textW(b.label, m_fBold) + S(20);
-        b.rc = { x, y, x + w, y + bh };
-        x += w + gap;
+        widths.push_back(w);
         m_buttons.push_back(b);
     }
 
-    int xr = W - pad;
+    const size_t searchIndex = widths.size();
+    widths.push_back(S(180));
     struct ActDef { int id; const wchar_t* txt; bool primary; bool toggle; bool active; bool danger; };
     const bool haveProc = (SelectedPid() != 0);
     std::wstring selRemote;
@@ -823,16 +812,36 @@ void App::Layout() {
         if (a.id == ID_BTN_KILL) b.enabled = haveProc;
         if (a.id == ID_BTN_BLOCK) b.enabled = !selRemote.empty();
         int w = textW(b.label, m_fBold) + S(22);
-        b.rc = { xr - w, y, xr, y + bh };
-        xr -= (w + gap);
+        widths.push_back(w);
         m_buttons.push_back(b);
     }
 
-    int searchLeft  = x + S(6);
-    int searchRight = xr - S(10);
-    int searchW = searchRight - searchLeft;
-    if (searchW < S(140)) { searchW = S(140); searchLeft = (std::max)(pad, searchRight - searchW); }
-    m_rcSearch = { searchLeft, y, searchLeft + (std::min)(searchW, S(420)), y + bh };
+    // Grow the search field only when everything fits on one row. Otherwise wrap
+    // every control (including all filters), rather than hiding or overlapping it.
+    int fixedWidth = gap * (int)(widths.size() - 1);
+    for (size_t i = 0; i < widths.size(); ++i)
+        if (i != searchIndex) fixedWidth += widths[i];
+    widths[searchIndex] = (std::max)(S(180), (std::min)(S(420), available - fixedWidth));
+    const auto flow = PackToolbar(widths, available, bh, gap);
+    size_t buttonIndex = 0;
+    for (size_t i = 0; i < flow.items.size(); ++i) {
+        const auto& item = flow.items[i];
+        const int left = pad + item.x, top = m_rcHeader.bottom + S(9) + item.y;
+        RECT bounds = { left, top, left + item.width, top + item.height };
+        if (i == searchIndex) m_rcSearch = bounds;
+        else m_buttons[buttonIndex++].rc = bounds;
+    }
+    m_rcToolbar = { 0, m_rcHeader.bottom, W, m_rcHeader.bottom + flow.height + S(18) };
+    m_rcStatus = { 0, (std::max)(0, H - S(28)), W, H };
+    const int contentH = (std::max)(0, (int)m_rcStatus.top - (int)m_rcToolbar.bottom);
+    const int detailH = (m_showDetail && IsTableTab())
+        ? (std::min)((std::max)(0, contentH - S(100)),
+                     (std::max)(S(160), (std::min)(S(300), (int)(H * 0.31)))) : 0;
+    m_rcDetail = { 0, m_rcStatus.top - detailH, W, m_rcStatus.top };
+    m_rcTable = { 0, m_rcToolbar.bottom, W, (std::max)(m_rcToolbar.bottom, m_rcDetail.top) };
+    m_rcTableHead = { 0, m_rcTable.top, W, (std::min)(m_rcTable.bottom, m_rcTable.top + S(32)) };
+    m_rcRows = { 0, m_rcTableHead.bottom, W, m_rcTable.bottom };
+    m_rcScroll = { W - S(10), m_rcRows.top, W, m_rcRows.bottom };
     ReleaseDC(m_hwnd, hdc);
 
     if (m_search) {
@@ -955,6 +964,7 @@ void App::Tick(bool force) {
             c.threatLastReport = t.lastReport;
             c.threatTor        = t.isTor;
             c.threatDnsbl      = t.dnsbl;
+            c.threatDnsblIncomplete = t.dnsblIncomplete;
             c.threatPdns       = t.passiveDns;
             c.threatPdnsNames  = t.pdnsNames;
             c.threatPending    = !t.resolved;
@@ -1826,19 +1836,19 @@ void App::DrawHeader(Painter& p) {
     p.FillRect(m_rcHeader, clr::Bg);
 
     const int pad = S(14);
-    int cy = (m_rcHeader.top + m_rcHeader.bottom) / 2;
+    int cy = m_rcHeader.top + S(31);
     p.FillCircle(pad + S(10), cy, S(9), clr::AccentDim);
     p.FillCircle(pad + S(10), cy, S(4), clr::Cyan);
 
     RECT t = { pad + S(26), m_rcHeader.top + S(8), pad + S(300), m_rcHeader.top + S(34) };
     p.Text(L"NetLurker", t, m_fTitle, clr::Text);
     RECT vb = { pad + S(126), m_rcHeader.top + S(13), pad + S(158), m_rcHeader.top + S(29) };
-    DrawBadge(p, vb, L"v5", clr::Cyan, clr::SurfaceHi);
+    DrawBadge(p, vb, L"v6", clr::Cyan, clr::SurfaceHi);
     RECT s = { pad + S(28), m_rcHeader.top + S(33), pad + S(360), m_rcHeader.top + S(52) };
     p.Text(Tr(L"process ↔ network connection monitor  •  threat intelligence + TLS certificate analysis"),
            s, m_fSmall, clr::TextDim);
 
-    int tabX = pad + S(300);
+    int tabX = pad;
     struct TabDef { Tab id; int cmd; const wchar_t* txt; };
     const TabDef tabs[] = {
         { Tab::Conns,   ID_TAB_CONNS, Tr(L"Connections") },
@@ -1854,12 +1864,14 @@ void App::DrawHeader(Painter& p) {
             if (n) label += L" (" + std::to_wstring(n) + L")";
         }
         SIZE sz = p.Measure(label, m_fBold);
-        RECT tr = { tabX, m_rcHeader.top + S(16), tabX + sz.cx + S(22), m_rcHeader.bottom - S(10) };
+        const int maxTabW = (std::max)(1, ((int)m_rcHeader.right - 2 * pad - 4 * S(4)) / 5);
+        const int tabW = (std::min)((int)sz.cx + S(22), maxTabW);
+        RECT tr = { tabX, m_rcHeader.top + S(64), tabX + tabW, m_rcHeader.bottom - S(6) };
         bool on = (m_tab == td.id);
         bool hot = (m_hotBtn == td.cmd);
         if (on)       p.FillRoundRect(tr, S(6), clr::SurfaceHi);
         else if (hot) p.FillRoundRect(tr, S(6), clr::Surface);
-        p.Text(label, tr, m_fBold, on ? clr::Text : clr::TextDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        p.Text(label, tr, m_fBold, on ? clr::Text : clr::TextDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         if (on) {
             RECT ul = { tr.left + S(10), tr.bottom - S(2), tr.right - S(10), tr.bottom };
             p.FillRoundRect(ul, S(1), clr::Accent);
@@ -2586,6 +2598,8 @@ void App::DrawDetail(Painter& p) {
             }
             if (!c->threatDnsbl.empty() && c->threatDnsbl != L"—")
                 thr += (thr.empty() ? L"" : L" • ") + (Tr(L"blacklist: ") + c->threatDnsbl);
+            if (c->threatDnsblIncomplete)
+                row(L"DNSBL", Tr(L"(lookup failed)"), clr::TextDim);
             if (c->threatPdns > 0)
                 thr += (thr.empty() ? L"" : L" • ") +
                        (Tr(L"passive DNS: ") + std::to_wstring(c->threatPdns) + Tr(L" records"));
@@ -5109,7 +5123,13 @@ INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
 void App::ShowSettings() {
 
-    DialogBoxParamW(m_inst, MAKEINTRESOURCEW(IDD_SETTINGS), m_hwnd, &App::SettingsProc, (LPARAM)this);
+    if (DialogBoxParamW(m_inst, MAKEINTRESOURCEW(IDD_SETTINGS), m_hwnd, &App::SettingsProc, (LPARAM)this) == IDOK) {
+        SetWindowTextW(m_hwnd, Tr(L"NetLurker — Network & Process Monitor"));
+        RemoveTray();
+        SetupTray();
+        Layout();
+        RebuildView();
+    }
     InvalidateRect(m_hwnd, nullptr, FALSE);
 }
 

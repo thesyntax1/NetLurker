@@ -17,12 +17,12 @@ g++ -std=c++17 -O2 -municode -mwindows -DUNICODE -D_UNICODE -DWIN32_LEAN_AND_MEA
     -D_WIN32_WINNT=0x0601 -Isrc ^
     src\main.cpp src\common.cpp src\netmon.cpp src\geo.cpp src\procinfo.cpp src\history.cpp ^
     src\http.cpp src\json.cpp src\ai.cpp src\ui_draw.cpp src\i18n.cpp ^
-    src\threat.cpp src\plugins.cpp src\cert.cpp src\banner.cpp src\dns.cpp src\wifi.cpp ^
+    src\threat.cpp src\plugins.cpp src\cert.cpp src\banner.cpp src\dns.cpp src\wifi.cpp src\firewall.cpp ^
     build\netlurker.res.o -o build\NetLurker.exe ^
     -static -static-libgcc -static-libstdc++ ^
     -liphlpapi -lws2_32 -lwinhttp -lgdiplus -lcomctl32 -lshlwapi -ldwmapi ^
     -lcomdlg32 -lshell32 -lole32 -luser32 -lgdi32 -ladvapi32 -lpsapi ^
-    -lwintrust -lcrypt32 -lversion -lwtsapi32
+    -lwintrust -lcrypt32 -lversion -lwtsapi32 -loleaut32
 if errorlevel 1 goto :fail
 
 echo.

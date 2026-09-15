@@ -90,10 +90,11 @@ object Export {
             w.name("system"); w.value(app.system)
             w.name("version"); w.value(app.versionName)
             w.name("installer"); w.value(app.installer)
-            w.name("rxBytes"); w.value(app.rxBytes)
-            w.name("txBytes"); w.value(app.txBytes)
-            w.name("rxBytesPerSec"); w.value(app.rateIn)
-            w.name("txBytesPerSec"); w.value(app.rateOut)
+            w.name("trafficCountersSupported"); w.value(app.supported)
+            w.name("rxBytes"); w.value(app.rxBytes.takeIf { app.supported })
+            w.name("txBytes"); w.value(app.txBytes.takeIf { app.supported })
+            w.name("rxBytesPerSec"); w.value(if (app.supported) app.rateIn else Double.NaN)
+            w.name("txBytesPerSec"); w.value(if (app.supported) app.rateOut else Double.NaN)
             w.name("signerSubject"); w.value(app.signerSubject)
             w.name("signerSha256"); w.value(app.signerSha256)
             w.name("apkSha256"); w.value(app.apkSha256)
@@ -178,10 +179,10 @@ object Export {
                 .append(escapeCsv(app.label)).append(';')
                 .append(escapeCsv(app.packageName)).append(';')
                 .append(app.uid).append(';')
-                .append(app.rxBytes).append(';')
-                .append(app.txBytes).append(';')
-                .append(app.rateIn.toLong()).append(';')
-                .append(app.rateOut.toLong()).append(';')
+                .append(if (app.supported) app.rxBytes.toString() else "").append(';')
+                .append(if (app.supported) app.txBytes.toString() else "").append(';')
+                .append(if (app.supported) app.rateIn.toLong().toString() else "").append(';')
+                .append(if (app.supported) app.rateOut.toLong().toString() else "").append(';')
                 .append(escapeCsv(app.signerSubject.orEmpty())).append(';')
                 .append(escapeCsv(app.apkSha256.orEmpty())).append(';')
                 .append(escapeCsv(app.installer.orEmpty())).append(';')
@@ -269,9 +270,9 @@ object Export {
         for (app in snapshot.apps.sortedByDescending { it.totalBytes }.take(100)) {
             sb.append(String.format(java.util.Locale.ROOT, "%-28s %10s %10s %10s\n",
                 app.label.take(28),
-                Format.bytes(app.totalBytes),
-                Format.bytesPerSec(app.rateIn),
-                Format.bytesPerSec(app.rateOut)))
+                (if (app.supported) Format.bytes(app.totalBytes) else "—"),
+                (if (app.supported) Format.bytesPerSec(app.rateIn) else "—"),
+                (if (app.supported) Format.bytesPerSec(app.rateOut) else "—")))
         }
 
         sb.append('\n').append(label("export.destinations"))
@@ -388,9 +389,9 @@ object Export {
             for (app in snapshot.apps.sortedByDescending { it.totalBytes }.take(200)) {
                 sb.append("<tr><td>").append(escapeHtml(app.label))
                     .append("<br><code>").append(escapeHtml(app.packageName)).append("</code>")
-                    .append("</td><td>").append(Format.bytes(app.totalBytes))
-                    .append("</td><td>").append(Format.bytesPerSec(app.rateIn))
-                    .append("</td><td>").append(Format.bytesPerSec(app.rateOut))
+                    .append("</td><td>").append((if (app.supported) Format.bytes(app.totalBytes) else "—"))
+                    .append("</td><td>").append((if (app.supported) Format.bytesPerSec(app.rateIn) else "—"))
+                    .append("</td><td>").append((if (app.supported) Format.bytesPerSec(app.rateOut) else "—"))
                     .append("</td><td>").append(escapeHtml(app.signerSubject.orEmpty()))
                     .append("</td></tr>")
             }

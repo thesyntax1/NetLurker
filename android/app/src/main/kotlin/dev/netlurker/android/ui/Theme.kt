@@ -5,6 +5,13 @@ import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import dev.netlurker.android.data.Settings
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.TextStyle
@@ -104,7 +111,16 @@ private val NetLurkerTypography = Typography(
 @Composable
 fun NetLurkerTheme(content: @Composable () -> Unit) {
     val context = LocalContext.current
-    CompositionLocalProvider(LocalStrings provides Strings(context)) {
+    val configuration = LocalConfiguration.current
+    val settings = remember(context) { Settings(context) }
+    var language by remember(settings) { mutableStateOf(settings.languageOverride) }
+    DisposableEffect(settings) {
+        val unsubscribe = settings.observeLanguage { language = settings.languageOverride }
+        language = settings.languageOverride
+        onDispose { unsubscribe() }
+    }
+    val strings = remember(context, configuration, language) { Strings(context, language) }
+    CompositionLocalProvider(LocalStrings provides strings) {
         MaterialTheme(
             colorScheme = DarkColors,
             typography = NetLurkerTypography,

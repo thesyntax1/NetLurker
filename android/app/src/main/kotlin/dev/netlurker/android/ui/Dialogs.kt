@@ -8,6 +8,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -18,6 +21,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
@@ -50,6 +55,7 @@ private fun WideDialog(onDismiss: () -> Unit, content: @Composable () -> Unit) {
     ) {
         Box(
             Modifier
+                .widthIn(max = 640.dp)
                 .fillMaxWidth()
                 .padding(horizontal = 12.dp, vertical = 24.dp)
                 .heightIn(max = 640.dp)
@@ -134,6 +140,7 @@ private fun KeyField(label: String, value: String, hint: String, onChange: (Stri
  * desktop build treats it the same way: every external service is listed with its current
  * state, so there is never a hidden request leaving the device.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsDialog(
     viewModel: MainViewModel,
@@ -161,6 +168,25 @@ fun SettingsDialog(
 
     WideDialog(onDismiss = onDismiss) {
         DialogTitle(s("settings.title"))
+
+        SectionHeader(s("settings.language"))
+        var languageMenu by remember { mutableStateOf(false) }
+        Box {
+            TextButton(onClick = { languageMenu = true }) {
+                Text(Strings.supportedLanguages.first { it.first == s.language }.second, color = NL.Accent)
+            }
+            DropdownMenu(expanded = languageMenu, onDismissRequest = { languageMenu = false }) {
+                Strings.supportedLanguages.forEach { (code, label) ->
+                    DropdownMenuItem(
+                        text = { Text(label, color = if (s.language == code) NL.Accent else NL.Text) },
+                        onClick = {
+                            settings.languageOverride = code
+                            languageMenu = false
+                        }
+                    )
+                }
+            }
+        }
 
         SectionHeader(s("section.sources"))
         ToggleRow(
@@ -282,7 +308,7 @@ fun SettingsDialog(
             style = MaterialTheme.typography.bodySmall,
             modifier = Modifier.padding(top = 4.dp)
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = { viewModel.intel.clearCaches() }) {
                 Text(s("action.clear_cache"), color = NL.Red, style = MaterialTheme.typography.labelSmall)
             }
@@ -308,6 +334,7 @@ fun SettingsDialog(
  * Export through the Storage Access Framework: the user picks the location, NetLurker asks
  * for no storage permission and cannot write anywhere else.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun ExportDialog(
     viewModel: MainViewModel,
@@ -347,11 +374,11 @@ fun ExportDialog(
             style = MaterialTheme.typography.bodySmall
         )
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ExportButton("JSON") { jsonLauncher.launch(suggestName("json")) }
             ExportButton("CSV") { csvLauncher.launch(suggestName("csv")) }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             ExportButton("HTML") { htmlLauncher.launch(suggestName("html")) }
             ExportButton("TXT") { txtLauncher.launch(suggestName("txt")) }
         }
@@ -382,6 +409,7 @@ private fun suggestName(extension: String): String {
 }
 
 /** Explains why the location permission is asked for, and what happens if it is denied. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun PermissionRationaleDialog(onGrant: () -> Unit, onDismiss: () -> Unit) {
     val s = strings()
@@ -393,7 +421,7 @@ fun PermissionRationaleDialog(onGrant: () -> Unit, onDismiss: () -> Unit) {
             style = MaterialTheme.typography.bodySmall
         )
         Spacer(Modifier.height(12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = onDismiss) {
                 Text(s("action.skip"), color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }

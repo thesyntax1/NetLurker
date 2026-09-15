@@ -3,6 +3,8 @@ package dev.netlurker.android.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -87,7 +89,7 @@ fun AppsScreen(viewModel: MainViewModel) {
             )
         }
 
-        if (viewModel.trafficSupported.not()) {
+        if (!viewModel.trafficSupported || apps.any { !it.supported }) {
             Column(
                 Modifier
                     .fillMaxWidth()
@@ -123,7 +125,7 @@ fun AppsScreen(viewModel: MainViewModel) {
         )
 
         Row(
-            Modifier.fillMaxWidth().padding(vertical = 6.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -139,7 +141,7 @@ fun AppsScreen(viewModel: MainViewModel) {
             )
         }
         Row(
-            Modifier.fillMaxWidth().padding(bottom = 4.dp),
+            Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(bottom = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(6.dp)
         ) {
             FilterChipRow(
@@ -270,12 +272,13 @@ private fun AppRow(
             }
             Column(horizontalAlignment = Alignment.End) {
                 Text(
-                    text = Format.bytes(app.totalBytes),
+                    text = if (app.supported) Format.bytes(app.totalBytes) else "—",
                     color = NL.Text,
                     style = MaterialTheme.typography.labelMedium
                 )
                 Text(
-                    text = "↓ ${Format.bytesPerSec(app.rateIn)}  ↑ ${Format.bytesPerSec(app.rateOut)}",
+                    text = if (app.supported) "↓ ${Format.bytesPerSec(app.rateIn)}  ↑ ${Format.bytesPerSec(app.rateOut)}"
+                        else s("status.unavailable"),
                     color = if (app.active) NL.Green else NL.TextFaint,
                     style = MaterialTheme.typography.labelSmall
                 )

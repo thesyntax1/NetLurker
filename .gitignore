@@ -1,6 +1,10 @@
 # Windows desktop build
-/build/*.exe
-/dist/*.zip
+/build/
+/dist/
+/candidate-input/
+/candidate-output/
+/NetLurker-v*-win64.zip
+/SHA256SUMS*
 
 # Android
 android/.gradle/

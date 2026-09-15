@@ -134,7 +134,6 @@
     <string name="field.country" formatted="false">Ülke</string>
     <string name="field.dns" formatted="false">DNS sunucuları</string>
     <string name="field.dnsbl" formatted="false">DNS kara listesi</string>
-    <string name="field.dnsbl.clean" formatted="false">5 bölgenin hiçbirinde listelenmemiş</string>
     <string name="field.eol" formatted="false">Süresi dolmuş sürüm</string>
     <string name="field.findings" formatted="false">Bulgular</string>
     <string name="field.fingerprint" formatted="false">SHA-256 parmak izi</string>
@@ -312,11 +311,11 @@
     <string name="risk.hosts_redirect" formatted="false">Cihazın hosts dosyası üzerinden çözümleniyor</string>
     <string name="risk.level.danger" formatted="false">KRİTİK</string>
     <string name="risk.level.info" formatted="false">BİLGİ</string>
-    <string name="risk.level.safe" formatted="false">GÜVENLİ</string>
+    <string name="risk.level.safe" formatted="false">DÜŞÜK SİNYAL</string>
     <string name="risk.level.warn" formatted="false">ŞÜPHELİ</string>
     <string name="risk.mit_clean_all_sources" formatted="false">{arg0} kaynak olumsuz bulgu olmadan yanıt verdi</string>
     <string name="risk.mit_common_web_port" formatted="false">Standart web portu {arg0}</string>
-    <string name="risk.mit_evidence_incomplete" formatted="false">Hâlâ sorgulanıyor: {arg0}</string>
+    <string name="risk.mit_evidence_incomplete" formatted="false">Eksik kanıt: {arg0}</string>
     <string name="risk.mit_private_network" formatted="false">Yerel adres — puan düşürüldü</string>
     <string name="risk.mit_rdap_known_org" formatted="false">{arg0} kuruluşuna ait</string>
     <string name="risk.passive_dns_many" formatted="false">Bu adres için {arg0} pasif DNS kaydı</string>
@@ -368,6 +367,7 @@
     <string name="settings.geo" formatted="false">IP konumu (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">Yalnızca incelediğiniz IP adreslerini gönderir. Ücretsiz katman düz HTTP\'dir.</string>
     <string name="settings.key.optional" formatted="false">isteğe bağlı — atlamak için boş bırakın</string>
+    <string name="settings.language" formatted="false">Dil</string>
     <string name="settings.notify" formatted="false">Anomali bildirimleri</string>
     <string name="settings.notify.detail" formatted="false">Bir uygulama kendi taban çizgisinin çok üzerine çıktığında bildir. Bildirim izni olmasa da uyarı uygulama içinde görünür.</string>
     <string name="settings.public_ip" formatted="false">Herkese açık çıkış IP\'sini göster</string>
@@ -407,7 +407,7 @@
     <string name="summary.no_destinations" formatted="false">Bu oturumda hiçbir hedef incelenmedi.</string>
     <string name="summary.no_geo" formatted="false">Henüz konum yanıtı yok — önce bir hedef inceleyin.</string>
     <string name="summary.no_orgs" formatted="false">Henüz sahiplik yanıtı yok.</string>
-    <string name="traffic.unsupported" formatted="false">TrafficStats bu cihazda desteklenmiyor, bu yüzden uygulama başına sayaçlar kullanılamıyor. NetLurker uydurma sayı göstermez.</string>
+    <string name="traffic.unsupported" formatted="false">Android, diğer uygulamaların canlı trafik sayaçlarını kısıtlar. Erişilemeyen değerler sıfır değil — olarak gösterilir. Cihaz toplamları ayrıdır.</string>
     <string name="value.no" formatted="false">hayır</string>
     <string name="value.yes" formatted="false">evet</string>
     <string name="verdict.findings" formatted="false">{count} bulgu</string>

@@ -134,7 +134,6 @@
     <string name="field.country" formatted="false">Pays</string>
     <string name="field.dns" formatted="false">Serveurs DNS</string>
     <string name="field.dnsbl" formatted="false">Liste noire DNS</string>
-    <string name="field.dnsbl.clean" formatted="false">absent des 5 zones</string>
     <string name="field.eol" formatted="false">Version en fin de vie</string>
     <string name="field.findings" formatted="false">Constats</string>
     <string name="field.fingerprint" formatted="false">Empreinte SHA-256</string>
@@ -312,11 +311,11 @@
     <string name="risk.hosts_redirect" formatted="false">Résolu via le fichier hosts de l\'appareil</string>
     <string name="risk.level.danger" formatted="false">CRITIQUE</string>
     <string name="risk.level.info" formatted="false">INFO</string>
-    <string name="risk.level.safe" formatted="false">SÛR</string>
+    <string name="risk.level.safe" formatted="false">SIGNAL FAIBLE</string>
     <string name="risk.level.warn" formatted="false">SUSPECT</string>
     <string name="risk.mit_clean_all_sources" formatted="false">{arg0} sources ont répondu sans élément défavorable</string>
     <string name="risk.mit_common_web_port" formatted="false">Port web standard {arg0}</string>
-    <string name="risk.mit_evidence_incomplete" formatted="false">Requête en cours : {arg0}</string>
+    <string name="risk.mit_evidence_incomplete" formatted="false">Données incomplètes : {arg0}</string>
     <string name="risk.mit_private_network" formatted="false">Adresse privée — le score est réduit</string>
     <string name="risk.mit_rdap_known_org" formatted="false">Appartient à {arg0}</string>
     <string name="risk.passive_dns_many" formatted="false">{arg0} enregistrements DNS passifs pour cette adresse</string>
@@ -368,6 +367,7 @@
     <string name="settings.geo" formatted="false">Géolocalisation IP (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">N\'envoie que les adresses IP examinées. L\'offre gratuite est en HTTP simple.</string>
     <string name="settings.key.optional" formatted="false">facultatif — laissez vide pour ignorer</string>
+    <string name="settings.language" formatted="false">Langue</string>
     <string name="settings.notify" formatted="false">Notifications d\'anomalies</string>
     <string name="settings.notify.detail" formatted="false">Avertit lorsqu\'une application dépasse largement sa référence. Sans permission, l\'alerte s\'affiche quand même dans l\'application.</string>
     <string name="settings.public_ip" formatted="false">Afficher l\'IP publique de sortie</string>
@@ -407,7 +407,7 @@
     <string name="summary.no_destinations" formatted="false">Aucune destination examinée pendant cette session.</string>
     <string name="summary.no_geo" formatted="false">Pas encore de géolocalisation — examinez d\'abord une destination.</string>
     <string name="summary.no_orgs" formatted="false">Pas encore de données de propriété.</string>
-    <string name="traffic.unsupported" formatted="false">TrafficStats n\'est pas pris en charge sur cet appareil : aucun compteur par application. NetLurker n\'affiche aucun nombre inventé.</string>
+    <string name="traffic.unsupported" formatted="false">Android limite les compteurs en direct des autres applis. Les valeurs indisponibles sont affichées —, pas zéro. Les totaux de l’appareil sont distincts.</string>
     <string name="value.no" formatted="false">non</string>
     <string name="value.yes" formatted="false">oui</string>
     <string name="verdict.findings" formatted="false">{count} constats</string>

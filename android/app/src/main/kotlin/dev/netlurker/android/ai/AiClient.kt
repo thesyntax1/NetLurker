@@ -55,6 +55,9 @@ class AiClient(private val settings: Settings) {
             sb.append('\n')
         }
         target.threat.let { result ->
+            if (result.detail != null) {
+                sb.append(label("risk.mit_evidence_incomplete").replace("{arg0}", result.detail)).append('\n')
+            }
             val threat = result.value
             if (threat == null) {
                 sb.append(label("ai.field.threat")).append(": ")

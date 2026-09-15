@@ -19,6 +19,7 @@ struct ThreatInfo {
     bool   isTor       = false;
     bool   isWhitelisted = false;
     std::wstring dnsbl;
+    bool dnsblIncomplete = true;
     int    passiveDns  = 0;
     std::wstring pdnsNames;
 

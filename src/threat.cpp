@@ -1,4 +1,5 @@
 #include "threat.h"
+#include "evidence_rules.h"
 #include "plugins.h"
 #include "http.h"
 #include "json.h"
@@ -44,20 +45,25 @@ std::string ReverseIp4(const std::string& ip) {
     return buf;
 }
 
-bool DnsblHit(const std::string& queryName) {
+bool DnsblHit(const std::string& queryName, bool spamhaus, bool& incomplete) {
     addrinfo hints{};
     hints.ai_family = AF_INET;
     hints.ai_socktype = SOCK_STREAM;
     addrinfo* res = nullptr;
-    if (getaddrinfo(queryName.c_str(), nullptr, &hints, &res) != 0) return false;
+    if (getaddrinfo(queryName.c_str(), nullptr, &hints, &res) != 0) {
+        // getaddrinfo does not expose an authoritative DNS RCODE. Do not claim clean.
+        incomplete = true;
+        return false;
+    }
     bool hit = false;
     for (auto* ai = res; ai; ai = ai->ai_next) {
-        if (ai->ai_family == AF_INET) {
-            sockaddr_in* sa = (sockaddr_in*)ai->ai_addr;
-            unsigned char b1 = (unsigned char)(sa->sin_addr.S_un.S_addr & 0xFF);
-            if (b1 == 127) { hit = true; break; }
-        }
+        if (ai->ai_family != AF_INET || !ai->ai_addr) { incomplete = true; continue; }
+        auto* sa = reinterpret_cast<sockaddr_in*>(ai->ai_addr);
+        const auto bytes = reinterpret_cast<const unsigned char*>(&sa->sin_addr);
+        if (DnsblListingCode(spamhaus, bytes[0], bytes[1], bytes[2], bytes[3])) hit = true;
+        else incomplete = true;
     }
+    if (!res) incomplete = true;
     freeaddrinfo(res);
     return hit;
 }
@@ -93,21 +99,22 @@ void ParseBlockReports(const std::string& body,
     }
 }
 
-void ParseSingleCheck(const std::string& body, ThreatInfo& t) {
+bool ParseSingleCheck(const std::string& body, ThreatInfo& t) {
     double score = 0, reports = 0;
-    json::GetNumber(body, "abuseConfidenceScore", score);
+    if (!json::GetNumber(body, "abuseConfidenceScore", score) || score < 0 || score > 100) return false;
     json::GetNumber(body, "totalReports", reports);
     std::string last, usage;
     json::GetString(body, "lastReportedAt", last);
     json::GetString(body, "usageType", usage);
-    double tor = 0, white = 0;
-    json::GetNumber(body, "isTor", tor);
-    json::GetNumber(body, "isWhitelisted", white);
+    bool tor = false, white = false;
+    json::GetBool(body, "isTor", tor);
+    json::GetBool(body, "isWhitelisted", white);
     t.abuseScore    = (int)score;
     t.totalReports  = (int)reports;
     t.lastReport    = ParseIsoDate(last);
-    t.isTor         = tor > 0.5;
-    t.isWhitelisted = white > 0.5;
+    t.isTor         = tor;
+    t.isWhitelisted = white;
+    return true;
 }
 
 bool FindVcardValue(const std::string& obj, const std::string& name, std::string& out) {
@@ -237,7 +244,7 @@ const unsigned long long kRevalidateSec = 24ull * 3600;
 }
 
 std::wstring ThreatResolver::CachePath() const {
-    return AppDataDir() + L"\\threat_cache.tsv";
+    return AppDataDir() + L"\\threat_cache_v2.tsv";
 }
 
 ThreatResolver::ThreatResolver()  { LoadCache(); }
@@ -405,6 +412,7 @@ void ThreatResolver::LoadCache() {
         en.info.isTor         = atoi(f[4].c_str()) != 0;
         en.info.isWhitelisted = atoi(f[5].c_str()) != 0;
         en.info.dnsbl         = Widen(f[6]);
+        en.info.dnsblIncomplete = true;
         en.info.passiveDns    = atoi(f[7].c_str());
         en.info.pdnsNames     = Widen(f[8]);
         en.info.ts            = _strtoui64(f[9].c_str(), nullptr, 10);
@@ -437,7 +445,7 @@ void ThreatResolver::SaveCache() {
     const unsigned long long now = (unsigned long long)time(nullptr);
     for (const auto& kv : m_cache) {
         const ThreatInfo& t = kv.second.info;
-        if (!t.resolved || !t.ts || now - t.ts > kCacheTtlSec) continue;
+        if (!t.resolved || t.failed || t.dnsblIncomplete || !t.ts || now - t.ts > kCacheTtlSec) continue;
         std::string line = Narrow(kv.first) + "\t" +
                            std::to_string(t.abuseScore) + "\t" +
                            std::to_string(t.totalReports) + "\t" +
@@ -468,7 +476,6 @@ void ThreatResolver::DnsblWorker() {
     static const DnsblZone kZones[] = {
         { L"SBL/XBL",        "sbl-xbl.spamhaus.org" },
         { L"Blocklist.de",   "bl.blocklist.de" },
-        { L"Sorbs",          "spam.dnsbl.sorbs.net" },
         { L"Barracuda",      "b.barracudacentral.org" },
         { L"UCEPROTECT",     "dnsbl-1.uceprotect.net" },
     };
@@ -485,15 +492,17 @@ void ThreatResolver::DnsblWorker() {
             ip = m_qDnsbl.front();
             m_qDnsbl.pop_front();
             auto it = m_cache.find(ip);
-            if (it != m_cache.end()) it->second.queuedD = false;
+
         }
 
         std::wstring hits;
+        bool incomplete = false;
         const std::string rev = ReverseIp4(Narrow(ip));
+        if (rev.empty()) incomplete = true;
         if (!rev.empty()) {
             for (const auto& z : kZones) {
                 if (m_stop.load()) return;
-                if (DnsblHit(rev + "." + z.suffix)) {
+                if (DnsblHit(rev + "." + z.suffix, std::string(z.suffix) == "sbl-xbl.spamhaus.org", incomplete)) {
                     if (!hits.empty()) hits += L", ";
                     hits += z.label;
                 }
@@ -505,6 +514,8 @@ void ThreatResolver::DnsblWorker() {
             auto it = m_cache.find(ip);
             if (it != m_cache.end()) {
                 it->second.info.dnsbl = hits.empty() ? L"—" : hits;
+                it->second.info.dnsblIncomplete = incomplete;
+                if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedD = false;
                 TouchResolvedLocked(ip);
             }
         }
@@ -525,7 +536,7 @@ void ThreatResolver::AbuseWorker() {
             ip = m_qAbuse.front();
             m_qAbuse.pop_front();
             auto it = m_cache.find(ip);
-            if (it != m_cache.end()) it->second.queuedA = false;
+
         }
 
         std::wstring key;
@@ -536,6 +547,7 @@ void ThreatResolver::AbuseWorker() {
 
         if (key.empty()) {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedA = false;
             TouchResolvedLocked(ip);
             std::this_thread::sleep_for(std::chrono::milliseconds(30));
             continue;
@@ -556,10 +568,6 @@ void ThreatResolver::AbuseWorker() {
                     ++it;
                 }
             }
-            for (const auto& x : picked) {
-                auto e = m_cache.find(x);
-                if (e != m_cache.end()) e->second.queuedA = false;
-            }
         }
 
         bool ok = false;
@@ -570,7 +578,7 @@ void ThreatResolver::AbuseWorker() {
             http::Response r = http::Request("POST",
                 "https://api.abuseipdb.com/api/v2/check-block",
                 body, "application/x-www-form-urlencoded", "", 20000, hdr);
-            if (r.ok) {
+            if (r.ok && r.body.find("\"reportedAddress\"") != std::string::npos) {
                 std::unordered_map<std::string, ThreatInfo> byIp;
                 ParseBlockReports(r.body, byIp);
                 std::lock_guard<std::mutex> lk(m_mtx);
@@ -578,12 +586,13 @@ void ThreatResolver::AbuseWorker() {
                     auto it = m_cache.find(bip);
                     if (it == m_cache.end()) continue;
                     auto hit = byIp.find(Narrow(bip));
-                    if (hit != byIp.end()) it->second.info = hit->second;
+                    if (hit != byIp.end()) MergeAbuseEvidence(it->second.info, hit->second);
                     else {
 
                         it->second.info.abuseScore   = 0;
                         it->second.info.totalReports = 0;
                     }
+                    if (auto completed = m_cache.find(bip); completed != m_cache.end()) completed->second.queuedA = false;
                     TouchResolvedLocked(bip);
                 }
                 ok = true;
@@ -599,18 +608,19 @@ void ThreatResolver::AbuseWorker() {
                     "https://api.abuseipdb.com/api/v2/check?ipAddress=" + Narrow(bip) +
                     "&maxAgeInDays=90&verbose",
                     "", "application/json", "", 20000, hdr);
-                if (r.ok) {
-                    ThreatInfo t;
-                    ParseSingleCheck(r.body, t);
+                ThreatInfo t;
+                if (r.ok && ParseSingleCheck(r.body, t)) {
                     std::lock_guard<std::mutex> lk(m_mtx);
                     auto it = m_cache.find(bip);
-                    if (it != m_cache.end()) it->second.info = t;
+                    if (it != m_cache.end()) MergeAbuseEvidence(it->second.info, t);
+                    if (auto completed = m_cache.find(bip); completed != m_cache.end()) completed->second.queuedA = false;
                     TouchResolvedLocked(bip);
                 } else {
                     std::lock_guard<std::mutex> lk(m_mtx);
                     auto it = m_cache.find(bip);
                     if (it != m_cache.end()) {
                         it->second.info.failed = true;
+                        if (auto completed = m_cache.find(bip); completed != m_cache.end()) completed->second.queuedA = false;
                         TouchResolvedLocked(bip);
                     }
                 }
@@ -635,7 +645,7 @@ void ThreatResolver::RdapWorker() {
             ip = m_qRdap.front();
             m_qRdap.pop_front();
             auto it = m_cache.find(ip);
-            if (it != m_cache.end()) it->second.queuedR = false;
+
         }
 
         {
@@ -684,6 +694,7 @@ void ThreatResolver::RdapWorker() {
 
         {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedR = false;
             TouchResolvedLocked(ip);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(2000));
@@ -703,7 +714,7 @@ void ThreatResolver::VtWorker() {
             ip = m_qVt.front();
             m_qVt.pop_front();
             auto it = m_cache.find(ip);
-            if (it != m_cache.end()) it->second.queuedV = false;
+
         }
 
         std::wstring key;
@@ -715,6 +726,7 @@ void ThreatResolver::VtWorker() {
         if (key.empty()) {
 
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedV = false;
             TouchResolvedLocked(ip);
             std::this_thread::sleep_for(std::chrono::milliseconds(30));
             continue;
@@ -746,6 +758,7 @@ void ThreatResolver::VtWorker() {
 
         {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedV = false;
             TouchResolvedLocked(ip);
         }
 
@@ -767,7 +780,7 @@ void ThreatResolver::PlugWorker() {
             ip = m_qPlug.front();
             m_qPlug.pop_front();
             auto it = m_cache.find(ip);
-            if (it != m_cache.end()) it->second.queuedG = false;
+
         }
 
         std::vector<PluginResult> results = PluginsRun(ip);
@@ -787,10 +800,12 @@ void ThreatResolver::PlugWorker() {
                 it->second.info.pluginRisk = best;
                 it->second.info.pluginVerdict = verdict;
                 it->second.info.pluginNote = note;
+                if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedG = false;
                 TouchResolvedLocked(ip);
             }
         } else {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedG = false;
             TouchResolvedLocked(ip);
         }
     }
@@ -809,7 +824,7 @@ void ThreatResolver::PdnsWorker() {
             ip = m_qPdns.front();
             m_qPdns.pop_front();
             auto it = m_cache.find(ip);
-            if (it != m_cache.end()) it->second.queuedP = false;
+
         }
 
         int count = 0;
@@ -853,6 +868,7 @@ void ThreatResolver::PdnsWorker() {
                 it->second.info.passiveDns = count;
                 it->second.info.pdnsNames  = names;
                 it->second.info.failed     = (count == 0 && names.empty());
+                if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedP = false;
                 TouchResolvedLocked(ip);
             }
         }

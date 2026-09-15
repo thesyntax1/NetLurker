@@ -126,7 +126,7 @@ class RiskEngineTest {
     }
 
     @Test
-    fun `datacenter without reverse dns is only flagged once reverse dns has answered`() {
+    fun `failed reverse dns is not proof that a datacenter has no name`() {
         // Reverse DNS still in flight must not be read as "there is none".
         val pending = RiskEngine.evaluate(
             target(
@@ -144,7 +144,7 @@ class RiskEngineTest {
             ),
             now
         )
-        assertTrue(answered.reasons.any { it.key == ReasonKeys.DATACENTER_NO_RDNS })
+        assertFalse(answered.reasons.any { it.key == ReasonKeys.DATACENTER_NO_RDNS })
     }
 
     @Test

@@ -1,6 +1,9 @@
 package dev.netlurker.android.ui
 
 import android.content.Context
+import android.content.res.Configuration
+import dev.netlurker.android.data.Settings
+import java.util.Locale
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.staticCompositionLocalOf
 
@@ -16,7 +19,21 @@ import androidx.compose.runtime.staticCompositionLocalOf
  * Placeholders are written `{name}` and substituted by [invoke]; this keeps a translation
  * free to reorder the sentence, which positional specifiers would break.
  */
-class Strings(private val context: Context) {
+class Strings(context: Context, languageOverride: String = Settings(context).languageOverride) {
+
+    val language: String = languageOverride
+        .ifEmpty { context.resources.configuration.locales[0].language }
+        .takeIf { code -> supportedLanguages.any { it.first == code } } ?: "en"
+    private val context = context.createConfigurationContext(
+        Configuration(context.resources.configuration).apply { setLocale(Locale.forLanguageTag(language)) }
+    )
+
+    companion object {
+        val supportedLanguages = listOf(
+            "en" to "English", "tr" to "Türkçe", "es" to "Español", "de" to "Deutsch",
+            "fr" to "Français", "ja" to "日本語", "zh" to "中文", "pt" to "Português"
+        )
+    }
 
     private val cache = HashMap<String, Int>()
 

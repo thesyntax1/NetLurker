@@ -1,0 +1,48 @@
+name: Release candidate
+
+# Deliberately manual: build artifacts are not automatically public releases.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Windows candidate version (must match res/netlurker.rc; e.g. 6.0.0-rc.1)"
+        type: string
+        required: true
+        default: "6.0.0-rc.1"
+
+permissions:
+  contents: read
+  checks: write
+
+jobs:
+  validate:
+    uses: ./.github/workflows/build.yml
+    with:
+      run-emulator: true
+
+  package:
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: NetLurker-windows-x64
+          path: candidate-input
+      - name: Validate and package exact tested revision
+        env:
+          CANDIDATE_VERSION: ${{ inputs.version }}
+        run: |
+          python3 tools/package_release.py --input candidate-input --output candidate-output \
+            --version "$CANDIDATE_VERSION" --revision "$GITHUB_SHA"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: NetLurker-release-candidate
+          path: candidate-output/*
+          if-no-files-found: error
+      - name: Review required before publication
+        run: |
+          echo '## Candidate only — not a public release' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Windows bundle and checksums were prepared from the tested revision.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Complete real-device/provider checks and signature review in docs/RELEASE-CHECKLIST.md.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Android production signing is separate; an unsigned release APK must not be published as installable.' >> "$GITHUB_STEP_SUMMARY"

@@ -50,10 +50,19 @@ class Settings(context: Context) {
         get() = prefs.getLong(KEY_REFRESH, 2_000L).coerceIn(1_000L, 30_000L)
         set(value) = prefs.edit().putLong(KEY_REFRESH, value.coerceIn(1_000L, 30_000L)).apply()
 
-    /** "" means "follow the system language". */
+    /** Fresh installs start in English; an explicit legacy "" still follows the system. */
     var languageOverride: String
-        get() = prefs.getString(KEY_LANGUAGE, "").orEmpty()
+        get() = prefs.getString(KEY_LANGUAGE, "en") ?: "en"
         set(value) = prefs.edit().putString(KEY_LANGUAGE, value).apply()
+
+    /** Keep the UI in sync without restarting the activity or losing the current tab. */
+    fun observeLanguage(onChange: () -> Unit): () -> Unit {
+        val listener = SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+            if (key == KEY_LANGUAGE || key == null) onChange()
+        }
+        prefs.registerOnSharedPreferenceChangeListener(listener)
+        return { prefs.unregisterOnSharedPreferenceChangeListener(listener) }
+    }
 
     var abuseIpDbKey: String
         get() = prefs.getString(KEY_ABUSE_KEY, "").orEmpty()

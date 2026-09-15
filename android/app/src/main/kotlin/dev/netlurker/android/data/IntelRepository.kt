@@ -26,6 +26,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import java.util.concurrent.ConcurrentHashMap
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -51,14 +53,14 @@ class IntelRepository(
     private val cacheDir = java.io.File(context.applicationContext.filesDir, "intel")
 
     private val geoCache = DiskCache(cacheDir, "geo.tsv")
-    private val threatCache = DiskCache(cacheDir, "threat.tsv")
     private val rdapCache = DiskCache(cacheDir, "rdap.tsv")
-    private val certCache = DiskCache(cacheDir, "cert.tsv")
+    private val certCache = DiskCache(cacheDir, "cert-v2.tsv")
     private val bannerCache = DiskCache(cacheDir, "banner.tsv")
 
     /** Retry bookkeeping: how many times each source failed for a given address. */
-    private val attempts = HashMap<String, HashMap<String, Int>>()
-    private val nextTryAt = HashMap<String, Long>()
+    private val attempts = ConcurrentHashMap<String, ConcurrentHashMap<String, Int>>()
+    private val nextTryAt = ConcurrentHashMap<String, Long>()
+    private val inFlight = ConcurrentHashMap.newKeySet<String>()
 
     private var hostsSnapshot = HostsFile.Snapshot(readable = false, entries = 0)
     private var hostsReadAtMs = 0L
@@ -73,25 +75,24 @@ class IntelRepository(
     val status: StateFlow<String> = _status.asStateFlow()
 
     init {
-        listOf(geoCache, threatCache, rdapCache, certCache, bannerCache).forEach { it.load() }
+        listOf(geoCache, rdapCache, certCache, bannerCache).forEach { it.load() }
     }
 
     fun cacheSizes(): Map<String, Int> = mapOf(
         "geo" to geoCache.size(),
-        "threat" to threatCache.size(),
         "rdap" to rdapCache.size(),
         "cert" to certCache.size(),
         "banner" to bannerCache.size()
     )
 
     fun clearCaches() {
-        geoCache.clear(); threatCache.clear(); rdapCache.clear()
+        geoCache.clear(); rdapCache.clear()
         certCache.clear(); bannerCache.clear()
         attempts.clear(); nextTryAt.clear()
     }
 
     fun persistCaches() {
-        geoCache.save(); threatCache.save(); rdapCache.save()
+        geoCache.save(); rdapCache.save()
         certCache.save(); bannerCache.save()
     }
 
@@ -119,7 +120,9 @@ class IntelRepository(
     }
 
     private fun update(key: String, transform: (Target) -> Target) {
-        _targets.value = _targets.value.map { if (it.key == key) transform(it) else it }
+        _targets.update { targets -> targets.map { if (it.key == key) transform(it).let { changed ->
+            changed.copy(verdict = RiskEngine.evaluate(changed))
+        } else it } }
     }
 
     /** Runs every enabled source for one target, in the order the desktop build uses. */
@@ -127,12 +130,20 @@ class IntelRepository(
         val target = _targets.value.firstOrNull { it.key == key } ?: return
         val backoffUntil = nextTryAt[key] ?: 0L
         if (!force && backoffUntil > nowEpochSec()) return
-        scope.launch(Dispatchers.IO) { runInvestigation(target, force) }
+        if (!inFlight.add(key)) return
+        scope.launch(Dispatchers.IO) {
+            try { runInvestigation(target, force) }
+            finally { inFlight.remove(key) }
+        }
     }
 
     private suspend fun runInvestigation(target: Target, force: Boolean) {
         val key = target.key
-        var current = target
+        var current = target.copy(
+            geo = IntelResult.pending(), threat = IntelResult.pending(),
+            cert = IntelResult.pending(), banner = IntelResult.pending()
+        )
+        update(key) { current }
 
         // --- 1. resolve the input to an address ---------------------------------
         if (current.ip == null) {
@@ -151,7 +162,12 @@ class IntelRepository(
 
         val ip = current.ip
         if (ip == null) {
-            current = current.copy(verdict = RiskEngine.evaluate(current))
+            current = current.copy(
+                geo = IntelResult.unavailable("input could not be resolved"),
+                threat = IntelResult.unavailable("input could not be resolved"),
+                cert = IntelResult.unavailable("input could not be resolved"),
+                banner = IntelResult.unavailable("input could not be resolved")
+            )
             update(key) { current }
             return
         }
@@ -181,7 +197,7 @@ class IntelRepository(
             )
             update(key) { current }
         }
-        val reverseName = current.reverseDns.value
+        val expectedName = current.input.takeUnless { Ip.isIp(it) }
 
         // --- 3. geolocation ------------------------------------------------------
         current = enrichGeo(current, ip, force)
@@ -192,7 +208,7 @@ class IntelRepository(
         update(key) { current }
 
         // --- 5. TLS --------------------------------------------------------------
-        current = enrichCert(current, ip, reverseName, force)
+        current = enrichCert(current, ip, expectedName, force)
         update(key) { current }
 
         // --- 6. HTTP banner ------------------------------------------------------
@@ -217,9 +233,10 @@ class IntelRepository(
         if (!force) {
             geoCache.get(ip)?.let { entry ->
                 if (nowEpochSec() - entry.atEpochSec < GEO_TTL_SEC) {
-                    return target.copy(geo = parseGeo(DiskCache.decode(entry.payload))?.let {
-                        IntelResult.ok(it, entry.atEpochSec)
-                    } ?: target.geo)
+                    parseGeo(DiskCache.decode(entry.payload))?.let {
+                        return target.copy(geo = IntelResult.ok(it, entry.atEpochSec))
+                    }
+                    geoCache.remove(ip)
                 }
             }
         }
@@ -272,16 +289,9 @@ class IntelRepository(
         if (!publicAddress) {
             return target.copy(threat = IntelResult.unavailable("private address — not listed anywhere"))
         }
-        if (!force) {
-            threatCache.get(ip)?.let { entry ->
-                if (nowEpochSec() - entry.atEpochSec < THREAT_TTL_SEC) {
-                    parseThreat(DiskCache.decode(entry.payload))?.let {
-                        return target.copy(threat = IntelResult.ok(it, entry.atEpochSec))
-                    }
-                }
-            }
-        }
-
+        // Do not reuse an aggregate threat cache: it loses per-source failures,
+        // changes in enabled providers/API keys, and RDAP fields. Successful RDAP
+        // answers still have their own independent TTL cache below.
         val sources = mutableListOf<String>()
         var abuseScore = -1
         var totalReports = 0
@@ -307,7 +317,7 @@ class IntelRepository(
             problems += "DNSBL: IPv6 has no reverse form"
         } else {
             dnsblHits = dnsbl.hits
-            sources += "dnsbl(${dnsbl.queried})"
+            if (dnsbl.hits.isNotEmpty() || dnsbl.clean) sources += "dnsbl(${dnsbl.queried})"
             if (dnsbl.unreachable.isNotEmpty()) {
                 problems += "unreachable: " + dnsbl.unreachable.joinToString(", ")
             }
@@ -423,7 +433,6 @@ class IntelRepository(
             noteFailure(target.key, "threat")
             return target.copy(threat = IntelResult.failed(problems.joinToString("; ")))
         }
-        threatCache.put(ip, nowEpochSec(), writeThreat(info))
         val detail = if (problems.isEmpty()) null else problems.joinToString("; ")
         return target.copy(
             threat = IntelResult(IntelStatus.OK, info, detail, nowEpochSec())
@@ -442,12 +451,15 @@ class IntelRepository(
             return target.copy(cert = IntelResult.disabled("TLS inspection is turned off"))
         }
         val port = target.port ?: 443
-        val cacheKey = "$ip:$port"
+        val cacheKey = "$ip:$port:${expectedName.orEmpty()}"
         if (!force) {
             certCache.get(cacheKey)?.let { entry ->
                 if (nowEpochSec() - entry.atEpochSec < CERT_TTL_SEC) {
                     parseCert(DiskCache.decode(entry.payload))?.let {
-                        return target.copy(cert = IntelResult.ok(it, entry.atEpochSec))
+                        return target.copy(cert = IntelResult.ok(it.copy(
+                            expired = it.notAfterEpochSec < nowEpochSec(),
+                            notYetValid = it.notBeforeEpochSec > nowEpochSec()
+                        ), entry.atEpochSec))
                     }
                 }
             }
@@ -462,7 +474,7 @@ class IntelRepository(
             },
             onFailure = { error ->
                 val message = error.message.orEmpty()
-                // No TLS on this port is a finding, not a failure of the probe.
+                // A handshake failure can also be protocol/SNI/policy; it does not prove absence of TLS.
                 if (message.contains("handshake", true) ||
                     message.contains("SSL", true) ||
                     message.contains("protocol", true)
@@ -470,7 +482,7 @@ class IntelRepository(
                     target.copy(
                         cert = IntelResult(
                             IntelStatus.FAILED, null,
-                            "no TLS service on port $port (${error.javaClass.simpleName})",
+                            "TLS handshake failed on port $port (${error.javaClass.simpleName})",
                             nowEpochSec()
                         )
                     )
@@ -488,7 +500,7 @@ class IntelRepository(
             return target.copy(banner = IntelResult.disabled("HTTP banner probe is turned off"))
         }
         val port = target.port ?: 80
-        val cacheKey = "$ip:$port"
+        val cacheKey = "$ip:$port:${target.input}"
         if (!force) {
             bannerCache.get(cacheKey)?.let { entry ->
                 if (nowEpochSec() - entry.atEpochSec < BANNER_TTL_SEC) {
@@ -499,7 +511,7 @@ class IntelRepository(
             }
         }
         val outcome = withContext(Dispatchers.IO) {
-            runCatching { BannerProbe.inspect(ip, port) }
+            runCatching { BannerProbe.inspect(target.input, port) }
         }
         return outcome.fold(
             onSuccess = { info ->
@@ -520,9 +532,8 @@ class IntelRepository(
     // ------------------------------------------------------------------ helpers
 
     private fun noteFailure(key: String, source: String) {
-        val perSource = attempts.getOrPut(key) { HashMap() }
-        val count = (perSource[source] ?: 0) + 1
-        perSource[source] = count
+        val perSource = attempts.getOrPut(key) { ConcurrentHashMap() }
+        val count = perSource.merge(source, 1) { a, b -> a + b } ?: 1
         nextTryAt[key] = nowEpochSec() + DiskCache.backoffSeconds(count)
     }
 
@@ -565,41 +576,6 @@ class IntelRepository(
             mobile = o.optBoolean("mobile"),
             proxy = o.optBoolean("proxy"),
             hosting = o.optBoolean("hosting")
-        )
-    }.getOrNull()
-
-    private fun writeThreat(info: ThreatInfo): String = JsonWriter("").apply {
-        beginObject()
-        name("abuseScore"); value(info.abuseScore)
-        name("totalReports"); value(info.totalReports)
-        name("lastReport"); value(info.lastReportEpochSec)
-        name("tor"); value(info.isTor)
-        name("dnsbl"); value(info.dnsblHits.joinToString(","))
-        name("pdns"); value(info.passiveDnsRecords)
-        name("pdnsNames"); value(info.passiveDnsNames)
-        name("vtMal"); value(info.vtMalicious)
-        name("vtSus"); value(info.vtSuspicious)
-        name("vtTot"); value(info.vtTotal)
-        name("vtRep"); value(info.vtReputation)
-        name("sources"); value(info.sourcesAnswered.joinToString(","))
-        endObject()
-    }.build()
-
-    private fun parseThreat(payload: String): ThreatInfo? = runCatching {
-        val o = JSONObject(payload)
-        ThreatInfo(
-            abuseScore = o.optInt("abuseScore", -1),
-            totalReports = o.optInt("totalReports"),
-            lastReportEpochSec = o.optLong("lastReport"),
-            isTor = o.optBoolean("tor"),
-            dnsblHits = o.optString("dnsbl").split(",").filter { it.isNotBlank() },
-            passiveDnsRecords = o.optInt("pdns"),
-            passiveDnsNames = o.optString("pdnsNames"),
-            vtMalicious = o.optInt("vtMal"),
-            vtSuspicious = o.optInt("vtSus"),
-            vtTotal = o.optInt("vtTot"),
-            vtReputation = o.optInt("vtRep"),
-            sourcesAnswered = o.optString("sources").split(",").filter { it.isNotBlank() }
         )
     }.getOrNull()
 
@@ -699,7 +675,6 @@ class IntelRepository(
 
     private companion object {
         const val GEO_TTL_SEC = 7L * 86_400
-        const val THREAT_TTL_SEC = 24L * 3_600
         const val RDAP_TTL_SEC = 30L * 86_400
         const val CERT_TTL_SEC = 6L * 3_600
         const val BANNER_TTL_SEC = 3_600L

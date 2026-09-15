@@ -134,7 +134,6 @@
     <string name="field.country" formatted="false">国家</string>
     <string name="field.dns" formatted="false">DNS 服务器</string>
     <string name="field.dnsbl" formatted="false">DNS 黑名单</string>
-    <string name="field.dnsbl.clean" formatted="false">未列于 5 个区域中的任何一个</string>
     <string name="field.eol" formatted="false">已停止支持版本</string>
     <string name="field.findings" formatted="false">发现</string>
     <string name="field.fingerprint" formatted="false">SHA-256 指纹</string>
@@ -312,11 +311,11 @@
     <string name="risk.hosts_redirect" formatted="false">通过设备 hosts 文件解析</string>
     <string name="risk.level.danger" formatted="false">危险</string>
     <string name="risk.level.info" formatted="false">信息</string>
-    <string name="risk.level.safe" formatted="false">安全</string>
+    <string name="risk.level.safe" formatted="false">低风险信号</string>
     <string name="risk.level.warn" formatted="false">可疑</string>
     <string name="risk.mit_clean_all_sources" formatted="false">{arg0} 个来源应答且无不利发现</string>
     <string name="risk.mit_common_web_port" formatted="false">标准 Web 端口 {arg0}</string>
-    <string name="risk.mit_evidence_incomplete" formatted="false">仍在查询：{arg0}</string>
+    <string name="risk.mit_evidence_incomplete" formatted="false">证据不完整：{arg0}</string>
     <string name="risk.mit_private_network" formatted="false">私有地址——已降低评分</string>
     <string name="risk.mit_rdap_known_org" formatted="false">由 {arg0} 持有</string>
     <string name="risk.passive_dns_many" formatted="false">该地址有 {arg0} 条被动 DNS 记录</string>
@@ -368,6 +367,7 @@
     <string name="settings.geo" formatted="false">IP 地理位置（ip-api.com）</string>
     <string name="settings.geo.detail" formatted="false">仅发送你调查的 IP 地址。免费接口为明文 HTTP。</string>
     <string name="settings.key.optional" formatted="false">可选 — 留空即跳过</string>
+    <string name="settings.language" formatted="false">语言</string>
     <string name="settings.notify" formatted="false">异常通知</string>
     <string name="settings.notify.detail" formatted="false">当某应用远超自身基线时通知。即使没有通知权限，应用内仍会显示告警。</string>
     <string name="settings.public_ip" formatted="false">显示公网出口 IP</string>
@@ -407,7 +407,7 @@
     <string name="summary.no_destinations" formatted="false">本次会话尚未调查任何目标。</string>
     <string name="summary.no_geo" formatted="false">尚无地理位置结果——请先调查一个目标。</string>
     <string name="summary.no_orgs" formatted="false">尚无所有权信息。</string>
-    <string name="traffic.unsupported" formatted="false">此设备不支持 TrafficStats，因此无法获取按应用计数。NetLurker 不显示编造的数字。</string>
+    <string name="traffic.unsupported" formatted="false">Android 限制其他应用的实时流量计数。不可用的值显示为 —，而非零。设备总量单独显示。</string>
     <string name="value.no" formatted="false">否</string>
     <string name="value.yes" formatted="false">是</string>
     <string name="verdict.findings" formatted="false">{count} 项发现</string>

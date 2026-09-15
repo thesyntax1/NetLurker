@@ -1,5 +1,11 @@
 package dev.netlurker.android
 
+import android.Manifest
+import android.os.Build
+import androidx.test.rule.GrantPermissionRule
+import androidx.lifecycle.ViewModelStore
+import dev.netlurker.android.ui.Strings
+import org.junit.After
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -39,13 +45,21 @@ class ScreenRenderTest {
     @get:Rule
     val compose = createComposeRule()
 
+    @get:Rule
+    val permissions: GrantPermissionRule = GrantPermissionRule.grant(
+        *buildList {
+            add(Manifest.permission.ACCESS_FINE_LOCATION)
+            add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            if (Build.VERSION.SDK_INT >= 33) add(Manifest.permission.POST_NOTIFICATIONS)
+        }.toTypedArray()
+    )
+
+    private val store = ViewModelStore()
     private lateinit var viewModel: MainViewModel
 
     private fun text(key: String): String {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
-        val id = context.resources.getIdentifier(key, "string", context.packageName)
-        check(id != 0) { "catalog key has no string resource: $key" }
-        return context.resources.getString(id)
+        return Strings(context)(key)
     }
 
     /** True when the label is on screen at least once. */
@@ -62,9 +76,16 @@ class ScreenRenderTest {
     @Before
     fun setUp() {
         viewModel = MainViewModel(ApplicationProvider.getApplicationContext())
+        store.put("screen-test", viewModel)
         compose.setContent {
             NetLurkerTheme { MainScreen(viewModel) }
         }
+    }
+
+    @After
+    fun tearDown() {
+        viewModel.stop()
+        store.clear()
     }
 
     @Test

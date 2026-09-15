@@ -10,6 +10,7 @@
          never required: without it the Wi-Fi panel says "SSID unavailable". -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Enumerating the installed applications so per-app traffic can be attributed to a
          name and an icon. Without it NetLurker would show bare UIDs instead of apps. -->
     <uses-permission

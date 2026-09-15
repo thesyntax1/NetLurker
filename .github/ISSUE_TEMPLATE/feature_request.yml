@@ -1,0 +1,18 @@
+name: Feature proposal
+description: Suggest an improvement with a credible data source
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What investigation problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: source
+    attributes:
+      label: Platform, data source, permissions and privacy
+      description: "Which OS API or service can actually supply this? Do not assume Android exposes Windows socket data."
+  - type: textarea
+    id: validation
+    attributes:
+      label: How would we verify it works?

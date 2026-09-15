@@ -162,17 +162,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    @Synchronized
     fun resetSession() {
         traffic.resetSession()
         history.reset()
+        lastPollAtMs = 0L
         _alerts.value = emptyList()
         poll()
     }
 
     // ----------------------------------------------------------------------- poll
 
+    @Synchronized
     private fun poll() {
-        val now = System.currentTimeMillis()
+        val now = android.os.SystemClock.elapsedRealtime()
         val interval = if (lastPollAtMs == 0L) 0L else now - lastPollAtMs
         lastPollAtMs = now
 
@@ -186,7 +189,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val perApp = HashMap<String, Long>(rated.size)
             for (app in rated) {
-                if (app.totalBytes > 0) perApp[app.label] = app.totalBytes
+                if (app.supported && app.totalBytes >= 0) perApp[app.label] = app.totalBytes
             }
             val fresh = history.record(
                 totalInBytes = current.totalRxBytes,

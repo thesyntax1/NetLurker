@@ -110,17 +110,18 @@ object RiskEngine {
 
         // --- geolocation --------------------------------------------------------
         val geo = if (target.geo.status == IntelStatus.OK) target.geo.value else null
-        if (target.geo.status == IntelStatus.PENDING) pendingSources += "geo"
+        if (target.geo.status != IntelStatus.OK || target.geo.detail != null) pendingSources += "geo"
         if (geo != null) {
             if (geo.proxy) add(30, ReasonKeys.PROXY_OR_VPN)
-            if (geo.hosting && geo.host.isBlank() && target.reverseDns.status != IntelStatus.PENDING) {
+            if (geo.hosting && geo.host.isBlank() && target.reverseDns.status == IntelStatus.OK &&
+                target.reverseDns.value.isNullOrBlank()) {
                 add(10, ReasonKeys.DATACENTER_NO_RDNS)
             }
         }
 
         // --- threat intelligence ------------------------------------------------
         val threat = if (target.threat.status == IntelStatus.OK) target.threat.value else null
-        if (target.threat.status == IntelStatus.PENDING) pendingSources += "threat"
+        if (target.threat.status != IntelStatus.OK || target.threat.detail != null) pendingSources += "threat"
         if (threat != null) {
             when {
                 threat.abuseScore >= 80 -> add(
@@ -166,7 +167,7 @@ object RiskEngine {
 
         // --- TLS ----------------------------------------------------------------
         val cert = if (target.cert.status == IntelStatus.OK) target.cert.value else null
-        if (target.cert.status == IntelStatus.PENDING) pendingSources += "cert"
+        if (target.cert.status != IntelStatus.OK || target.cert.detail != null) pendingSources += "cert"
         if (cert != null) {
             if (cert.selfSigned) {
                 if (geo?.hosting == true) add(22, ReasonKeys.CERT_SELF_SIGNED_DATACENTER)
@@ -184,7 +185,7 @@ object RiskEngine {
 
         // --- HTTP banner --------------------------------------------------------
         val banner = if (target.banner.status == IntelStatus.OK) target.banner.value else null
-        if (target.banner.status == IntelStatus.PENDING) pendingSources += "banner"
+        if (target.banner.status != IntelStatus.OK || target.banner.detail != null) pendingSources += "banner"
         if (banner != null && banner.endOfLife) {
             add(8, ReasonKeys.BANNER_EOL, banner.server.ifBlank { banner.statusLine })
         }

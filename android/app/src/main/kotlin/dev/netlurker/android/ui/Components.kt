@@ -7,6 +7,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -73,7 +76,7 @@ fun KpiTile(
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Text(
-            text = label.uppercase(),
+            text = label.uppercase(java.util.Locale.forLanguageTag(strings().language)),
             color = NL.TextFaint,
             style = MaterialTheme.typography.labelSmall,
             maxLines = 1,
@@ -98,12 +101,12 @@ fun KpiTile(
  * appears. Extracted from the investigation screen so the applications screen cannot drift
  * into describing a risk differently.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun VerdictPanel(verdict: Verdict) {
     val s = strings()
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         RiskBadge(verdict.score, verdict.level)
-        Spacer(Modifier.width(10.dp))
         Text(
             text = if (verdict.reasons.isEmpty()) s("verdict.no_findings")
             else s("verdict.findings", "count" to verdict.reasons.size.toString()),
@@ -147,12 +150,12 @@ fun SectionHeader(text: String, trailing: String? = null) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = text.uppercase(),
+            text = text.uppercase(java.util.Locale.forLanguageTag(strings().language)),
             color = NL.Accent,
             style = MaterialTheme.typography.labelMedium,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f).padding(end = 8.dp)
         )
-        Spacer(Modifier.weight(1f))
         if (trailing != null) {
             Text(text = trailing, color = NL.TextFaint, style = MaterialTheme.typography.labelSmall)
         }
@@ -163,23 +166,25 @@ fun SectionHeader(text: String, trailing: String? = null) {
  *  explicit "unavailable" wording — so a blank line can never be read as "nothing found". */
 @Composable
 fun InfoRow(label: String, value: String, valueColor: Color = NL.Text, mono: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 3.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = label,
-            color = NL.TextDim,
-            style = MaterialTheme.typography.bodySmall,
-            modifier = Modifier.width(132.dp)
-        )
-        Text(
-            text = value,
-            color = valueColor,
-            style = if (mono) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall
-        )
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(vertical = 3.dp)) {
+        // At large font sizes / small widths, stacking is more readable than squeezing
+        // an IPv6 address or a translated value into a few characters per line.
+        val fontScale = androidx.compose.ui.platform.LocalDensity.current.fontScale
+        if (maxWidth < 300.dp || fontScale > 1.3f) {
+            Column {
+                Text(label, color = NL.TextDim, style = MaterialTheme.typography.bodySmall)
+                Text(value, color = valueColor,
+                    style = if (mono) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall)
+            }
+        } else {
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Text(label, color = NL.TextDim, style = MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(0.36f).padding(end = 12.dp))
+                Text(value, color = valueColor,
+                    style = if (mono) MaterialTheme.typography.labelMedium else MaterialTheme.typography.bodySmall,
+                    modifier = Modifier.weight(0.64f))
+            }
+        }
     }
 }
 

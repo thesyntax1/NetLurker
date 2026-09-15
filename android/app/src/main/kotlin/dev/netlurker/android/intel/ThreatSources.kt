@@ -7,7 +7,7 @@ import java.net.InetAddress
 import java.net.UnknownHostException
 
 /**
- * The five DNS blacklists the desktop build queries, with the same zone names.
+ * The configured DNS blacklists the desktop build queries, with the same zone names.
  *
  * A zone that cannot be reached is reported separately from a zone that answered "not
  * listed". Private DNS (DNS-over-TLS on Android 9+) sometimes refuses these queries; when
@@ -20,7 +20,6 @@ object Dnsbl {
     val ZONES = listOf(
         Zone("SBL/XBL", "sbl-xbl.spamhaus.org"),
         Zone("Blocklist.de", "bl.blocklist.de"),
-        Zone("Sorbs", "spam.dnsbl.sorbs.net"),
         Zone("Barracuda", "b.barracudacentral.org"),
         Zone("UCEPROTECT", "dnsbl-1.uceprotect.net")
     )
@@ -34,7 +33,16 @@ object Dnsbl {
     }
 
     /** Only IPv4 has a DNSBL reverse form; IPv6 is reported as skipped by the caller. */
-    fun check(ip: String): Outcome? {
+    fun isListing(zone: Zone, address: String): Boolean {
+        val code = address.removePrefix("127.0.0.").toIntOrNull() ?: return false
+        if (!address.startsWith("127.0.0.")) return false
+        return if (zone.suffix == "sbl-xbl.spamhaus.org") code in setOf(2, 3, 4, 5, 6, 7, 9)
+        else code == 2
+    }
+
+    fun check(ip: String, lookup: (String) -> List<String> = { name ->
+        InetAddress.getAllByName(name).mapNotNull { it.hostAddress }
+    }): Outcome? {
         val reversed = Ip.reverseForDnsbl(ip) ?: return null
         val hits = mutableListOf<String>()
         val unreachable = mutableListOf<String>()
@@ -42,10 +50,13 @@ object Dnsbl {
         for (zone in ZONES) {
             queried++
             try {
-                InetAddress.getAllByName("$reversed.${zone.suffix}")
-                hits += zone.label
+                val answers = lookup("$reversed.${zone.suffix}")
+                if (answers.any { isListing(zone, it) }) hits += zone.label
+                if (answers.isEmpty() || answers.any { !isListing(zone, it) }) unreachable += zone.label
             } catch (e: UnknownHostException) {
-                // NXDOMAIN — the authoritative answer is "not listed".
+                // InetAddress conflates NXDOMAIN, resolver refusal and connectivity
+                // errors. Without an RCODE we cannot assert a clean result.
+                unreachable += zone.label
             } catch (e: SecurityException) {
                 unreachable += zone.label
             } catch (e: Exception) {
@@ -79,9 +90,11 @@ object AbuseIpDb {
         if (!response.ok) throw IllegalStateException(response.error ?: "request failed")
         val data = JSONObject(response.body).optJSONObject("data")
             ?: throw IllegalStateException("response had no data object")
+        val score = data.getInt("abuseConfidenceScore")
+        require(score in 0..100) { "invalid abuse confidence score" }
         val lastReport = data.optString("lastReportedAt")
         return Outcome(
-            abuseScore = data.optInt("abuseConfidenceScore", -1),
+            abuseScore = score,
             totalReports = data.optInt("totalReports", 0),
             lastReportEpochSec = parseIso8601(lastReport),
             isTor = data.optBoolean("isTor"),
@@ -232,7 +245,7 @@ object VirusTotal {
         val attributes = JSONObject(response.body).optJSONObject("data")
             ?.optJSONObject("attributes")
             ?: throw IllegalStateException("response had no attributes")
-        val stats = attributes.optJSONObject("last_analysis_stats")
+        val stats = attributes.getJSONObject("last_analysis_stats")
         val malicious = stats?.optInt("malicious", 0) ?: 0
         val suspicious = stats?.optInt("suspicious", 0) ?: 0
         val harmless = stats?.optInt("harmless", 0) ?: 0
@@ -253,17 +266,5 @@ object VirusTotal {
  */
 fun parseIso8601(value: String?): Long {
     if (value.isNullOrBlank()) return 0L
-    val match = TIMESTAMP.find(value) ?: return 0L
-    val (year, month, day, hour, minute, second) = match.destructured
-    return runCatching {
-        val calendar = java.util.Calendar.getInstance(java.util.TimeZone.getTimeZone("UTC"))
-        calendar.clear()
-        calendar.set(
-            year.toInt(), month.toInt() - 1, day.toInt(),
-            hour.toInt(), minute.toInt(), second.toInt()
-        )
-        calendar.timeInMillis / 1000L
-    }.getOrDefault(0L)
+    return runCatching { java.time.OffsetDateTime.parse(value).toEpochSecond() }.getOrDefault(0L)
 }
-
-private val TIMESTAMP = Regex("""(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})""")

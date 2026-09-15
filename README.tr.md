@@ -1,226 +1,102 @@
-# NetLurker — Gercek zamanli Windows ag istihbarati
+# NetLurker
 
-[English README](README.md)
+**Windows'ta hangi süreç dışarı bağlanıyor? Risk işaretlerinin arkasındaki kanıtı inceleyin.**
 
-**Hangi uygulama internete baglaniyor, nereye baglaniyor ve bu hedefler supheli mi —
-hepsini tek pencerede gorun.**
+[![Build](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml/badge.svg)](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml)
+[![MIT](https://img.shields.io/badge/lisans-MIT-blue.svg)](LICENSE)
 
-NetLurker, Windows'un ham soket tablolarini eyleme donusebilir ag istihbaratina cevirir:
-surec eslestirme, dijital imza, cografya, tehdit beslemeleri, TLS denetimi ve davranissal
-temel cizgiler — tek, koyu temali, klavyeyle surulen, bagimsiz bir pencerede.
+[English](README.md) · [Veri doğruluğu](docs/DATA-ACCURACY.md) · [Gizlilik](PRIVACY.md) · [Yayın kontrol listesi](docs/RELEASE-CHECKLIST.md)
 
-Saf **C++17 + Win32**, tek taşınabilir x64 yürütülebilir. Kurulum gerekmez.
-Veri toplamaz, telemetri göndermez, hesap istemez.
+NetLurker; soket–süreç eşlemesini, süreç bilgilerini, IP sorgularını, TLS incelemesini ve
+kurallara dayalı risk işaretlerini tek bir yerel arayüzde toplar. AI anahtarı olmadan da
+çalışır: yerel kuralların ürettiği raporlar kullanılabilir.
 
-![NetLurker](docs/preview.png)
+**Durum: ilk yayın öncesi sağlamlaştırma.** CI dosyaları geliştirme derlemeleridir;
+imzalanmış ve cihazda doğrulanmış genel sürüm anlamına gelmez. Hazır sürümler olduğunda
+[Releases](https://github.com/thesyntax1/NetLurker/releases) sayfasında bulunacak.
+Kaynak klasörlerindeki eski EXE/ZIP dosyaları dağıtım yolu değildir.
 
----
+## Neden denemeli?
 
-## Why NetLurker?
+- Bir IP listesinden değil, **uygulamadan başlayın**: bağlantı, hedef, imza ve süreç bağlamı.
+- Kırmızı bir puanı körü körüne kabul etmeyin; **hangi kuralın neden çalıştığını görün**.
+- Bulguları JSON, CSV, TXT veya HTML olarak dışa aktarın. Paylaşmadan önce özel bilgileri silin.
+- Ücretli AI zorunlu değil. Uzak AI analizi yalnızca kullanıcı işlemiyle çalışır ve hata yapabilir.
+- Windows'ta C++17 + Win32; Android yardımcı uygulamasında Kotlin + Compose.
+- İlk açılış İngilizce; Türkçe dahil sekiz dil ayarlardan seçilir ve seçim saklanır.
 
-Antivirüs size "dosya" hakkında karar verir; NetLurker size **"ağ"** hakkında kanıt
-gösterir: hangi süreç nereye bağlanıyor, dosya imzalı mı, hedef veri merkezi mi,
-DNS kara listesinde mi, sertifikası sağlam mı, normalden fazla mı konuşuyor.
-Kanıtlar tek tıkla **yapılandırılmış bir analist raporuna** dönüşür.
+## Windows ile Android aynı şeyi ölçmez
 
-## Features
-
-- **Real-time Connections** — TCP/TCP6/UDP/UDP6 soketleri süreçleriyle eşlenir;
-  durum, hız (KB/s), RTT, toplam bayt ve servis adı anlık akar.
-- **Process Intelligence** — Authenticode imza, yayıncı, komut satırı, kullanıcı,
-  üst süreç, svchost servisi, sahip DLL, SHA-256, bütünlük seviyesi.
-- **Threat Intelligence** — AbuseIPDB, 5 DNS kara listesi, CIRCL pasif DNS,
-  RDAP sahiplik, VirusTotal (anahtar isteğe bağlı), HTTP banner/EOL.
-- **DNS · TLS · RDAP Analysis** — DNS önbellek/hosts eşlemesi, el yapımı
-  ClientHello ile TLS sertifika denetimi (self-signed, süresi dolmuş, rDNS
-  uyuşmazlığı), ağ sahipliği ve abuse iletişimi.
-- **AI-assisted Investigation** — `Enter` ile kanıtlar **KARAR / GÜVEN / NEDEN /
-  ENDİŞELER / ÖNERİ / ADIMLAR** formatında yapılandırılmış rapora dönüşür;
-  anahtarsız yerel sezgisel motor da aynı formatta çalışır. Rapor altında üç
-  takip aksiyonu: **"Neden şüpheli?"**, **"Ne yapmalıyım?"** ve
-  **"Normalden sapma?"** (sürecin davranışsal temel çizgisiyle karşılaştırma).
-- **Network Graph** — süreç ↔ hedef grafiği: risk renkli düğümler, kalınlık =
-  veri akışı, ülke etiketleri.
-- **Behavioral Anomaly Detection** — süreç başına bağlantı temel çizgisi
-  (EMA + varyans); 3σ üzeri sapma → uyarı + bildirim + rapora kayıt.
-- **Search, Filter, Sort** — serbest metin araması, filtre çipleri
-  (All / Connected / Internet / Listening / Suspicious / HTTPS / Unsigned /
-  Unknown / New / TCP / UDP) ve 25 sütunda sıralama.
-- **Exports** — `Ctrl+E`: **JSON, CSV, HTML Security Report, TXT** — güncel
-  dilde, KPI özeti ve anomali bölümüyle.
-- **8 languages** — English (default), Türkçe, Español, Deutsch, Français,
-  日本語, 中文, Português. Arayüz, hatalar, risk gerekçeleri, sütunlar, araç
-  ipuçları, AI istemleri, raporlar ve tarih biçimleri dahil.
-
-## Screenshots
-
-Gerçek uygulama ekran görüntüsü (çalışan programdan alınmıştır):
-
-![NetLurker dashboard](docs/preview.png)
-
-> **Dürüstlük notu:** `docs/landing/hero.png` bir **UI konsept görselidir**
-> (çizim), ekran görüntüsü değildir; iniş sayfasında yalnızca görsel amaçla
-> kullanılır ve orada açıkça etiketlenmiştir. Uygulamanın ürettiği tüm veriler
-> gerçek sistem verisidir; Demo Modu verileri ise her yerde "DEMO" olarak
-> işaretlenir. GIF/video kaydı için kılavuz →
-> [docs/video/STORYBOARD.md](docs/video/STORYBOARD.md).
-
-## Demo
-
-**Demo Mode** (`Ctrl+D`): API anahtarı olmadan, 30 saniyede programın tamamını
-deneyin. 8 bağlantılı gerçekçi veri seti — imzalı tarayıcılar, DNS, Windows Update
-ve şüpheli örnekler (imzasız `updater.exe` → veri merkezi 88/100, C2 beacon deseni,
-hosts yönlendirme). Özet sekmesinde **DEMO ENVIRONMENT** bandı; tek tıkla çıkış.
-
-## Installation
-
-| | |
-|---|---|
-| İşletim sistemi | Windows 7 SP1+ / Windows 10 / Windows 11 (x64) |
-| İndirme | [Releases](https://github.com/thesyntax11/NetLurker/releases) → `NetLurker-vX.Y.Z-win64.zip` |
-| Kurulum | Gerekmez (taşınabilir). İsteyenler için Inno Setup betiği: `installer/NetLurker.iss` |
-| Gereksinim | ~2 MB disk, internet bağlantısı (çevrimdışı da çalışır; zenginleştirme olmaz) |
-| Dil paketleri | `NetLurker.exe` yanındaki `lang\` klasörü (zip içinde hazır) |
-
-### Build from source
-
-Tek yürütülebilir, üç araç zinciriyle derlenir:
-
-| Yöntem | Komut | Gereksinim |
+| Özellik | Windows | Android yardımcı uygulama |
 |---|---|---|
-| MSVC | `build.bat` ("x64 Native Tools" içinde) | Visual Studio 2019+ |
-| MinGW-w64 | `build_mingw.bat` | MSYS2 `mingw-w64-x86_64-toolchain` |
-| Zig (çapraz) | `ZIG=zig ./tools/build_zig.sh` | Zig 0.14+ / `pip install ziglang` |
+| Canlı bağlantı → süreç | Windows soket tabloları | VPN yakalama/root yok; **sunulmaz** |
+| Cihaz toplam trafiği | Ağ arabirimi sayaçları | Destekleniyorsa `TrafficStats` |
+| Süreç/uygulama canlı hızı | Kullanılabiliyorsa TCP EStats; yetki/protokol kısıtları var | Modern Android'de çağıran UID; diğer uygulamalar için **erişilemiyor** |
+| Kimlik bilgisi | Yol, yayıncı, Authenticode | Paket ve APK imza bilgisi; güvenlik garantisi değil |
+| Hedef inceleme | Gözlenen genel IP'ler | Kullanıcının girdiği adres/alan adı |
+| Süreç sonlandırma / IP engelleme | Açık kullanıcı işlemi; yetki gerekebilir | Yok |
+| Demo | `Ctrl+D`, sentetik olarak işaretli | Sentetik veri yok |
 
-Dil kataloğunu yeniden üretmek için: `python3 tools/gen_lang.py`
+[Android ayrıntıları](android/README-android.md)
 
-## Configuration
+## Üç dakikada deneyin
 
-Ayarlar penceresi (`Ctrl+S`) veya `%APPDATA%\NetLurker\config.ini`:
+1. Windows için aşağıdaki komutlarla derleyin veya başarılı bir
+   [Build çalışmasının](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml)
+   geliştirme dosyasını indirin. GitHub hesabıyla giriş gerekebilir.
+2. `NetLurker.exe` ile `lang/` klasörünü aynı dizinde tutun.
+3. `Ctrl+S` ile dış sorguları inceleyin. **IP zenginleştirme varsayılan olarak açıktır ve
+   sorgulanan IP'ler hizmet sağlayıcılara gönderilir.** Hassas ağlarda önce [gizliliği](PRIVACY.md) okuyun.
+4. `Ctrl+D` ile açıkça işaretlenmiş demo verisini deneyin veya `Ctrl+F` ile bir süreç arayın.
+5. `Enter` ile rapor, `Ctrl+E` ile dışa aktarım. Kanıtı kontrol etmeden süreç sonlandırmayın.
 
-| Ayar | Açıklama |
-|---|---|
-| `[ai] endpoint/model/api_key` | OpenAI uyumlu API (boşsa yerel sezgisel analiz) |
-| `[ui] lang` | `en` (varsayılan), `tr`, `es`, `de`, `fr`, `ja`, `zh`, `pt`, `system` |
-| `[ui] interval` | Yenileme aralığı (×100 ms) |
-| `[ui] geo/threat/rdap/banner` | Dış sorgu anahtarları (gizlilik merkeziyle eşleşir) |
-| `[threat] abusekey` / `[threat] vtkey` | İsteğe bağlı API anahtarları |
+Demo, kullanım deneyimini gösterir; canlı veri kaynağının doğru çalıştığını kanıtlamaz.
 
-Eklenti sağlayıcıları: `plugins\*.json` → [docs/PLUGINS.md](docs/PLUGINS.md)
+## Puan ne anlama geliyor?
 
-## Privacy
+0–100 puanı bir **inceleme önceliği işaretidir; zararlı yazılım olasılığı değildir**.
+Düşük puan güvenli olduğunu, yüksek puan zararlı olduğunu kanıtlamaz.
 
-| Söz | Durum |
-|---|---|
-| Ağ verileri yerel olarak işlenir | ✅ Cihaz dışına çıkmaz |
-| Telemetri / analitik / reklam | ✅ Yok |
-| Hesap veya kayıt | ✅ Gerekmez |
+- VPN, veri merkezi ve yüksek yükleme trafiği normal kullanım olabilir.
+- DNSBL hata kodları kara liste kaydı değildir.
+- Başarısız veya kapalı bir sorgu, temiz sonuç sayılamaz.
+- TLS incelemesi tam zincir güveni/iptal denetimi değildir.
+- Sunucu başlığı taklit edilebilir; sürüm eşlemesi zafiyet taraması değildir.
+- AI çıktısı yanılabilir; dış kaynak metinlerinden etkilenebilir.
 
-Dış servisler **yalnızca siz etkinleştirdiğinizde** sorgulanır; uygulama içi
-**Privacy Center** servis servis durum gösterir:
+## Derleme
 
-| Sağlayıcı | Ne zaman | Tür |
-|---|---|---|
-| ip-api.com | Coğrafya/ASN/organizasyon | ✓ yerleşik |
-| DNS kara listeleri (Spamhaus, Blocklist.de, Sorbs, Barracuda, UCEPROTECT) | Tehdit puanı | ✓ yerleşik |
-| CIRCL pasif DNS | IP geçmişi | ✓ yerleşik |
-| rdap.org | Ağ sahipliği | ✓ yerleşik |
-| AbuseIPDB | Kötüye kullanım puanı | ○ anahtar isteğe bağlı |
-| VirusTotal | Topluluk tespitleri | ○ anahtar isteğe bağlı |
-| TLS ClientHello / HTTP HEAD | Hedefe tek istek | ✓ yerleşik |
-| **plugins/\*.json** | Kendi kaynağınız | ○ siz tanımlarsınız |
+**Windows:** Visual Studio 2022 C++ masaüstü araçları ve Windows SDK.
+Depo kökünde x64 Native Tools Command Prompt:
 
-## Why does it ask for administrator rights?
-
-NetLurker normal kullanıcı olarak da çalışır. Yükseltme yalnızca Windows'un
-koruduğu API'ler içindir: bağlantı başına hız/RTT, süreç sonlandırma, güvenlik
-duvarı IP engelleme, tüm sistem süreçlerinin TCP tablosu. NetLurker yükseltmeyi
-veri toplamak için kullanmaz ve ağ yapılandırmanızı değiştirmez. Durum çubuğundaki
-sarı uyarı tıklandığında bu gerekçe iki seçenekle gösterilir:
-**Continue as administrator** / **Continue without elevation**.
-
-## Releases & integrity
-
-- Her `vX.Y.Z` etiketi için GitHub Actions derlemesi, zip + `SHA256SUMS`.
-  (Workflow: `tools/release.workflow.yml` → `.github/workflows/release.yml`)
-- Bütünlük doğrulama:
-  ```powershell
-  Get-FileHash .\NetLurker.exe -Algorithm SHA256
-  ```
-- Kod imzalama yardımcısı: `tools/sign_release.ps1` (signtool + doğrulama).
-  Ayrıntılar: [docs/RELEASES.md](docs/RELEASES.md)
-
-**Güncel derleme SHA-256** (bu depodaki `dist/NetLurker.exe`):
-
-```
-b8d6c2b83bd1855f1a6bf2c2b19f29266621f548cb8abf26eb53eacb5db3168d
+```bat
+python tools\gen_lang.py --check
+build.bat
+build\NetLurker.exe
 ```
 
-## Architecture
+**Android:** JDK 17 + Android SDK 35:
 
-```
-src/
-├── main.cpp      pencere, sekmeler, çizim, filtre/arama, dışa aktarma,
-│                 demo modu, grafik, anomali, gizlilik merkezi
-├── netmon.cpp    TCP/UDP tabloları, süreç eşleme, risk motoru (0–100, MITRE)
-├── procinfo.cpp  imza/yayıncı/servis/kullanıcı/modül/kaynak izleme
-├── threat.cpp    AbuseIPDB + DNSBL + CIRCL + RDAP + VirusTotal işçileri
-├── plugins.cpp   dış JSON sağlayıcı eklentileri (stdin IP → stdout JSON)
-├── cert.cpp      TLS sertifika analizi (el yapımı ClientHello)
-├── dns.cpp       DNS önbelleği + hosts yönlendirme tespiti
-├── geo.cpp       ip-api toplu coğrafya sorgusu + disk önbelleği
-├── banner.cpp    HTTP banner / EOL tespiti
-├── history.cpp   kapanan bağlantı geçmişi
-├── ai.cpp        OpenAI uyumlu istemci + yerel sezgisel analiz
-├── i18n.cpp      sıfır bağımlılık çoklu dil sözlüğü (lang/*.ini)
-├── wifi.cpp      kablosuz ağ bilgisi (WLAN API, koşullu yükleme)
-└── ui_draw.cpp   GDI+ tabanlı koyu tema çizim katmanı
+```sh
+cd android
+./gradlew testDebugUnitTest lintDebug assembleDebug
+# app/build/outputs/apk/debug/app-debug.apk
+./gradlew connectedDebugAndroidTest  # bağlı cihaz/emülatör gerekir
 ```
 
-İşçi modeli: her sağlayıcı kendi iş parçacığında kuyruktan beslenir; sonuçlar
-diskte önbelleklenir (geoip 14 gün, threat 7 gün). Ağır işler (imza, SHA-256,
-AI) UI iş parçacığını bloklamaz.
+Debug APK değerlendirme içindir. İmzasız release APK, normal bir yayın olarak kurulamaz.
 
-## Roadmap
+## Güven ve katkı
 
-→ [docs/ROADMAP.md](docs/ROADMAP.md)
+Yayın adayları taze derleme, kaynak revizyonu ve SHA-256 özetiyle hazırlanır. Özet dosyası
+kod imzasının veya güvenlik denetiminin yerini tutmaz. SmartScreen uyarısı alırsanız güvenlik
+korumasını kapatmayın; dosyanın kaynağını doğrulayın veya kendiniz derleyin.
 
-- **v6 (şu an):** 8 dil i18n, ilk açılış deneyimi, Demo Mode, ağ grafiği,
-  davranışsal anomali, HTML/TXT rapor, eklenti sistemi, gizlilik merkezi,
-  sürüm/imzalama altyapısı, iniş sayfası.
-- **v7:** ETW sensörü, süreç başına trafik geçmişi, kural editörü, syslog aktarımı.
-- **v8:** KMDF sürücü izleme, MITRE ATT&CK taktik eşlemesi, kural paketleri.
+Eski tanıtım görselleri mevcut sürümün doğrulanmış ekran görüntüsü değildir. Gerçek veri
+kanıtı gibi sunulmuyor. [Görsel kaydı](docs/VISUAL-PROVENANCE.md)
 
-## FAQ
+En değerli katkılar: yeniden üretilebilir hata bildirimleri, yanlış pozitif örnekleri,
+çeviri düzeltmeleri ve gerçek cihaz testleri. İşinize yaradıysa bir star keşfedilmesine
+katkı sağlar; doğruluğu artıran bir hata bildirimi de en az onun kadar değerlidir.
 
-**Windows Defender / SmartScreen uyardı?** Açık kaynak imzasız bir exe için
-olağandır. SHA-256'yı doğrulayın; imzalı sürüm için
-[docs/RELEASES.md](docs/RELEASES.md) imzalama adımları hazırdır.
-
-**Verilerim nereye gidiyor?** Hiçbir yere. `%APPDATA%\NetLurker\` altında yalnızca
-yerel önbellekler ve ayarlar tutulur.
-
-**AI anahtarı şart mı?** Hayır. Anahtar yoksa aynı yapılandırılmış formatla yerel
-sezgisel analiz çalışır.
-
-**Bağlantı hızları "n/a" görünüyor?** Bağlantı bazlı hızlar için yönetici modu
-gerekir (gerekçe diyaloğu açıklar). Sistem geneli grafik her zaman çalışır.
-
-## Contributing
-
-1. Çatallayın, `main`'den dal açın.
-2. Yeni bir arayüz metni eklediyseniz `Tr(L"...")` ile sarın ve
-   `python3 tools/gen_lang.py` ile kataloğu yenileyin.
-3. Üç derleme yolundan biriyle derleyin; PR açın.
-
-Eklenti yazmak katkı vermenin en kolay yolu: [docs/PLUGINS.md](docs/PLUGINS.md)
-
-## License
-
-[MIT](LICENSE) — kullan, değiştir, dağıt. Ağ izleme aracını yalnızca yetkili
-olduğun sistemlerde çalıştır.
-
----
-
-*NetLurker sezgisel kurallara dayanır; kesin hüküm değildir. Şüpheli bulguları
-her zaman bağlamıyla değerlendirin.*
+[Katkı rehberi](CONTRIBUTING.md) · [Hata bildir](https://github.com/thesyntax1/NetLurker/issues/new/choose) · [Güvenlik](SECURITY.md) · [MIT](LICENSE)

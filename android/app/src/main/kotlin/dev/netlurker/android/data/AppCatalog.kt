@@ -149,6 +149,7 @@ class AppCatalog(private val context: Context) {
 
     fun toTrafficRows(records: List<AppRecord>): List<AppTraffic> = records.map { record ->
         AppTraffic(
+                supported = false,
             uid = record.uid,
             packageName = record.packageName,
             label = record.label,

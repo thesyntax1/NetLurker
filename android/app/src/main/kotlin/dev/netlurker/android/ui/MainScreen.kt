@@ -7,6 +7,15 @@ import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -53,14 +62,14 @@ import dev.netlurker.android.core.Format
  * why an unrooted Android device cannot produce a socket table), Apps -> Apps, History ->
  * History, Summary -> Summary, Net Graph -> the graph section inside Summary.
  */
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun MainScreen(viewModel: MainViewModel) {
     val s = strings()
     val context = LocalContext.current
-    var tab by remember { mutableIntStateOf(0) }
-    var showSettings by remember { mutableStateOf(false) }
-    var showExport by remember { mutableStateOf(false) }
+    var tab by rememberSaveable { mutableIntStateOf(0) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var showExport by rememberSaveable { mutableStateOf(false) }
     var showPermissions by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -68,10 +77,14 @@ fun MainScreen(viewModel: MainViewModel) {
     val running by viewModel.running.collectAsState()
     val snapshot by viewModel.snapshot.collectAsState()
 
+    // Android 12+ requires coarse and fine location to be requested together.
+    val locationPermissions = remember {
+        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+    }
     val locationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission()
+        ActivityResultContracts.RequestMultiplePermissions()
     ) { granted ->
-        viewModel.setLocationPermission(granted)
+        viewModel.setLocationPermission(granted[Manifest.permission.ACCESS_FINE_LOCATION] == true)
     }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -96,30 +109,43 @@ fun MainScreen(viewModel: MainViewModel) {
         containerColor = NL.Bg,
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
-            TopAppBar(
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = NL.Surface,
-                    titleContentColor = NL.Text,
-                    actionIconContentColor = NL.TextDim
-                ),
-                title = {
-                    Column {
-                        Text(
-                            text = "NetLurker",
-                            style = MaterialTheme.typography.titleLarge,
-                            fontWeight = FontWeight.Bold,
-                            color = NL.Text
-                        )
-                        Text(
-                            text = "↓ ${Format.bytesPerSec(snapshot?.rateInBytesPerSec ?: 0.0)}" +
-                                "   ↑ ${Format.bytesPerSec(snapshot?.rateOutBytesPerSec ?: 0.0)}" +
-                                if (running) "   ●" else "   ⏸",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (running) NL.Green else NL.Yellow
-                        )
+            Column {
+                TopAppBar(
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = NL.Surface,
+                        titleContentColor = NL.Text,
+                        actionIconContentColor = NL.TextDim
+                    ),
+                    title = {
+                        Column {
+                            Text(
+                                text = "NetLurker",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = NL.Text
+                            )
+                            Text(
+                                text = "↓ ${Format.bytesPerSec(snapshot?.rateInBytesPerSec ?: 0.0)}" +
+                                    "   ↑ ${Format.bytesPerSec(snapshot?.rateOutBytesPerSec ?: 0.0)}" +
+                                    if (running) "   ●" else "   ⏸",
+                                style = MaterialTheme.typography.labelSmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                color = if (running) NL.Green else NL.Yellow
+                            )
+                        }
+                    },
+                    actions = {
+                        TextButton(onClick = { showSettings = true },
+                            modifier = Modifier.semantics { contentDescription = s("settings.title") }) {
+                            Text("⚙", color = NL.TextDim, style = MaterialTheme.typography.titleMedium)
+                        }
                     }
-                },
-                actions = {
+                )
+                FlowRow(
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     TextButton(onClick = { if (running) viewModel.stop() else viewModel.start() }) {
                         Text(
                             text = if (running) s("action.pause") else s("action.resume"),
@@ -130,11 +156,8 @@ fun MainScreen(viewModel: MainViewModel) {
                     TextButton(onClick = { showExport = true }) {
                         Text(s("action.export"), color = NL.TextDim, style = MaterialTheme.typography.labelMedium)
                     }
-                    TextButton(onClick = { showSettings = true }) {
-                        Text("⚙", color = NL.TextDim, style = MaterialTheme.typography.titleMedium)
-                    }
                 }
-            )
+            }
         },
         bottomBar = {
             NavigationBar(
@@ -162,18 +185,19 @@ fun MainScreen(viewModel: MainViewModel) {
                         ),
                         icon = { Text(glyph, style = MaterialTheme.typography.titleMedium) },
                         label = {
-                            Text(s(key), style = MaterialTheme.typography.labelSmall)
+                            Text(s(key), style = MaterialTheme.typography.labelSmall,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
                     )
                 }
             }
         }
     ) { padding ->
-        Box(Modifier.fillMaxSize().padding(padding)) {
+        Box(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
             when (tab) {
                 0 -> InvestigateScreen(viewModel)
                 1 -> AppsScreen(viewModel)
-                2 -> NetworkScreen(viewModel) { locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION) }
+                2 -> NetworkScreen(viewModel) { locationLauncher.launch(locationPermissions) }
                 3 -> HistoryScreen(viewModel)
                 else -> SummaryScreen(viewModel)
             }
@@ -182,7 +206,7 @@ fun MainScreen(viewModel: MainViewModel) {
 
     if (showSettings) {
         SettingsDialog(viewModel, onRequestLocation = {
-            locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+            locationLauncher.launch(locationPermissions)
         }, onDismiss = { showSettings = false })
     }
     if (showExport) {
@@ -196,7 +220,7 @@ fun MainScreen(viewModel: MainViewModel) {
         PermissionRationaleDialog(
             onGrant = {
                 showPermissions = false
-                locationLauncher.launch(Manifest.permission.ACCESS_FINE_LOCATION)
+                locationLauncher.launch(locationPermissions)
             },
             onDismiss = { showPermissions = false }
         )
@@ -214,11 +238,10 @@ fun writeExport(context: Context, uri: android.net.Uri, content: String): Boolea
     }.getOrDefault(false)
 
 fun exportContent(kind: String, viewModel: MainViewModel): String {
-    val label = viewModel.getApplication<android.app.Application>()
-        .let { Strings(it) }
-        .resolver()
+    val strings = Strings(viewModel.getApplication<android.app.Application>())
+    val label = strings.resolver()
     val snapshot = viewModel.buildExportSnapshot(
-        language = java.util.Locale.getDefault().language,
+        language = strings.language,
         kpis = viewModel.defaultKpis().map { (key, value) -> label("kpi.$key") to value }
     )
     return when (kind) {

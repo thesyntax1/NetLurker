@@ -127,6 +127,14 @@ bool GetString(const std::string& obj, const std::string& name, std::string& out
     return true;
 }
 
+bool GetBool(const std::string& obj, const std::string& name, bool& out) {
+    size_t vp;
+    if (!FindKey(obj, name, 0, vp)) return false;
+    if (obj.compare(vp, 4, "true") == 0) { out = true; return true; }
+    if (obj.compare(vp, 5, "false") == 0) { out = false; return true; }
+    return false;
+}
+
 bool GetNumber(const std::string& obj, const std::string& name, double& out) {
     size_t vp;
     if (!FindKey(obj, name, 0, vp)) return false;

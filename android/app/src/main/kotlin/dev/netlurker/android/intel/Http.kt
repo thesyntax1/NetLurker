@@ -63,11 +63,17 @@ object Http {
         val started = System.currentTimeMillis()
         var connection: HttpURLConnection? = null
         return try {
-            connection = URL(url).openConnection() as HttpURLConnection
+            val endpoint = URL(url)
+            require(endpoint.protocol == "https" || ((headers.isEmpty() && body == null) ||
+                endpoint.host in setOf("localhost", "127.0.0.1", "::1", "[::1]"))) {
+                "HTTPS is required when sending credentials or a request body to a remote endpoint"
+            }
+            connection = endpoint.openConnection() as HttpURLConnection
             connection.requestMethod = method
             connection.connectTimeout = timeoutMs
             connection.readTimeout = timeoutMs
-            connection.instanceFollowRedirects = true
+            // Never forward an API key or request body to a redirected host.
+            connection.instanceFollowRedirects = headers.isEmpty() && body == null
             connection.setRequestProperty("User-Agent", USER_AGENT)
             connection.setRequestProperty("Accept", "application/json, text/plain, */*")
             for ((k, v) in headers) connection.setRequestProperty(k, v)
@@ -78,7 +84,18 @@ object Http {
             }
             val status = connection.responseCode
             val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.use { it.readBytes().toString(Charsets.UTF_8) } ?: ""
+            val text = stream?.use {
+                val out = java.io.ByteArrayOutputStream()
+                val buffer = ByteArray(8192)
+                while (out.size() <= 2 * 1024 * 1024) {
+                    val read = it.read(buffer, 0, minOf(buffer.size, 2 * 1024 * 1024 + 1 - out.size()))
+                    if (read < 0) break
+                    out.write(buffer, 0, read)
+                }
+                val bytes = out.toByteArray()
+                if (bytes.size > 2 * 1024 * 1024) throw IOException("response exceeds 2 MiB limit")
+                bytes.toString(Charsets.UTF_8)
+            } ?: ""
             val responseHeaders = LinkedHashMap<String, String>()
             for ((key, values) in connection.headerFields) {
                 if (key == null) {

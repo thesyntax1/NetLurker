@@ -13,6 +13,11 @@ name: Build
 # readable through the REST API and not only in the log viewer.
 
 on:
+  workflow_call:
+    inputs:
+      run-emulator:
+        type: boolean
+        default: false
   push:
     branches: ["**"]
     tags: ["v*"]
@@ -45,14 +50,12 @@ jobs:
       - name: Verify the desktop language catalog
         run: python tools/gen_lang.py --check
 
-      - name: Discard the executable that is checked into the repository
+      - name: Discard any executable left by an earlier build
         shell: pwsh
         run: |
-          # build/NetLurker.exe is tracked in git, so a failed compile would still leave a
-          # stale binary behind and the artifact would look like a success. Delete it first
-          # so the file uploaded below can only be one this job produced.
+          # Fail closed: never upload a stale executable after a failed compile.
           Get-ChildItem build -Filter *.exe -ErrorAction SilentlyContinue | ForEach-Object {
-            Write-Host "removing checked-in $($_.Name)"
+            Write-Host "removing stale $($_.Name)"
             Remove-Item $_.FullName -Force
           }
 
@@ -77,6 +80,21 @@ jobs:
             cl 2>&1
           ) > toolchain.log 2>&1
           type toolchain.log
+
+      - name: Test responsive toolbar geometry
+        shell: cmd
+        run: |
+          if not exist build mkdir build
+          cl /nologo /std:c++17 /EHsc /W4 /Isrc tests\ui_layout_test.cpp /Fo:build\ui_layout_test.obj /Fe:build\ui_layout_test.exe
+          if errorlevel 1 exit /b 1
+          build\ui_layout_test.exe
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /Isrc tests\evidence_rules_test.cpp src\json.cpp /Fo:build\ /Fe:build\evidence_rules_test.exe
+          if errorlevel 1 exit /b 1
+          build\evidence_rules_test.exe
+
+      - name: Test release packaging and repository integrity
+        run: python -m unittest discover -s tests -p "test_*.py"
 
       - name: Build with MSVC
         shell: pwsh
@@ -148,6 +166,7 @@ jobs:
       - name: Inspect the executable
         shell: pwsh
         run: |
+          $env:GITHUB_SHA | Set-Content build\build-revision.txt -Encoding ascii
           $exe = "build\NetLurker.exe"
           if (-not (Test-Path $exe)) { throw "build.bat did not produce $exe" }
           $item = Get-Item $exe
@@ -171,6 +190,7 @@ jobs:
             build/NetLurker.exe
             build/lang/*.ini
             build/SHA256SUMS.txt
+            build/build-revision.txt
           if-no-files-found: error
 
   android:
@@ -523,5 +543,6 @@ jobs:
             tail -n 60 ui-tests.log || true
             exit 1
           fi
-          echo "instrumented UI tests passed"
+          python3 tools/check_smoke.py .
+          echo "instrumented UI tests and launch evidence passed"
 

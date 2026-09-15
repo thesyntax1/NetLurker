@@ -1,4 +1,5 @@
 #include "banner.h"
+#include "evidence_rules.h"
 #include "i18n.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -307,10 +308,10 @@ bool BannerIsEol(const std::wstring& server) {
         L"openssl/0.9", L"openssl/1.0.0", L"openssl/1.0.1",
         L"php/5.", L"php/7.0", L"php/7.1", L"php/7.2", L"php/7.3", L"php/7.4",
         L"lighttpd/1.4.2", L"tomcat/4", L"tomcat/5", L"tomcat/6", L"tomcat/7",
-        L"jboss", L"resin/3", L"coyote/1.0",
+        L"resin/3",
     };
     for (const wchar_t* t : eol)
-        if (s.find(t) != std::wstring::npos) return true;
+        if (BannerVersionMatch(s, t)) return true;
     return false;
 }
 

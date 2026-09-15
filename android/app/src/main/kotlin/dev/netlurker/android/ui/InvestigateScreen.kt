@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -135,6 +137,18 @@ fun InvestigateScreen(viewModel: MainViewModel) {
 /** Accepts "1.2.3.4", "example.com", "example.com:8443". */
 internal fun parseInput(raw: String): Pair<String, Int?> {
     val trimmed = raw.trim()
+    if (trimmed.startsWith("[")) {
+        val end = trimmed.indexOf(']')
+        if (end > 1) {
+            val host = trimmed.substring(1, end)
+            val suffix = trimmed.substring(end + 1)
+            if (suffix.isEmpty()) return host to null
+            val port = suffix.takeIf { it.startsWith(":") }?.drop(1)?.toIntOrNull()
+            if (port != null && port in 1..65535) return host to port
+        }
+        return trimmed to null
+    }
+    if (trimmed.count { it == ':' } > 1) return trimmed to null
     val lastColon = trimmed.lastIndexOf(':')
     if (lastColon > 0 && lastColon < trimmed.length - 1) {
         val portText = trimmed.substring(lastColon + 1)
@@ -148,6 +162,7 @@ internal fun parseInput(raw: String): Pair<String, Int?> {
     return trimmed to null
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TargetCard(
     target: Target,
@@ -202,7 +217,7 @@ private fun TargetCard(
         }
 
         Spacer(Modifier.height(6.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             SourceDot(s("source.rdns"), target.reverseDns.status)
             SourceDot(s("source.geo"), target.geo.status)
             SourceDot(s("source.threat"), target.threat.status)
@@ -280,13 +295,14 @@ private fun TargetCard(
                 )
                 InfoRow(
                     s("field.dnsbl"),
-                    if (threat.dnsblHits.isEmpty()) s("field.dnsbl.clean")
+                    if (threat.dnsblHits.isEmpty()) s("status.unavailable")
                     else threat.dnsblHits.joinToString(", "),
-                    valueColor = if (threat.dnsblHits.isEmpty()) NL.Green else NL.Red
+                    valueColor = if (threat.dnsblHits.isEmpty()) NL.TextDim else NL.Red
                 )
                 InfoRow(
                     s("field.passive_dns"),
-                    if (threat.passiveDnsRecords == 0) "0"
+                    if ("circl" !in threat.sourcesAnswered) s("status.unavailable")
+                    else if (threat.passiveDnsRecords == 0) "0"
                     else "${threat.passiveDnsRecords}" +
                         (threat.passiveDnsNames.takeIf { it.isNotBlank() }?.let { " · $it" } ?: "")
                 )
@@ -376,7 +392,7 @@ private fun TargetCard(
         VerdictPanel(target.verdict)
 
         Spacer(Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = { viewModel.intel.investigate(target.key, force = true) }) {
                 Text(s("action.recheck"), color = NL.Accent, style = MaterialTheme.typography.labelSmall)
             }
@@ -387,7 +403,7 @@ private fun TargetCard(
                         val result = aiClient.analyse(
                             target = target,
                             appCount = viewModel.apps.value.size,
-                            languageName = languageName(),
+                            languageName = languageName(s.language),
                             label = s.resolver()
                         )
                         report = result.text
@@ -409,7 +425,7 @@ private fun TargetCard(
                 Text("AbuseIPDB", color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             TextButton(onClick = { openBrowser(context, "https://cve.circl.lu/pdns/query/${target.ip ?: target.input}") }) {
                 Text(s("action.passive_dns"), color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }
@@ -463,7 +479,7 @@ private fun SourceDot(label: String, status: IntelStatus) {
     }
 }
 
-private fun languageName(): String = when (java.util.Locale.getDefault().language) {
+private fun languageName(code: String): String = when (code) {
     "tr" -> "Turkish"
     "es" -> "Spanish"
     "de" -> "German"

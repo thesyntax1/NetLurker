@@ -134,7 +134,6 @@
     <string name="field.country" formatted="false">Country</string>
     <string name="field.dns" formatted="false">DNS servers</string>
     <string name="field.dnsbl" formatted="false">DNS blacklist</string>
-    <string name="field.dnsbl.clean" formatted="false">not listed in any of the 5 zones</string>
     <string name="field.eol" formatted="false">End-of-life version</string>
     <string name="field.findings" formatted="false">Findings</string>
     <string name="field.fingerprint" formatted="false">SHA-256 fingerprint</string>
@@ -312,11 +311,11 @@
     <string name="risk.hosts_redirect" formatted="false">Resolved through the device hosts file</string>
     <string name="risk.level.danger" formatted="false">CRITICAL</string>
     <string name="risk.level.info" formatted="false">INFO</string>
-    <string name="risk.level.safe" formatted="false">SAFE</string>
+    <string name="risk.level.safe" formatted="false">LOW SIGNAL</string>
     <string name="risk.level.warn" formatted="false">SUSPICIOUS</string>
     <string name="risk.mit_clean_all_sources" formatted="false">{arg0} sources answered with no adverse finding</string>
     <string name="risk.mit_common_web_port" formatted="false">Standard web port {arg0}</string>
-    <string name="risk.mit_evidence_incomplete" formatted="false">Still querying: {arg0}</string>
+    <string name="risk.mit_evidence_incomplete" formatted="false">Incomplete evidence: {arg0}</string>
     <string name="risk.mit_private_network" formatted="false">Private address — the score is reduced</string>
     <string name="risk.mit_rdap_known_org" formatted="false">Owned by {arg0}</string>
     <string name="risk.passive_dns_many" formatted="false">{arg0} passive DNS records for this address</string>
@@ -368,6 +367,7 @@
     <string name="settings.geo" formatted="false">IP geolocation (ip-api.com)</string>
     <string name="settings.geo.detail" formatted="false">Sends only the IP addresses you investigate. The free tier is plain HTTP.</string>
     <string name="settings.key.optional" formatted="false">optional — leave empty to skip</string>
+    <string name="settings.language" formatted="false">Language</string>
     <string name="settings.notify" formatted="false">Anomaly notifications</string>
     <string name="settings.notify.detail" formatted="false">Notify when an application moves far above its own baseline. Without the notification permission the alert still appears in the app.</string>
     <string name="settings.public_ip" formatted="false">Show public egress IP</string>
@@ -407,7 +407,7 @@
     <string name="summary.no_destinations" formatted="false">No destination has been investigated in this session.</string>
     <string name="summary.no_geo" formatted="false">No geolocation answer yet — investigate a destination first.</string>
     <string name="summary.no_orgs" formatted="false">No ownership answer yet.</string>
-    <string name="traffic.unsupported" formatted="false">TrafficStats is not supported on this device, so per-application counters are unavailable. NetLurker shows no invented numbers.</string>
+    <string name="traffic.unsupported" formatted="false">Android restricts other apps’ live traffic counters. Unavailable values are shown as —, not zero. Device totals are separate.</string>
     <string name="value.no" formatted="false">no</string>
     <string name="value.yes" formatted="false">yes</string>
     <string name="verdict.findings" formatted="false">{count} findings</string>
