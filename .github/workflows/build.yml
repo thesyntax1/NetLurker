@@ -205,7 +205,9 @@ jobs:
             # Exercise the hyphenated textual version separately. This fixture is NOT uploaded.
             & $iscc '/DAppVersion=0.0.0-rc.1' '/DNumericVersion=0.0.0.401' installer/NetLurker.iss
             if ($LASTEXITCODE -ne 0) { throw "Prerelease installer version compilation failed" }
-            if ((Get-Item dist/NetLurker-v0.0.0-rc.1-setup.exe).VersionInfo.ProductVersion -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch" }
+            $info = (Get-Item dist/NetLurker-v0.0.0-rc.1-setup.exe).VersionInfo
+            Write-Host ($info | Format-List * | Out-String)
+            if ($info.ProductVersion -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch: expected '0.0.0-rc.1', actual '$($info.ProductVersion)'" }
           } catch {
             Write-Host ("::error::" + ($_.ToString() -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'))
             throw

@@ -29,7 +29,7 @@ def verify_badging(text: str, version: str):
 def verify_certificate(text: str, expected: str) -> str:
     matches = re.findall(r"^Signer #[0-9]+ certificate SHA-256 digest: ([0-9a-fA-F]{64})$", text, re.M)
     if len(matches) != 1 or matches[0].lower() != expected.replace(":", "").lower():
-        raise ValueError("APK signer differs from ANDROID_SIGNING_CERT_SHA256")
+        raise ValueError(f"APK signer differs from ANDROID_SIGNING_CERT_SHA256: expected {expected}, parsed {matches}")
     if re.search(r"CN=Android Debug(?:,|$)", text, re.M):
         raise ValueError("Android debug certificate cannot be a production signing identity")
     return matches[0].lower()
@@ -59,6 +59,7 @@ def sign(source: Path, output: Path, version: str, revision: str):
             "--ks-pass", "env:ANDROID_KEYSTORE_PASSWORD", "--key-pass", "env:ANDROID_KEY_PASSWORD",
             "--v4-signing-enabled", "false", "--out", destination, aligned)
         verification = run("apksigner", "verify", "--verbose", "--print-certs", destination)
+        print(verification, flush=True)  # Public certificate/verification data only, no key material.
         fingerprint = verify_certificate(verification, os.environ["ANDROID_SIGNING_CERT_SHA256"])
         run("zipalign", "-c", "-p", "4", destination)
         verify_badging(run("aapt2", "dump", "badging", destination), version)
@@ -66,7 +67,7 @@ def sign(source: Path, output: Path, version: str, revision: str):
                   "certificate_sha256": fingerprint, "file": destination.name,
                   "sha256": hashlib.sha256(destination.read_bytes()).hexdigest()}
         (output / "android-signature.json").write_text(json.dumps(report, indent=2) + "\n")
-        print(f"Verified production APK {destination.name}; certificate SHA-256: {fingerprint}")
+        print(f"Verified release-format APK {destination.name}; certificate SHA-256: {fingerprint}")
 
 
 if __name__ == "__main__":
