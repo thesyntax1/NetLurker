@@ -32,6 +32,12 @@ IMPORT = re.compile(r'^import (dev\.netlurker\.android(?:\.\w+)*)\.([A-Za-z_]\w*
 ENUM_HEAD = re.compile(r'enum class (\w+)\s*(?:\([^)]*\))?\s*\{')
 ENUM_REF = re.compile(r'\b([A-Z]\w*)\.([A-Z][A-Z0-9_]+)\b')
 NAME = re.compile(r'[A-Za-z_]\w*')
+# The same non-repeatable annotation twice on one declaration. Editing a test file by
+# inserting a block above an existing function leaves the old annotation behind, and Kotlin
+# rejects it with a message that does not name the duplicate.
+REPEATED_ANNOTATION = re.compile(
+    r'(@[A-Z]\w*(?:\([^)]*\))?)\s*\n(?:\s*@[A-Z]\w*(?:\([^)]*\))?\s*\n)*\s*\1\b'
+)
 PACKAGE = re.compile(r'^package ([\w.]+)\s*$', re.M)
 # Strong signals that a capitalized identifier is being used as a type or an object, rather
 # than merely appearing in prose: static access, construction, a type position, a generic
@@ -107,6 +113,7 @@ def main() -> int:
     unresolved_imports: list[str] = []
     unresolved_constants: list[str] = []
     missing_imports: list[str] = []
+    repeated: list[str] = []
     for source_set in SOURCE_SETS:
         for path, source in kotlin_files(source_set):
             clean = strip_noise(source)
@@ -127,6 +134,11 @@ def main() -> int:
                         "%s: %s.%s is not a member (declared: %s)"
                         % (path, owner, member, ", ".join(sorted(enums[owner])))
                     )
+            for match in REPEATED_ANNOTATION.finditer(clean):
+                repeated.append(
+                    "%s: %s is applied twice to the same declaration"
+                    % (path, match.group(1))
+                )
             # A project type used from another package needs an import; forgetting one is
             # the "Unresolved reference" that costs a whole CI run to discover.
             for match in TYPE_USE.finditer(clean):
@@ -141,7 +153,7 @@ def main() -> int:
     print("declarations: %d, enums: %s"
           % (len(declared), {k: sorted(v) for k, v in sorted(enums.items())}))
     report = (sorted(set(unresolved_imports)) + sorted(set(unresolved_constants))
-              + sorted(set(missing_imports)))
+              + sorted(set(missing_imports)) + sorted(set(repeated)))
     for line in report:
         print("  " + line)
     problems = len(report)

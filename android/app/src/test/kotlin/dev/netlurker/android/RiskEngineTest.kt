@@ -282,7 +282,6 @@ class RiskEngineTest {
     }
 
     @Test
-    @Test
     fun `a hosts file redirect is scored only for a public destination`() {
         val internet = keys(target(ip = "203.0.113.9", hostsRedirect = true))
         assertTrue(internet.contains(ReasonKeys.HOSTS_REDIRECT))
