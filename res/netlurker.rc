@@ -50,7 +50,7 @@ BEGIN
                     IDC_ST_INFO, 12, 376, 356, 32
 
     DEFPUSHBUTTON   "Kaydet", IDOK, 256, 416, 52, 16
-    PUSHBUTTON      "Iptal", IDCANCEL, 316, 392, 52, 16
+    PUSHBUTTON      "Iptal", IDCANCEL, 316, 416, 52, 16
 END
 
 1 VERSIONINFO

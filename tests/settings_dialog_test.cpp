@@ -52,6 +52,14 @@ int main() {
     for (UINT dpi : {96u, 120u, 144u, 192u, 288u}) {
         for (int height : {240, 400, 700}) {
             layout->ChangeDpi(dpi, {0, 0, 380, height});
+            SendMessageW(body, WM_VSCROLL, SB_TOP, 0);
+            const auto picker = ChildRect(language, body);
+            const auto endpoint = ChildRect(GetDlgItem(body, IDC_ED_ENDPOINT), body);
+            assert(picker.top >= 0 && picker.bottom <= endpoint.top);
+            RECT bodyArea{}; GetClientRect(body, &bodyArea);
+            // At 300% scaling the deliberately tiny 240px window cannot fit
+            // even the first field plus footer; the normal-height case must.
+            if (height == 700) assert(picker.bottom <= bodyArea.bottom);
             RECT client{}; GetClientRect(dialog, &client);
             const auto save = ChildRect(GetDlgItem(dialog, IDOK), dialog);
             const auto cancel = ChildRect(GetDlgItem(dialog, IDCANCEL), dialog);
