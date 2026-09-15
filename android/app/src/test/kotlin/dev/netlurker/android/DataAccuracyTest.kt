@@ -16,7 +16,7 @@ class DataAccuracyTest {
         var rx = 1000L
         var tx = 4000L
         val source = TrafficSource({ now }, { rx }, { tx }, { rx }, { tx })
-        val apps = listOf(AppTraffic(uid = 1001, packageName = "test.app", label = "Test"))
+        val apps = listOf(AppTraffic(uid = 1001, packageName = "test.app", label = "Test", rxBytes = 0, txBytes = 0))
         source.snapshot()
         assertEquals(0.0, source.applyRates(apps).single().rateIn, 0.001)
         now += 2000
@@ -36,7 +36,7 @@ class DataAccuracyTest {
         var rx = -1L
         var tx = -1L
         val source = TrafficSource({ now }, { rx }, { tx }, { rx }, { tx })
-        val apps = listOf(AppTraffic(uid = 1001, packageName = "test.app", label = "Test", active = true))
+        val apps = listOf(AppTraffic(uid = 1001, packageName = "test.app", label = "Test", rxBytes = 0, txBytes = 0, active = true))
         source.snapshot()
         assertFalse(source.applyRates(apps).single().supported)
         now = 2000

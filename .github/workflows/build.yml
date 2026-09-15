@@ -228,6 +228,12 @@ jobs:
           set -o pipefail
           gradle --no-daemon --console=plain testDebugUnitTest 2>&1 | tee build.log
 
+      - name: Compile instrumented UI tests (no emulator required)
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleDebugAndroidTest 2>&1 | tee -a build.log
+
       - name: Lint
         working-directory: android
         run: |
@@ -288,6 +294,8 @@ jobs:
               total += int(root.get("tests", 0))
               failed += int(root.get("failures", 0)) + int(root.get("errors", 0))
               skipped += int(root.get("skipped", 0))
+              for failure in root.findall(".//failure") + root.findall(".//error"):
+                  parts.append("TEST FAILURE: " + failure.get("message", "") + "\n" + (failure.text or "")[:2000])
               suites.append("  %-28s %2s tests, %s failed"
                             % (root.get("name", "?").split(".")[-1],
                                root.get("tests", 0),
