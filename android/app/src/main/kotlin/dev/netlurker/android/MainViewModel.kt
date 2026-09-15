@@ -141,10 +141,14 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     suspend fun saveSettings(values: SettingsValues): Boolean {
-        val saved = withContext(Dispatchers.IO) { settings.save(values) }
+        val previous = settings.snapshot()
+        val next = values.normalized()
+        val saved = withContext(Dispatchers.IO) { settings.save(next) }
         if (saved) {
-            intel.settingsChanged()
-            refreshNetwork()
+            // Language/refresh/notification/AI-only edits must not spend provider quota
+            // or discard already collected evidence.
+            if (!previous.sameLookupPolicy(next)) intel.settingsChanged()
+            if (previous.publicIp != next.publicIp) refreshNetwork()
         }
         return saved
     }

@@ -57,6 +57,14 @@ class SettingsTest {
         assertEquals(1, prefs.commits)
     }
 
+    @Test fun presentationOnlyEditsDoNotRestartExternalInvestigations() {
+        val before = SettingsValues()
+        assertTrue(before.sameLookupPolicy(before.copy(language = "tr", refreshMs = 30000, notify = false, aiModel = "other", publicIp = true)))
+        assertFalse(before.sameLookupPolicy(before.copy(threat = false)))
+        assertFalse(before.sameLookupPolicy(before.copy(rdap = false)))
+        assertFalse(before.sameLookupPolicy(before.copy(vtKey = "new-test-key")))
+    }
+
     @Test fun invalidSaveDoesNotTouchPreferences() {
         val prefs = MemoryPreferences()
         assertFalse(Settings(prefs).save(SettingsValues(aiKey = "test", aiEndpoint = "http://remote.example")))

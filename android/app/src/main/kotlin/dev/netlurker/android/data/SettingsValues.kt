@@ -27,6 +27,10 @@ data class SettingsValues(
         aiEndpoint = aiEndpoint.trim(), aiModel = aiModel.trim()
     )
 
+    fun sameLookupPolicy(other: SettingsValues): Boolean =
+        geo == other.geo && threat == other.threat && rdap == other.rdap && vt == other.vt &&
+            tls == other.tls && banner == other.banner && abuseKey == other.abuseKey && vtKey == other.vtKey
+
     fun aiConfigured(): Boolean = aiKey.isNotBlank() && aiEndpoint.isNotBlank() && aiModel.isNotBlank()
 
     fun validationError(): String? {
