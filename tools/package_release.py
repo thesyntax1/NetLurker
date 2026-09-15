@@ -13,13 +13,16 @@ import struct
 import zipfile
 from pathlib import Path
 
+from release_ops import verify_input
+from release_version import version_info
+
 ROOT = Path(__file__).resolve().parents[1]
 LANGUAGES = ("en", "tr", "es", "de", "fr", "ja", "zh", "pt")
 
 
-def package(source: Path, output: Path, version: str, revision: str) -> Path:
-    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?", version):
-        raise ValueError("version must be a semantic version without a leading v")
+def package(source: Path, output: Path, version: str, revision: str, public: bool = False) -> Path:
+    version_info(version)
+    verify_input(source, version, revision)
     if not re.fullmatch(r"[0-9a-f]{40}", revision):
         raise ValueError("revision must be the full source commit SHA")
     if (source / "build-revision.txt").read_text().strip() != revision:
@@ -51,8 +54,9 @@ def package(source: Path, output: Path, version: str, revision: str) -> Path:
     payload["BUILDINFO.json"] = (json.dumps({
         "version": version, "source_revision": revision,
         "repository": "https://github.com/thesyntax1/NetLurker",
-        "platform": "windows-x64", "channel": "release-candidate",
-        "signature": "not verified by packager; verify Authenticode before public release",
+        "platform": "windows-x64", "channel": "release" if public else "release-candidate",
+        "version_stamping": "tools/release_version.py applied before compilation",
+        "signature": "not verified by packager; see external windows-signatures.json or verify Authenticode locally",
     }, indent=2) + "\n").encode()
     sums = "".join(f"{hashlib.sha256(data).hexdigest()}  {name}\n" for name, data in sorted(payload.items()))
     payload["SHA256SUMS.txt"] = sums.encode()
@@ -77,5 +81,6 @@ if __name__ == "__main__":
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--version", required=True)
     parser.add_argument("--revision", required=True)
+    parser.add_argument("--public", action="store_true", help="Label metadata as release, not candidate; does NOT upload or attest a signature")
     args = parser.parse_args()
-    print(package(args.input, args.output, args.version, args.revision))
+    print(package(args.input, args.output, args.version, args.revision, args.public))

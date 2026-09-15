@@ -1,22 +1,35 @@
 # Release checklist
 
-**Channel: candidate. Publication is manual.** A successful build, an installable debug APK,
-and a signed public release are three different things.
+**Publication is maintainer-triggered, file delivery is automatic.** A green CI run,
+a debug APK and a reviewed public release are not the same thing. Pressing **Publish
+release** is the maintainer's decision that the manual gates below are ready.
 
-## Automated candidate path
+## Automated release path
 
-Run **Release candidate** from Actions on the revision intended for release. It reuses the
-Build workflow, requires Android emulator tests, downloads the Windows artifact from that
-run, verifies its recorded revision and bundled languages, and creates a ZIP plus hashes.
-It has no write permission to create a release or tag. Review artifacts before publishing.
+The **Release** workflow runs on `release.published`, resolves the tag's exact commit,
+stamps a shared Windows/Android version, reuses Build tests, packages a Windows ZIP
+and installer, and uploads verified assets to that existing release. It produces a
+manifest and SHA-256 list, preserves human release notes, and refuses different bytes
+under an existing asset name. Only the upload job has `contents: write`.
 
-The ordinary Build workflow keeps emulator testing opt-in to avoid charging runner minutes
-on every edit. The release-candidate workflow intentionally requires that more expensive job.
+A manual dispatch defaults to **preparation only** (`publish=false`), using the selected
+branch; it creates review artifacts without creating/publishing a tag or release.
+See [the release operator guide](RELEASES.md) for setup, signing, retries and version rules.
 
-For local Windows packaging, use `tools/make_release.ps1` from a clean committed checkout
-and an x64 developer prompt. It always rebuilds and refuses to reuse an old executable.
-`tools/package_release.py` packages only a revision-marked input; it does not claim a code
-signature. Production Android signing is a separate step documented in the Android README.
+Android public APKs require a production keystore and pinned certificate fingerprint.
+Without any Android signing secrets, Android is explicitly omitted, never replaced with
+a debug/unsigned APK. Set `REQUIRE_ANDROID_RELEASE=true` to make omission a hard failure.
+Windows signing is optional with explicit UNSIGNED disclosure; set
+`REQUIRE_WINDOWS_SIGNATURE=true` to require it. Partial signing configuration is an error.
+
+Emulator execution remains opt-in (dispatch input or `RELEASE_RUN_EMULATOR=true` repository
+variable) because it uses additional runner time. UI-test compilation is always run;
+skipped emulator execution is **not** UI verification. Complete the device matrix before
+claiming a reviewed general release. No workflow automatically completes the manual gates.
+
+Local Windows packaging uses `tools/make_release.ps1` from a clean committed checkout
+and x64 developer prompt. It validates the shared version and always rebuilds; it never
+silently packages a stale executable or publishes it.
 
 ## Gate record for the exact candidate
 

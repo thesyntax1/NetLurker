@@ -15,6 +15,12 @@ name: Build
 on:
   workflow_call:
     inputs:
+      source-ref:
+        type: string
+        default: ""
+      release-version:
+        type: string
+        default: ""
       run-emulator:
         type: boolean
         default: false
@@ -34,10 +40,24 @@ permissions:
   checks: write
 
 concurrency:
-  group: build-${{ github.ref }}
-  cancel-in-progress: true
+  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.release-version }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
 
 jobs:
+  release-tooling:
+    name: Release policy and workflow validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+      - name: Check release workflow syntax and expressions
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= -pyflakes= .github/workflows/build.yml .github/workflows/release.yml
+      - name: Test release policies, manifests and mocked publication
+        run: python3 -m unittest discover -v -s tests -p 'test_release*.py'
+
   windows:
     name: Windows x64 (MSVC)
     runs-on: windows-latest
@@ -45,7 +65,16 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Stamp shared build version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: python tools/release_version.py --version "$RELEASE_VERSION"
 
       - name: Verify the desktop language catalog
         run: python tools/gen_lang.py --check
@@ -60,7 +89,7 @@ jobs:
           }
 
       - name: Set up the MSVC x64 toolchain
-        uses: ilammy/msvc-dev-cmd@v1
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
         with:
           arch: x64
 
@@ -190,7 +219,10 @@ jobs:
       - name: Inspect the executable
         shell: pwsh
         run: |
-          $env:GITHUB_SHA | Set-Content build\build-revision.txt -Encoding ascii
+          git rev-parse HEAD | Set-Content build\build-revision.txt -Encoding ascii
+          Copy-Item version.json build\build-version.json
+          $version = (Get-Content version.json -Raw | ConvertFrom-Json).version
+          if ((Get-Item build\NetLurker.exe).VersionInfo.ProductVersion -ne $version) { throw "Embedded version mismatch" }
           $exe = "build\NetLurker.exe"
           if (-not (Test-Path $exe)) { throw "build.bat did not produce $exe" }
           $item = Get-Item $exe
@@ -206,8 +238,21 @@ jobs:
             ForEach-Object { "{0}  NetLurker.exe" -f $_.Hash.ToLower() } |
             Tee-Object build\SHA256SUMS.txt
 
+      - name: Test release ZIP and installer (no publication)
+        shell: pwsh
+        run: |
+          $version = Get-Content version.json -Raw | ConvertFrom-Json
+          $revision = git rev-parse HEAD
+          python tools/package_release.py --input build --output candidate-output --version $version.version --revision $revision
+          if ($LASTEXITCODE -ne 0) { throw "Release ZIP validation failed" }
+          $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe' }
+          if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is required on the Windows runner" }
+          & $iscc "/DAppVersion=$($version.version)" "/DNumericVersion=$($version.windows_version)" installer/NetLurker.iss
+          if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+
       - name: Upload Windows artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: NetLurker-windows-x64
           path: |
@@ -215,6 +260,7 @@ jobs:
             build/lang/*.ini
             build/SHA256SUMS.txt
             build/build-revision.txt
+            build/build-version.json
           if-no-files-found: error
 
   android:
@@ -224,16 +270,25 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Stamp shared build version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: python tools/release_version.py --version "$RELEASE_VERSION"
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "17"
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
         with:
           gradle-version: "8.9"
           cache-read-only: ${{ github.ref != 'refs/heads/main' }}
@@ -285,6 +340,8 @@ jobs:
         run: |
           set -euo pipefail
           exec > >(tee -a inspect.log) 2>&1
+          git rev-parse HEAD > app/build/outputs/apk/release/build-revision.txt
+          cp ../version.json app/build/outputs/apk/release/build-version.json
           APK=app/build/outputs/apk/debug/app-debug.apk
           test -s "$APK"
           echo "debug APK: $(du -h "$APK" | cut -f1)"
@@ -375,7 +432,7 @@ jobs:
 
       - name: Upload debug APK
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: NetLurker-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
@@ -383,15 +440,18 @@ jobs:
 
       - name: Upload release APK
         if: success()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: NetLurker-release-apk
-          path: android/app/build/outputs/apk/release/*.apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/release/build-revision.txt
+            android/app/build/outputs/apk/release/build-version.json
           if-no-files-found: error
 
       - name: Upload build log
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: android-build-log
           path: android/build.log
@@ -404,22 +464,31 @@ jobs:
     # "run-emulator" on a manual dispatch when you want the device evidence too.
     name: Android emulator smoke test (on demand)
     needs: android
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.run-emulator }}
+    if: ${{ inputs.run-emulator }}
     runs-on: ubuntu-latest
     timeout-minutes: 70
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Stamp shared build version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: python tools/release_version.py --version "$RELEASE_VERSION"
 
       - name: Download the debug APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           name: NetLurker-debug-apk
           path: apk
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "17"
@@ -432,7 +501,7 @@ jobs:
           sudo udevadm trigger --name-match=kvm
 
       - name: Install, launch and watch for a crash
-        uses: reactivecircus/android-emulator-runner@v2
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
         with:
           api-level: 34
           arch: x86_64
@@ -548,7 +617,7 @@ jobs:
 
       - name: Upload smoke evidence
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: android-smoke-evidence
           path: |

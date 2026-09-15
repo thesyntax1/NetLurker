@@ -128,8 +128,10 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 
 Release preparation builds fresh artifacts, validates bundled languages, records the source
 revision, and computes SHA-256 checksums. Hashes detect corruption; **they do not replace
-code signing or a security audit**. The candidate workflow creates an artifact for review,
-not an automatic public release. See the [release checklist](docs/RELEASE-CHECKLIST.md).
+code signing or a security audit**. Publishing a GitHub Release triggers tested Windows ZIP
+and installer delivery; a verified Android APK is included only when production signing is
+configured. A manual preparation mode produces review artifacts without publishing.
+See the [release setup guide](docs/RELEASES.md) and [release checklist](docs/RELEASE-CHECKLIST.md).
 
 Windows SmartScreen may warn about an unsigned or unfamiliar binary. Do not disable your
 security software to run it. Check the origin and hash, build it yourself, or wait for a

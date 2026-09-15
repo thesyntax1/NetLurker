@@ -88,6 +88,10 @@ Debug APK değerlendirme içindir. İmzasız release APK, normal bir yayın olar
 
 ## Güven ve katkı
 
+Releases’te `v6.0.1` gibi bir tag ile **Publish release** seçildiğinde test edilmiş Windows
+ZIP’i ve yükleyici otomatik eklenir. Android APK’sı yalnızca üretim imzası yapılandırılmışsa
+paylaşılır. Yayımlamadan hazırlık modu da vardır: [kurulum ve kullanım](docs/RELEASES.md).
+
 Yayın adayları taze derleme, kaynak revizyonu ve SHA-256 özetiyle hazırlanır. Özet dosyası
 kod imzasının veya güvenlik denetiminin yerini tutmaz. SmartScreen uyarısı alırsanız güvenlik
 korumasını kapatmayın; dosyanın kaynağını doğrulayın veya kendiniz derleyin.

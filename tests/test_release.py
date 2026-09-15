@@ -12,6 +12,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 from package_release import package, LANGUAGES
 from check_smoke import verify
+from release_version import version_info
 
 
 class PackageTest(unittest.TestCase):
@@ -22,6 +23,8 @@ class PackageTest(unittest.TestCase):
         self.source = self.root / "input"
         (self.source / "lang").mkdir(parents=True)
         self.revision = "a" * 40
+        self.version = json.loads((ROOT / "version.json").read_text())["version"]
+        (self.source / "build-version.json").write_text(json.dumps(version_info(self.version)))
         (self.source / "build-revision.txt").write_text(self.revision)
         # Synthetic PE fixture, never distributed or passed off as an executable build.
         data = bytearray(256)
@@ -33,8 +36,8 @@ class PackageTest(unittest.TestCase):
         for code in LANGUAGES:
             shutil.copyfile(ROOT / "lang" / f"{code}.ini", self.source / "lang" / f"{code}.ini")
 
-    def build(self, revision=None, version="6.0.0-rc.1"):
-        return package(self.source, self.root / "output", version, revision or self.revision)
+    def build(self, revision=None, version=None):
+        return package(self.source, self.root / "output", version or self.version, revision or self.revision)
 
     def test_revision_languages_and_every_payload_hash_are_recorded(self):
         archive = self.build()
@@ -65,7 +68,7 @@ class PackageTest(unittest.TestCase):
             self.build()
 
     def test_invalid_version_and_overwrite_are_rejected(self):
-        for version in ("../escape", "v6.0.0", "5.0.0"):
+        for version in ("../escape", "v6.0.0", "999.0.0"):
             with self.assertRaises(ValueError):
                 self.build(version=version)
         self.build()

@@ -1,3 +1,4 @@
+import groovy.json.JsonSlurper
 import java.io.FileInputStream
 import java.util.Properties
 
@@ -17,6 +18,9 @@ val keystoreProps = Properties().apply {
 val hasReleaseKeystore = keystoreProps.getProperty("storeFile")
     ?.let { rootProject.file(it).exists() } == true
 
+// Stamped from the release tag before CI compiles either platform.
+val releaseVersion = JsonSlurper().parse(rootProject.file("../version.json")) as Map<*, *>
+
 android {
     namespace = "dev.netlurker.android"
     compileSdk = 35
@@ -25,8 +29,8 @@ android {
         applicationId = "dev.netlurker.android"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0.0"
+        versionCode = (releaseVersion["android_version_code"] as Number).toInt()
+        versionName = releaseVersion["version"] as String
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         resourceConfigurations += listOf("en", "tr", "es", "de", "fr", "ja", "zh", "pt")

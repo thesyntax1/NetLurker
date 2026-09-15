@@ -76,7 +76,9 @@ before distribution. This repository does not currently automate Android product
 
 [Build](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml) compiles Windows and Android, runs unit tests and lint,
 and uploads development artifacts. The emulator job is opt-in on ordinary builds. The
-release-candidate workflow requires it and **does not publish a release**.
+Release workflow can require it via `RELEASE_RUN_EMULATOR=true`; otherwise it is
+explicitly not executed. Manual Release preparation defaults to no publication.
+Publishing a GitHub Release triggers asset delivery; see the [operator guide](../docs/RELEASES.md).
 
 - `NetLurker-debug-apk`: debug-signed evaluation build.
 - `NetLurker-release-apk`: minified artifact, unsigned unless configured.
@@ -85,3 +87,22 @@ release-candidate workflow requires it and **does not publish a release**.
 A green build is not live-provider validation. The [accuracy contract](../docs/DATA-ACCURACY.md),
 [UI matrix](../docs/UI-REGRESSION-CHECKS.md), and [release checklist](../docs/RELEASE-CHECKLIST.md)
 record the remaining real-device and service checks.
+
+
+### Automated public APKs
+
+The shared root `version.json` controls Android versionName/versionCode. Release CI
+stamps it from the tag before compilation; see the documented bounded version policy.
+The unsigned minified CI artifact is then zipaligned, signed using repository secrets,
+and checked with `apksigner`, `zipalign` and `aapt2`. The application ID must be
+`dev.netlurker.android`, never `.debug`, and the certificate must match the separate
+`ANDROID_SIGNING_CERT_SHA256` repository variable.
+
+Configure `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`
+and `ANDROID_KEY_PASSWORD` under GitHub Actions repository secrets. Keep the same
+production key and an offline backup. No signing secrets are supplied to ordinary PR
+builds. Set `REQUIRE_ANDROID_RELEASE=true` to block a release if the key is not configured;
+otherwise an entirely absent Android signing setup produces a clearly disclosed
+Windows-only release. Partial configuration or failed verification always fails.
+See [release setup and recovery](../docs/RELEASES.md). A signed APK still needs a
+physical-device install/upgrade test before claiming public-release readiness.

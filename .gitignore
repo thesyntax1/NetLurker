@@ -19,3 +19,9 @@ android/.kotlin/
 # Python bytecode from the catalog generators
 __pycache__/
 *.pyc
+
+# Release staging / private code-signing material
+/release-assets/
+/android-input/
+*.pfx
+*.p12
