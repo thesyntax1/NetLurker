@@ -87,12 +87,16 @@ class TrafficSource(
     fun applyRates(apps: List<AppTraffic>, nowMs: Long = clock()): List<AppTraffic> {
         val elapsed = lastUidSampleAtMs?.let { (nowMs - it).coerceAtLeast(0L) } ?: 0L
         lastUidSampleAtMs = nowMs
-        val visibleUids = apps.map { it.uid }.toSet()
+        val uidCounts = apps.groupingBy { it.uid }.eachCount()
+        val visibleUids = uidCounts.keys
         lastRx.keys.retainAll(visibleUids)
         lastTx.keys.retainAll(visibleUids)
         return apps.map { app ->
-            val rx = uidRx(app.uid)
-            val tx = uidTx(app.uid)
+            // A shared UID counter cannot identify which package generated those bytes.
+            // Do not attribute all bytes to each package, or a delta to whichever row ran first.
+            val ambiguous = uidCounts.getValue(app.uid) > 1
+            val rx = if (ambiguous) -1L else uidRx(app.uid)
+            val tx = if (ambiguous) -1L else uidTx(app.uid)
             if (rx < 0 || tx < 0) {
                 lastRx.remove(app.uid)
                 lastTx.remove(app.uid)

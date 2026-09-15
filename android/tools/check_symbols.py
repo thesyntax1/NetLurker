@@ -25,7 +25,7 @@ SOURCE_SETS = ("main/kotlin", "test/kotlin", "androidTest/kotlin")
 DECL = re.compile(
     r'^(?:@\w+\s+)*(?:public |internal |private )?'
     r'(?:data |sealed |abstract |open |value |enum |annotation |expect |actual )*'
-    r'(?:class|object|interface|fun|val|var|typealias)\s+([A-Za-z_]\w*)',
+    r'(?:class|object|interface|fun|val|var|typealias)\s+([A-Za-z_]\w*)(?![\w.])',
     re.M,
 )
 IMPORT = re.compile(r'^import (dev\.netlurker\.android(?:\.\w+)*)\.([A-Za-z_]\w*)\s*$', re.M)

@@ -34,6 +34,7 @@ the chosen provider's policy before enabling it. A custom endpoint is not automa
 ## Local storage
 
 - Windows configuration, keys, caches and history are stored under `%APPDATA%\NetLurker`.
+  Aggregate threat disk-cache reuse is disabled; legacy aggregate threat files are discarded.
 - Android settings and keys use app-private SharedPreferences; caches use app-private files.
   Android backup is disabled in the manifest.
 - **API keys are not encrypted by this application.** OS user/app isolation is the current

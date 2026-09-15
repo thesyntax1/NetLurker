@@ -3,6 +3,7 @@ package dev.netlurker.android.intel
 import dev.netlurker.android.core.Ip
 import org.json.JSONArray
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.net.InetAddress
 import java.net.UnknownHostException
 
@@ -88,21 +89,20 @@ object AbuseIpDb {
             timeoutMs = timeoutMs
         )
         if (!response.ok) throw IllegalStateException(response.error ?: "request failed")
-        val data = JSONObject(response.body).optJSONObject("data")
-            ?: throw IllegalStateException("response had no data object")
-        val score = data.getInt("abuseConfidenceScore")
-        require(score in 0..100) { "invalid abuse confidence score" }
-        val lastReport = data.optString("lastReportedAt")
-        return Outcome(
-            abuseScore = score,
-            totalReports = data.optInt("totalReports", 0),
-            lastReportEpochSec = parseIso8601(lastReport),
-            isTor = data.optBoolean("isTor"),
-            country = data.optString("countryCode"),
-            isp = data.optString("isp"),
-            usageType = data.optString("usageType")
-        )
+        return parse(response.body, ip)
     }
+
+    fun parse(body: String, ip: String): Outcome {
+        val data = objectDocument(body).getJSONObject("data")
+        require(Ip.sameAddress(data.strictString("ipAddress"), ip)) { "response address mismatch" }
+        val score = data.strictInt("abuseConfidenceScore", 0, 100)
+        val reports = data.strictInt("totalReports")
+        val tor = data.opt("isTor")
+        require(tor == null || tor == JSONObject.NULL || tor is Boolean) { "invalid isTor" }
+        return Outcome(score, reports, parseIso8601(data.optString("lastReportedAt")),
+            tor == true, data.optString("countryCode"), data.optString("isp"), data.optString("usageType"))
+    }
+
 }
 
 /** CIRCL passive DNS — how many names have historically resolved to this address. */
@@ -113,22 +113,33 @@ object PassiveDns {
     fun check(ip: String, timeoutMs: Int = 8_000): Outcome {
         val response = Http.get("https://cve.circl.lu/pdns/query/$ip", timeoutMs = timeoutMs)
         if (!response.ok) throw IllegalStateException(response.error ?: "request failed")
-        val array = runCatching { JSONArray(response.body) }
-            .getOrElse { throw IllegalStateException("unparsable response") }
+        return parse(response.body, ip)
+    }
+
+    fun parse(body: String, ip: String): Outcome {
+        val trimmed = body.trim()
+        val rows = if (trimmed.startsWith("[")) {
+            val array = document(trimmed) as? JSONArray ?: error("expected array")
+            (0 until array.length()).map { array.getJSONObject(it) }
+        } else {
+            require(trimmed.isNotEmpty()) { "empty response" }
+            trimmed.lineSequence().filter { it.isNotBlank() }.map { objectDocument(it) }.toList()
+        }
         val names = LinkedHashSet<String>()
         var newest = 0L
-        for (i in 0 until array.length()) {
-            val obj = array.optJSONObject(i) ?: continue
-            val name = obj.optString("rrname")
-            if (name.isNotBlank()) names += name
-            newest = maxOf(newest, obj.optLong("time_last", 0L))
+        for (obj in rows) {
+            val name = obj.strictString("rrname")
+            require(name.isNotBlank() && obj.strictString("rrtype") in setOf("A", "AAAA") &&
+                Ip.sameAddress(obj.strictString("rdata"), ip)) { "invalid passive DNS record" }
+            names += name
+            val last = obj.opt("time_last")
+            val time = if (last is Number && last.toDouble().isFinite() && last.toDouble() >= 0 && last.toDouble() < Long.MAX_VALUE.toDouble()) last.toLong()
+                else if (last is String) parseIso8601(last) else 0L
+            newest = maxOf(newest, time)
         }
-        return Outcome(
-            records = array.length(),
-            names = names.take(6).joinToString(", "),
-            newest = newest
-        )
+        return Outcome(rows.size, names.take(6).joinToString(", "), newest)
     }
+
 }
 
 /** RDAP ownership via the rdap.org bootstrap, as in the desktop build. */
@@ -145,9 +156,11 @@ object Rdap {
     fun check(ip: String, timeoutMs: Int = 10_000): Outcome {
         val response = Http.get("https://rdap.org/ip/$ip", timeoutMs = timeoutMs)
         if (!response.ok) throw IllegalStateException(response.error ?: "request failed")
-        val root = runCatching { JSONObject(response.body) }
+        val root = runCatching { objectDocument(response.body) }
             .getOrElse { throw IllegalStateException("unparsable response") }
 
+        require(root.strictString("objectClassName") == "ip network" &&
+            Ip.isIp(root.strictString("startAddress")) && Ip.isIp(root.strictString("endAddress"))) { "invalid RDAP network" }
         var name = root.optString("name")
         var org = ""
         var abuse = ""
@@ -167,7 +180,7 @@ object Rdap {
                         if (name.isBlank()) name = handle
                     }
                 }
-                if ((roles.contains("abuse") || roles.contains("technical")) && abuse.isBlank()) {
+                if (roles.contains("abuse") && abuse.isBlank()) {
                     abuse = vcardMail.ifBlank { vcardName }
                 }
                 if (org.isBlank() && vcardName.isNotBlank()) org = vcardName
@@ -242,21 +255,24 @@ object VirusTotal {
             timeoutMs = timeoutMs
         )
         if (!response.ok) throw IllegalStateException(response.error ?: "request failed")
-        val attributes = JSONObject(response.body).optJSONObject("data")
-            ?.optJSONObject("attributes")
-            ?: throw IllegalStateException("response had no attributes")
-        val stats = attributes.getJSONObject("last_analysis_stats")
-        val malicious = stats?.optInt("malicious", 0) ?: 0
-        val suspicious = stats?.optInt("suspicious", 0) ?: 0
-        val harmless = stats?.optInt("harmless", 0) ?: 0
-        val undetected = stats?.optInt("undetected", 0) ?: 0
-        return Outcome(
-            malicious = malicious,
-            suspicious = suspicious,
-            total = malicious + suspicious + harmless + undetected,
-            reputation = attributes.optInt("reputation", 0)
-        )
+        return parse(response.body, ip)
     }
+
+    fun parse(body: String, ip: String): Outcome {
+        val data = objectDocument(body).getJSONObject("data")
+        require(data.strictString("type") == "ip_address" && Ip.sameAddress(data.strictString("id"), ip)) { "response address mismatch" }
+        val attributes = data.getJSONObject("attributes")
+        val stats = attributes.getJSONObject("last_analysis_stats")
+        val malicious = stats.strictInt("malicious")
+        val suspicious = stats.strictInt("suspicious")
+        val harmless = stats.strictInt("harmless")
+        val undetected = stats.strictInt("undetected")
+        stats.keys().forEach { stats.strictInt(it) }
+        val total = malicious.toLong() + suspicious + harmless + undetected
+        require(total in 1..Int.MAX_VALUE.toLong()) { "no usable engine verdicts" }
+        return Outcome(malicious, suspicious, total.toInt(), attributes.strictInt("reputation", Int.MIN_VALUE))
+    }
+
 }
 
 /**
@@ -268,3 +284,22 @@ fun parseIso8601(value: String?): Long {
     if (value.isNullOrBlank()) return 0L
     return runCatching { java.time.OffsetDateTime.parse(value).toEpochSecond() }.getOrDefault(0L)
 }
+
+
+private fun JSONObject.strictString(key: String): String =
+    (get(key) as? String) ?: throw IllegalArgumentException("invalid $key")
+
+private fun JSONObject.strictInt(key: String, minimum: Int = 0, maximum: Int = Int.MAX_VALUE): Int {
+    val value = get(key) as? Number ?: throw IllegalArgumentException("invalid $key")
+    val n = value.toDouble()
+    require(n.isFinite() && n == kotlin.math.floor(n) && n >= minimum && n <= maximum) { "invalid $key" }
+    return n.toInt()
+}
+
+private fun document(body: String): Any {
+    val reader = JSONTokener(body)
+    val result = reader.nextValue()
+    require(reader.nextClean() == '\u0000') { "trailing response data" }
+    return result
+}
+private fun objectDocument(body: String): JSONObject = document(body) as? JSONObject ?: error("expected object")

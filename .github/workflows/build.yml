@@ -92,6 +92,10 @@ jobs:
           cl /nologo /std:c++17 /EHsc /W4 /Isrc tests\evidence_rules_test.cpp src\json.cpp /Fo:build\ /Fe:build\evidence_rules_test.exe
           if errorlevel 1 exit /b 1
           build\evidence_rules_test.exe
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /Isrc tests\provider_evidence_test.cpp src\json.cpp /Fo:build\ /Fe:build\provider_evidence_test.exe
+          if errorlevel 1 exit /b 1
+          build\provider_evidence_test.exe
 
       - name: Test transactional settings and native dialog controls
         shell: cmd

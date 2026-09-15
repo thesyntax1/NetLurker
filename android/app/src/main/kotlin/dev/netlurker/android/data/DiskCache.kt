@@ -14,7 +14,9 @@ import java.io.File
  */
 class DiskCache(directory: File, private val fileName: String) {
 
-    data class Entry(val atEpochSec: Long, val payload: String)
+    data class Entry(val atEpochSec: Long, val payload: String) {
+        fun isFresh(now: Long, ttl: Long): Boolean = atEpochSec > 0 && atEpochSec <= now && now - atEpochSec < ttl
+    }
 
     private val file = File(directory, fileName)
     private val entries = LinkedHashMap<String, Entry>()

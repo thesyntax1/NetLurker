@@ -694,3 +694,13 @@ TABLE += [
     ("Enter a valid HTTPS AI endpoint and a model. HTTP is allowed only for loopback servers.", {"tr": "Geçerli bir HTTPS AI adresi ve model girin. HTTP yalnızca yerel geri döngü sunucularında kullanılabilir.", "es": "Introduce una URL HTTPS de IA válida y un modelo. HTTP solo se permite en servidores de bucle local.", "de": "Gültigen HTTPS-KI-Endpunkt und ein Modell eingeben. HTTP ist nur für Loopback-Server erlaubt.", "fr": "Saisissez une URL IA HTTPS valide et un modèle. HTTP est réservé aux serveurs de bouclage local.", "ja": "有効な HTTPS AI URL とモデルを入力してください。HTTP はループバックサーバーのみ使用できます。", "zh": "请输入有效的 HTTPS AI 地址和模型。HTTP 仅允许用于回环服务器。", "pt": "Insira uma URL HTTPS de IA válida e um modelo. HTTP só é permitido em servidores de loopback."}),
     ("Settings could not be saved. Check available disk space and config.ini permissions, then try again. Your changes are still in this dialog.", {"tr": "Ayarlar kaydedilemedi. Boş disk alanını ve config.ini izinlerini kontrol edip tekrar deneyin. Değişiklikleriniz bu pencerede duruyor.", "es": "No se pudieron guardar los ajustes. Revisa el espacio libre y los permisos de config.ini y reintenta. Los cambios siguen en este diálogo.", "de": "Einstellungen nicht gespeichert. Freien Speicher und config.ini-Berechtigungen prüfen. Die Änderungen bleiben in diesem Dialog.", "fr": "Enregistrement impossible. Vérifiez l’espace disque et les droits de config.ini, puis réessayez. Les modifications restent dans cette fenêtre.", "ja": "設定を保存できませんでした。空き容量と config.ini の権限を確認して再試行してください。変更はこの画面に残っています。", "zh": "无法保存设置。请检查可用磁盘空间和 config.ini 权限后重试。更改仍保留在此对话框。", "pt": "Não foi possível salvar. Verifique o espaço livre e as permissões de config.ini e tente novamente. As alterações continuam nesta janela."}),
 ]
+
+TABLE += [("Exit demo mode before using live-system actions.", {
+"tr": "Canlı sistem işlemlerini kullanmadan önce demo modundan çıkın.",
+"es": "Sal del modo demo antes de usar acciones sobre el sistema real.",
+"de": "Beenden Sie den Demomodus, bevor Sie Aktionen am realen System ausführen.",
+"fr": "Quittez le mode démo avant d’agir sur le système réel.",
+"ja": "実システムへの操作を行う前にデモモードを終了してください。",
+"zh": "对真实系统执行操作前，请退出演示模式。",
+"pt": "Saia do modo de demonstração antes de executar ações no sistema real."
+})]

@@ -115,6 +115,8 @@ object Export {
             w.name("reverseDnsStatus"); w.value(target.reverseDns.status.name)
             w.name("reverseDns"); w.value(target.reverseDns.value)
             w.name("geoStatus"); w.value(target.geo.status.name)
+            w.name("geoDetail"); w.value(target.geo.detail)
+            w.name("geoAtEpochSec"); w.value(target.geo.atEpochSec.takeIf { it > 0 })
             target.geo.value?.let { geo ->
                 w.name("country"); w.value(geo.country)
                 w.name("countryCode"); w.value(geo.countryCode)
@@ -125,18 +127,22 @@ object Export {
                 w.name("proxy"); w.value(geo.proxy)
             }
             w.name("threatStatus"); w.value(target.threat.status.name)
+            w.name("threatDetail"); w.value(target.threat.detail)
+            w.name("threatAtEpochSec"); w.value(target.threat.atEpochSec.takeIf { it > 0 })
             target.threat.value?.let { threat ->
-                w.name("abuseScore"); w.value(threat.abuseScore)
-                w.name("abuseReports"); w.value(threat.totalReports)
+                w.name("abuseScore"); w.value(threat.abuseScore.takeIf { it >= 0 })
+                w.name("abuseReports"); w.value(threat.totalReports.takeIf { threat.abuseScore >= 0 })
                 w.name("dnsblHits"); array(w, threat.dnsblHits)
-                w.name("passiveDnsRecords"); w.value(threat.passiveDnsRecords)
+                w.name("passiveDnsRecords"); w.value(threat.passiveDnsRecords.takeIf { it >= 0 })
                 w.name("rdapOrg"); w.value(threat.rdapOrg)
                 w.name("rdapCidr"); w.value(threat.rdapCidr)
-                w.name("vtMalicious"); w.value(threat.vtMalicious)
-                w.name("vtTotal"); w.value(threat.vtTotal)
+                w.name("vtMalicious"); w.value(threat.vtMalicious.takeIf { threat.vtTotal > 0 })
+                w.name("vtTotal"); w.value(threat.vtTotal.takeIf { it > 0 })
                 w.name("sourcesAnswered"); array(w, threat.sourcesAnswered)
             }
             w.name("certStatus"); w.value(target.cert.status.name)
+            w.name("certDetail"); w.value(target.cert.detail)
+            w.name("certAtEpochSec"); w.value(target.cert.atEpochSec.takeIf { it > 0 })
             target.cert.value?.let { cert ->
                 w.name("certSubject"); w.value(cert.subject)
                 w.name("certIssuer"); w.value(cert.issuer)
@@ -146,6 +152,8 @@ object Export {
                 w.name("certNameMismatch"); w.value(cert.nameMismatch)
             }
             w.name("bannerStatus"); w.value(target.banner.status.name)
+            w.name("bannerDetail"); w.value(target.banner.detail)
+            w.name("bannerAtEpochSec"); w.value(target.banner.atEpochSec.takeIf { it > 0 })
             target.banner.value?.let { banner ->
                 w.name("server"); w.value(banner.server)
                 w.name("bannerEndOfLife"); w.value(banner.endOfLife)

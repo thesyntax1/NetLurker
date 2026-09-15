@@ -142,7 +142,10 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun saveSettings(values: SettingsValues): Boolean {
         val saved = withContext(Dispatchers.IO) { settings.save(values) }
-        if (saved) refreshNetwork()
+        if (saved) {
+            intel.settingsChanged()
+            refreshNetwork()
+        }
         return saved
     }
 
@@ -203,7 +206,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             val perApp = HashMap<String, Long>(rated.size)
             for (app in rated) {
-                if (app.supported && app.totalBytes >= 0) perApp[app.label] = app.totalBytes
+                if (app.supported && app.totalBytes >= 0) perApp[app.packageName] = app.totalBytes
             }
             val fresh = history.record(
                 totalInBytes = current.totalRxBytes,
@@ -268,8 +271,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
      */
     fun appVerdict(app: AppTraffic): Verdict = RiskEngine.evaluateApp(
         app,
-        _alerts.value.firstOrNull { it.subject == app.label },
-        history.beaconPattern(app.label)
+        _alerts.value.firstOrNull { it.subject == app.packageName },
+        history.beaconPattern(app.packageName)
     )
 
     fun onApkHash(app: AppTraffic) {

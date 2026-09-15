@@ -36,7 +36,7 @@ against each other.
    family strings such as `jboss` are not enough to assert end of life.
 5. **Windows evidence merging:** AbuseIPDB results update their own fields instead of
    erasing concurrent DNSBL/RDAP/VirusTotal results. Worker flags remain active until IO ends.
-   A new cache namespace avoids reusing old false-positive blacklist results.
+   Aggregate Windows threat disk-cache reuse has now been removed as well; it could not preserve provider failures and configuration changes.
 6. **Android threat cache:** unsafe aggregate reuse is removed. Partial results and disabled
    providers remain visible; RDAP keeps its independent success cache.
 7. **Android TLS / dates / input:** use the entered hostname for SNI and name checks, separate
@@ -69,3 +69,53 @@ Known limits to retain in a release announcement:
 - Spamhaus resolver/rate-limit codes are not reputation data: [2](https://www.spamhaus.org/resource-hub/dnsbl/using-our-public-mirrors-check-your-return-codes-now/).
 
 Do not use the old promotional artwork as proof that any of these observations were made.
+
+
+## Second audit: provider identity, continuity and synthetic provenance
+
+Implemented corrections (the exact revision's CI remains the source of test results):
+
+- **AbuseIPDB omissions:** Windows no longer infers score 0 for an address absent from a
+  block response. It queries each requested IP; both platforms validate the response IP,
+  required score/report fields, integer types and bounds. This may use more individual
+  requests than batching; no shared key or quota-bypass mechanism is supplied.
+- **VirusTotal:** wrong-address/type, missing/negative/fractional/overflowed counts and
+  zero usable engines are unavailable, not clean. The denominator is the sum of actual
+  verdict categories (malicious/suspicious/harmless/undetected), excluding timeout/failure.
+- **Passive DNS:** validate array or newline-delimited records and their queried address.
+  An empty valid array is a measured zero; an HTTP/error object or invalid record is not.
+- **Windows JSON boundary:** the above parsers reject incomplete/trailing documents,
+  duplicate keys, excessive nesting and non-finite/malformed numbers. This is a targeted
+  provider parser, not a claim that every legacy JSON consumer has been replaced.
+- **Ownership dates:** Windows handles ISO offsets/calendar validity; Android cannot use a
+  future registration date as proof of a young or established network. RDAP error/empty
+  objects are rejected and technical contacts are no longer called abuse contacts on Android.
+- **Android target identity:** DNS resolution cannot change the target key. Separate
+  hostnames on the same port no longer collide as `null:443`; incarnation checks prevent
+  removed/re-added targets accepting old results. Removal/configuration changes cancel jobs.
+- **Source switches:** Windows schedules DNSBL/Abuse/CIRCL independently of RDAP/VT and
+  rejects results from old configurations. Android RDAP/VT no longer depend on the general
+  threat toggle. Already transmitted requests cannot be recalled.
+- **Cache honesty:** Android rejects future/expired entries and incomplete/type-invalid
+  payloads; malformed RDAP cache data falls through to a real query. Windows aggregate
+  threat cache files are discarded rather than reclassified as current evidence.
+- **Traffic attribution:** shared Android UIDs are not attributed to individual packages;
+  those package counters remain unavailable. History uses package identifiers rather than
+  potentially duplicate/localized labels, reseeds after gaps, and synchronizes snapshots.
+- **Plugin provenance:** Windows plugin output is kept separate and exported separately;
+  it is no longer substituted for an AbuseIPDB score or fed into AbuseIPDB scoring rules.
+- **Demo provenance:** Windows demo rows cannot drive termination, suspension, firewall,
+  properties or AI actions. They do not update live anomaly/rate baselines or fetch real
+  metadata for a coincidentally matching PID. CSV now has a `data_source` column; JSON,
+  text and HTML retain their demo markings. Live-only history/statistics/graph tabs require
+  leaving demo mode. Source-guard tests are structural; no destructive actions run in CI.
+- **Exports:** missing threat/VT/PDNS measurements use null/blank rather than fabricated
+  zeroes; Android includes per-result timestamps/details and Windows a threat status.
+
+New regression suites: `provider_evidence_test.cpp`, expanded `evidence_rules_test.cpp`
+(32 source-switch combinations), `ProviderEvidenceTest.kt` and `test_provenance_guards.py`.
+
+Still not established: live provider access/coverage, exhaustive special-use address
+classification, runtime race stress across every platform lifecycle, full TLS trust, or
+an end-to-end detection accuracy percentage. Strict validation may reject an equivalent
+IPv6 textual representation on Windows; this fails unavailable, never as a clean result.

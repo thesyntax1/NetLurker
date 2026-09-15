@@ -51,16 +51,16 @@ object Ip {
             return true
         }
         if (!isIPv6(s)) return false
-        val lower = s.lowercase()
-        if (lower == "::" || lower == "::1") return false
-        if (lower.startsWith("fe80")) return false // link local
-        if (lower.startsWith("fc") || lower.startsWith("fd")) return false // unique local
-        if (lower.startsWith("ff")) return false // multicast
-        // IPv4-mapped IPv6 (::ffff:192.168.1.1)
-        val mapped = lower.substringAfterLast(":")
-        if (isIPv4(mapped)) return isPublic(mapped)
-        return true
+        val address = runCatching { InetAddress.getByName(s) }.getOrNull() ?: return false
+        if (address is java.net.Inet4Address) return isPublic(address.hostAddress ?: return false)
+        if (address.isAnyLocalAddress || address.isLoopbackAddress || address.isLinkLocalAddress ||
+            address.isSiteLocalAddress || address.isMulticastAddress) return false
+        return (address.address[0].toInt() and 0xfe) != 0xfc
     }
+
+    /** Compares numeric literals only, never performs a hostname lookup. */
+    fun sameAddress(a: String, b: String): Boolean = isIp(a) && isIp(b) &&
+        runCatching { InetAddress.getByName(a).address.contentEquals(InetAddress.getByName(b).address) }.getOrDefault(false)
 
     fun isPrivate(s: String): Boolean = isIp(s) && !isPublic(s)
 

@@ -9,6 +9,7 @@ import dev.netlurker.android.core.IntelStatus
 import dev.netlurker.android.core.Ip
 import dev.netlurker.android.core.JsonWriter
 import dev.netlurker.android.core.RiskEngine
+import dev.netlurker.android.core.Verdict
 import dev.netlurker.android.core.Target
 import dev.netlurker.android.core.ThreatInfo
 import dev.netlurker.android.core.nowEpochSec
@@ -22,6 +23,8 @@ import dev.netlurker.android.intel.ReverseDns
 import dev.netlurker.android.intel.TlsProbe
 import dev.netlurker.android.intel.VirusTotal
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -60,7 +63,7 @@ class IntelRepository(
     /** Retry bookkeeping: how many times each source failed for a given address. */
     private val attempts = ConcurrentHashMap<String, ConcurrentHashMap<String, Int>>()
     private val nextTryAt = ConcurrentHashMap<String, Long>()
-    private val inFlight = ConcurrentHashMap.newKeySet<String>()
+    private val jobs = ConcurrentHashMap<String, Job>()
 
     private var hostsSnapshot = HostsFile.Snapshot(readable = false, entries = 0)
     private var hostsReadAtMs = 0L
@@ -107,11 +110,26 @@ class IntelRepository(
     }
 
     fun removeTarget(key: String) {
-        _targets.value = _targets.value.filterNot { it.key == key }
+        _targets.value.filter { it.key == key }.forEach { jobs.remove(it.instanceId)?.cancel() }
+        _targets.update { rows -> rows.filterNot { it.key == key } }
     }
 
     fun clearTargets() {
+        jobs.values.forEach { it.cancel() }
+        jobs.clear()
         _targets.value = emptyList()
+    }
+
+    fun settingsChanged() {
+        jobs.values.forEach { it.cancel() }
+        jobs.clear()
+        attempts.clear(); nextTryAt.clear()
+        _targets.update { rows -> rows.map { it.copy(
+            instanceId = java.util.UUID.randomUUID().toString(),
+            geo = IntelResult.idle(), threat = IntelResult.idle(),
+            cert = IntelResult.idle(), banner = IntelResult.idle(), verdict = Verdict.none
+        ) } }
+        _targets.value.forEach { investigate(it.key, force = false) }
     }
 
     /** Restores targets from a previous session without re-querying everything. */
@@ -119,8 +137,8 @@ class IntelRepository(
         _targets.value = targets
     }
 
-    private fun update(key: String, transform: (Target) -> Target) {
-        _targets.update { targets -> targets.map { if (it.key == key) transform(it).let { changed ->
+    private fun update(target: Target, transform: (Target) -> Target) {
+        _targets.update { targets -> targets.map { if (it.acceptsResultOf(target)) transform(it).let { changed ->
             changed.copy(verdict = RiskEngine.evaluate(changed))
         } else it } }
     }
@@ -130,11 +148,11 @@ class IntelRepository(
         val target = _targets.value.firstOrNull { it.key == key } ?: return
         val backoffUntil = nextTryAt[key] ?: 0L
         if (!force && backoffUntil > nowEpochSec()) return
-        if (!inFlight.add(key)) return
-        scope.launch(Dispatchers.IO) {
+        val job = scope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try { runInvestigation(target, force) }
-            finally { inFlight.remove(key) }
+            finally { jobs.remove(target.instanceId, coroutineContext[Job]) }
         }
+        if (jobs.putIfAbsent(target.instanceId, job) == null) job.start() else job.cancel()
     }
 
     private suspend fun runInvestigation(target: Target, force: Boolean) {
@@ -143,12 +161,12 @@ class IntelRepository(
             geo = IntelResult.pending(), threat = IntelResult.pending(),
             cert = IntelResult.pending(), banner = IntelResult.pending()
         )
-        update(key) { current }
+        update(target) { current }
 
         // --- 1. resolve the input to an address ---------------------------------
         if (current.ip == null) {
             current = current.copy(resolve = IntelResult.pending())
-            update(key) { current }
+            update(target) { current }
             val resolved = withContext(Dispatchers.IO) {
                 runCatching { java.net.InetAddress.getByName(current.input).hostAddress }.getOrNull()
             }
@@ -157,7 +175,7 @@ class IntelRepository(
             } else {
                 current.copy(ip = resolved, resolve = IntelResult.ok(resolved))
             }
-            update(key) { current }
+            update(target) { current }
         }
 
         val ip = current.ip
@@ -168,7 +186,7 @@ class IntelRepository(
                 cert = IntelResult.unavailable("input could not be resolved"),
                 banner = IntelResult.unavailable("input could not be resolved")
             )
-            update(key) { current }
+            update(target) { current }
             return
         }
         val publicAddress = Ip.isPublic(ip)
@@ -183,41 +201,41 @@ class IntelRepository(
         val redirected = hostsSnapshot.redirects(ip)
         if (current.hostsRedirect != redirected) {
             current = current.copy(hostsRedirect = redirected)
-            update(key) { current }
+            update(target) { current }
         }
 
         // --- 2. reverse DNS ------------------------------------------------------
         if (force || current.reverseDns.status == IntelStatus.IDLE) {
             current = current.copy(reverseDns = IntelResult.pending())
-            update(key) { current }
+            update(target) { current }
             val name = withContext(Dispatchers.IO) { ReverseDns.lookup(ip) }
             current = current.copy(
                 reverseDns = if (name == null) IntelResult.failed("no PTR record")
                 else IntelResult.ok(name)
             )
-            update(key) { current }
+            update(target) { current }
         }
         val expectedName = current.input.takeUnless { Ip.isIp(it) }
 
         // --- 3. geolocation ------------------------------------------------------
         current = enrichGeo(current, ip, force)
-        update(key) { current }
+        update(target) { current }
 
         // --- 4. threat intelligence ---------------------------------------------
         current = enrichThreat(current, ip, publicAddress, force)
-        update(key) { current }
+        update(target) { current }
 
         // --- 5. TLS --------------------------------------------------------------
         current = enrichCert(current, ip, expectedName, force)
-        update(key) { current }
+        update(target) { current }
 
         // --- 6. HTTP banner ------------------------------------------------------
         current = enrichBanner(current, ip, force)
-        update(key) { current }
+        update(target) { current }
 
         // --- 7. verdict ----------------------------------------------------------
         current = current.copy(verdict = RiskEngine.evaluate(current))
-        update(key) { current }
+        update(target) { current }
         persistCaches()
     }
 
@@ -232,7 +250,7 @@ class IntelRepository(
         }
         if (!force) {
             geoCache.get(ip)?.let { entry ->
-                if (nowEpochSec() - entry.atEpochSec < GEO_TTL_SEC) {
+                if (entry.isFresh(nowEpochSec(), GEO_TTL_SEC)) {
                     parseGeo(DiskCache.decode(entry.payload))?.let {
                         return target.copy(geo = IntelResult.ok(it, entry.atEpochSec))
                     }
@@ -283,7 +301,7 @@ class IntelRepository(
         publicAddress: Boolean,
         force: Boolean
     ): Target {
-        if (!settings.threatEnabled) {
+        if (!settings.threatEnabled && !settings.rdapEnabled && !settings.vtEnabled) {
             return target.copy(threat = IntelResult.disabled("threat lookups are turned off"))
         }
         if (!publicAddress) {
@@ -298,7 +316,7 @@ class IntelRepository(
         var lastReport = 0L
         var tor = false
         var dnsblHits = emptyList<String>()
-        var pdnsRecords = 0
+        var pdnsRecords = -1
         var pdnsNames = ""
         var vtMalicious = 0
         var vtSuspicious = 0
@@ -311,55 +329,59 @@ class IntelRepository(
         var rdapRegistered = 0L
         val problems = mutableListOf<String>()
 
-        // DNS blacklists — no key needed.
-        val dnsbl = withContext(Dispatchers.IO) { Dnsbl.check(ip) }
-        if (dnsbl == null) {
-            problems += "DNSBL: IPv6 has no reverse form"
-        } else {
-            dnsblHits = dnsbl.hits
-            if (dnsbl.hits.isNotEmpty() || dnsbl.clean) sources += "dnsbl(${dnsbl.queried})"
-            if (dnsbl.unreachable.isNotEmpty()) {
-                problems += "unreachable: " + dnsbl.unreachable.joinToString(", ")
+        if (settings.threatEnabled) {
+            // DNS blacklists — no key needed.
+            val dnsbl = withContext(Dispatchers.IO) { Dnsbl.check(ip) }
+            if (dnsbl == null) {
+                problems += "DNSBL: IPv6 has no reverse form"
+            } else {
+                dnsblHits = dnsbl.hits
+                if (dnsbl.hits.isNotEmpty() || dnsbl.clean) sources += "dnsbl(${dnsbl.queried})"
+                if (dnsbl.unreachable.isNotEmpty()) {
+                    problems += "unreachable: " + dnsbl.unreachable.joinToString(", ")
+                }
             }
-        }
 
-        // AbuseIPDB — needs the user's own key.
-        if (settings.abuseIpDbKey.isBlank()) {
-            problems += "AbuseIPDB: no API key set"
-        } else {
-            val outcome = withContext(Dispatchers.IO) {
-                runCatching { AbuseIpDb.check(ip, settings.abuseIpDbKey) }
+            // AbuseIPDB — needs the user's own key.
+            if (settings.abuseIpDbKey.isBlank()) {
+                problems += "AbuseIPDB: no API key set"
+            } else {
+                val outcome = withContext(Dispatchers.IO) {
+                    runCatching { AbuseIpDb.check(ip, settings.abuseIpDbKey) }
+                }
+                outcome.fold(
+                    onSuccess = {
+                        abuseScore = it.abuseScore
+                        totalReports = it.totalReports
+                        lastReport = it.lastReportEpochSec
+                        tor = it.isTor
+                        sources += "abuseipdb"
+                    },
+                    onFailure = { problems += "AbuseIPDB: ${it.message}" }
+                )
             }
-            outcome.fold(
+
+            // CIRCL passive DNS — no key needed.
+            val pdns = withContext(Dispatchers.IO) { runCatching { PassiveDns.check(ip) } }
+            pdns.fold(
                 onSuccess = {
-                    abuseScore = it.abuseScore
-                    totalReports = it.totalReports
-                    lastReport = it.lastReportEpochSec
-                    tor = it.isTor
-                    sources += "abuseipdb"
+                    pdnsRecords = it.records
+                    pdnsNames = it.names
+                    sources += "circl"
                 },
-                onFailure = { problems += "AbuseIPDB: ${it.message}" }
+                onFailure = { problems += "CIRCL: ${it.message}" }
             )
-        }
 
-        // CIRCL passive DNS — no key needed.
-        val pdns = withContext(Dispatchers.IO) { runCatching { PassiveDns.check(ip) } }
-        pdns.fold(
-            onSuccess = {
-                pdnsRecords = it.records
-                pdnsNames = it.names
-                sources += "circl"
-            },
-            onFailure = { problems += "CIRCL: ${it.message}" }
-        )
+        } else problems += "AbuseIPDB/DNSBL/CIRCL: turned off"
 
         // RDAP ownership.
         if (settings.rdapEnabled) {
             val cachedRdap = if (!force) {
-                rdapCache.get(ip)?.takeIf { nowEpochSec() - it.atEpochSec < RDAP_TTL_SEC }
+                rdapCache.get(ip)?.takeIf { it.isFresh(nowEpochSec(), RDAP_TTL_SEC) }
+                    ?.let { parseRdap(DiskCache.decode(it.payload)) }
             } else null
             if (cachedRdap != null) {
-                parseRdap(DiskCache.decode(cachedRdap.payload))?.let { row ->
+                cachedRdap.let { row ->
                     rdapName = row.name
                     rdapOrg = row.org
                     rdapAbuse = row.abuse
@@ -454,7 +476,7 @@ class IntelRepository(
         val cacheKey = "$ip:$port:${expectedName.orEmpty()}"
         if (!force) {
             certCache.get(cacheKey)?.let { entry ->
-                if (nowEpochSec() - entry.atEpochSec < CERT_TTL_SEC) {
+                if (entry.isFresh(nowEpochSec(), CERT_TTL_SEC)) {
                     parseCert(DiskCache.decode(entry.payload))?.let {
                         return target.copy(cert = IntelResult.ok(it.copy(
                             expired = it.notAfterEpochSec < nowEpochSec(),
@@ -503,7 +525,7 @@ class IntelRepository(
         val cacheKey = "$ip:$port:${target.input}"
         if (!force) {
             bannerCache.get(cacheKey)?.let { entry ->
-                if (nowEpochSec() - entry.atEpochSec < BANNER_TTL_SEC) {
+                if (entry.isFresh(nowEpochSec(), BANNER_TTL_SEC)) {
                     parseBanner(DiskCache.decode(entry.payload))?.let {
                         return target.copy(banner = IntelResult.ok(it, entry.atEpochSec))
                     }
@@ -562,7 +584,7 @@ class IntelRepository(
     }.build()
 
     private fun parseGeo(payload: String): GeoInfo? = runCatching {
-        val o = JSONObject(payload)
+        val o = CacheSchema.decode(payload, "geo")
         GeoInfo(
             country = o.optString("country"),
             countryCode = o.optString("countryCode"),
@@ -604,7 +626,7 @@ class IntelRepository(
     )
 
     private fun parseRdap(payload: String): RdapRow? = runCatching {
-        val o = JSONObject(payload)
+        val o = CacheSchema.decode(payload, "rdap")
         RdapRow(
             o.optString("name"), o.optString("org"), o.optString("abuse"),
             o.optString("cidr"), o.optLong("registered")
@@ -631,7 +653,7 @@ class IntelRepository(
     }.build()
 
     private fun parseCert(payload: String): CertInfo? = runCatching {
-        val o = JSONObject(payload)
+        val o = CacheSchema.decode(payload, "cert")
         CertInfo(
             subject = o.optString("subject"),
             issuer = o.optString("issuer"),
@@ -662,7 +684,7 @@ class IntelRepository(
     }.build()
 
     private fun parseBanner(payload: String): BannerInfo? = runCatching {
-        val o = JSONObject(payload)
+        val o = CacheSchema.decode(payload, "banner")
         BannerInfo(
             statusLine = o.optString("statusLine"),
             server = o.optString("server"),

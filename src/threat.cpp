@@ -1,5 +1,7 @@
 #include "threat.h"
 #include "evidence_rules.h"
+#include "provider_evidence.h"
+#include "iso_date.h"
 #include "plugins.h"
 #include "http.h"
 #include "json.h"
@@ -15,24 +17,7 @@ using namespace nl;
 
 namespace {
 
-unsigned long long UnixFromYmd(int y, int m, int d, int hh = 0, int mm = 0, int ss = 0) {
-    if (y < 1970 || m < 1 || m > 12 || d < 1 || d > 31) return 0;
-    y -= m <= 2;
-    const int era = (y >= 0 ? y : y - 399) / 400;
-    const unsigned yoe = (unsigned)(y - era * 400);
-    const unsigned doy = (unsigned)((153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1);
-    const unsigned doe = (unsigned)(yoe * 365 + yoe / 4 - yoe / 100 + doy);
-    long long days = era * 146097LL + (long long)doe - 719468LL;
-    return (unsigned long long)(days * 86400LL + hh * 3600 + mm * 60 + ss);
-}
-
-unsigned long long ParseIsoDate(const std::string& s) {
-    int y = 0, mo = 0, d = 0, h = 0, mi = 0, se = 0;
-    if (sscanf(s.c_str(), "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &se) >= 6 ||
-        sscanf(s.c_str(), "%d-%d-%d %d:%d:%d", &y, &mo, &d, &h, &mi, &se) >= 6)
-        return UnixFromYmd(y, mo, d, h, mi, se);
-    return 0;
-}
+unsigned long long ParseIsoDate(const std::string& s) { return IsoEpoch(s); }
 
 struct DnsblZone { const wchar_t* label; const char* suffix; };
 
@@ -66,55 +51,6 @@ bool DnsblHit(const std::string& queryName, bool spamhaus, bool& incomplete) {
     if (!res) incomplete = true;
     freeaddrinfo(res);
     return hit;
-}
-
-void ParseBlockReports(const std::string& body,
-                       std::unordered_map<std::string, ThreatInfo>& out) {
-    const char* key = "\"reportedAddress\"";
-    size_t p = body.find(key);
-    if (p == std::string::npos) return;
-    p = body.find('[', p);
-    if (p == std::string::npos) return;
-    int depth = 0;
-    size_t q = p;
-    for (; q < body.size(); ++q) {
-        if (body[q] == '[') depth++;
-        else if (body[q] == ']') { depth--; if (!depth) break; }
-    }
-    if (q >= body.size()) return;
-    std::string arr = body.substr(p, q - p + 1);
-    for (const auto& obj : json::SplitObjects(arr)) {
-        std::string ip;
-        double score = 0, reports = 0;
-        std::string last;
-        if (!json::GetString(obj, "ipAddress", ip)) continue;
-        json::GetNumber(obj, "abuseConfidenceScore", score);
-        json::GetNumber(obj, "numReports", reports);
-        json::GetString(obj, "mostRecentReport", last);
-        ThreatInfo t;
-        t.abuseScore   = (int)score;
-        t.totalReports = (int)reports;
-        t.lastReport   = ParseIsoDate(last);
-        out[ip] = t;
-    }
-}
-
-bool ParseSingleCheck(const std::string& body, ThreatInfo& t) {
-    double score = 0, reports = 0;
-    if (!json::GetNumber(body, "abuseConfidenceScore", score) || score < 0 || score > 100) return false;
-    json::GetNumber(body, "totalReports", reports);
-    std::string last, usage;
-    json::GetString(body, "lastReportedAt", last);
-    json::GetString(body, "usageType", usage);
-    bool tor = false, white = false;
-    json::GetBool(body, "isTor", tor);
-    json::GetBool(body, "isWhitelisted", white);
-    t.abuseScore    = (int)score;
-    t.totalReports  = (int)reports;
-    t.lastReport    = ParseIsoDate(last);
-    t.isTor         = tor;
-    t.isWhitelisted = white;
-    return true;
 }
 
 bool FindVcardValue(const std::string& obj, const std::string& name, std::string& out) {
@@ -160,14 +96,11 @@ void ParseRdapEntities(const std::string& body, std::wstring& org, std::wstring&
 }
 
 unsigned long long ParseRegistrationDate(const std::string& body) {
-    size_t p = body.find("\"eventAction\":\"registration\"");
-    if (p == std::string::npos) return 0;
-    size_t q = body.find("\"eventDate\":\"", p);
-    if (q == std::string::npos) return 0;
-    q += 13;
-    size_t e = body.find('"', q);
-    if (e == std::string::npos) return 0;
-    return ParseIsoDate(body.substr(q, e - q));
+    strictjson::Value root;
+    if (!strictjson::Parse(body, root)) return 0;
+    for (const auto& event : root.At("events").array)
+        if (event.At("eventAction").text == "registration") return IsoEpoch(event.At("eventDate").text);
+    return 0;
 }
 
 http::Response HttpFollow(const std::string& method, std::string url, const std::string& body,
@@ -182,63 +115,6 @@ http::Response HttpFollow(const std::string& method, std::string url, const std:
     return r;
 }
 
-void ParseVtResponse(const std::string& body, ThreatInfo& t) {
-
-    size_t p = body.find("\"last_analysis_stats\"");
-    if (p != std::string::npos) {
-        p = body.find('{', p);
-        if (p != std::string::npos) {
-            int depth = 0;
-            size_t q = p;
-            for (; q < body.size(); ++q) {
-                if (body[q] == '{') depth++;
-                else if (body[q] == '}') { depth--; if (!depth) break; }
-            }
-            if (q < body.size()) {
-                std::string stats = body.substr(p, q - p + 1);
-                double mal = 0, susp = 0, harm = 0, undet = 0, timeout = 0;
-                json::GetNumber(stats, "malicious", mal);
-                json::GetNumber(stats, "suspicious", susp);
-                json::GetNumber(stats, "harmless", harm);
-                json::GetNumber(stats, "undetected", undet);
-                json::GetNumber(stats, "timeout", timeout);
-                t.vtMalicious  = (int)mal;
-                t.vtSuspicious = (int)susp;
-                t.vtTotal      = (int)(mal + susp + harm + undet + timeout);
-            }
-        }
-    }
-    double rep = 0;
-    json::GetNumber(body, "reputation", rep);
-    t.vtReputation = (int)rep;
-    p = body.find("\"last_analysis_date\"");
-    if (p != std::string::npos) {
-        p = body.find(':', p);
-        if (p != std::string::npos) {
-            std::string num;
-            for (size_t i = p + 1; i < body.size() && (body[i] == ' ' || (body[i] >= '0' && body[i] <= '9')); ++i)
-                num += body[i];
-            t.vtDate = _strtoui64(num.c_str(), nullptr, 10);
-        }
-    }
-}
-
-std::string Sanitize(const std::wstring& s) {
-    std::string r = Narrow(s);
-    for (auto& ch : r)
-        if (ch == '\t' || ch == '\r' || ch == '\n') ch = ' ';
-    return r;
-}
-
-std::string ToSlash24(const std::string& ip) {
-    unsigned a = 0, b = 0, c = 0, d = 0;
-    if (sscanf(ip.c_str(), "%u.%u.%u.%u", &a, &b, &c, &d) != 4) return "";
-    char buf[64];
-    sprintf_s(buf, "%u.%u.%u.0/24", a, b, c);
-    return buf;
-}
-
-const unsigned long long kCacheTtlSec = 7ull * 24 * 3600;
 const unsigned long long kRevalidateSec = 24ull * 3600;
 
 }
@@ -272,37 +148,29 @@ void ThreatResolver::Stop() {
     SaveCache();
 }
 
-void ThreatResolver::SetOnline(bool on) {
-    const bool was = m_online.exchange(on);
-    if (!on || was) return;
-
+void ThreatResolver::Configure(bool threat, bool rdap, const std::wstring& abuseKey, const std::wstring& vtKey) {
     std::lock_guard<std::mutex> lk(m_mtx);
-    for (auto& kv : m_cache) {
-        Entry& e = kv.second;
-        if (e.info.resolved && !e.info.failed) continue;
-        e.info.failed = false;
-        EnqueueLocked(kv.first, e);
+    if (threat==m_sourcesOnline && rdap==m_rdapOnline && abuseKey==m_abuseKey && vtKey==m_vtKey) return;
+    ++m_generation;
+    m_sourcesOnline=threat; m_rdapOnline=rdap; m_abuseKey=abuseKey; m_vtKey=vtKey;
+    m_online=threat || rdap || !vtKey.empty();
+    m_qDnsbl.clear(); m_qAbuse.clear(); m_qPdns.clear(); m_qRdap.clear(); m_qVt.clear(); m_qPlug.clear();
+    for (auto& pair : m_cache) {
+        pair.second=Entry{};
+        if (m_online) EnqueueLocked(pair.first,pair.second);
     }
-}
-void ThreatResolver::SetRdapOnline(bool on) { m_rdapOnline = on; }
-
-void ThreatResolver::SetAbuseKey(const std::wstring& key) {
-    std::lock_guard<std::mutex> lk(m_mtx);
-    m_abuseKey = key;
-}
-
-void ThreatResolver::SetVtKey(const std::wstring& key) {
-    std::lock_guard<std::mutex> lk(m_mtx);
-    m_vtKey = key;
+    m_cv.notify_all();
 }
 
 void ThreatResolver::EnqueueLocked(const std::wstring& ip, Entry& e) {
-    if (!e.queuedD) { e.queuedD = true; m_qDnsbl.push_back(ip); }
-    if (!e.queuedA) { e.queuedA = true; m_qAbuse.push_back(ip); }
-    if (!e.queuedP) { e.queuedP = true; m_qPdns.push_back(ip); }
-    if (m_rdapOnline && !e.queuedR) { e.queuedR = true; m_qRdap.push_back(ip); }
-    if (!e.queuedV) { e.queuedV = true; m_qVt.push_back(ip); }
-    if (!e.queuedG && PluginsCount() > 0) { e.queuedG = true; m_qPlug.push_back(ip); }
+    const auto plan = PlanSources(m_sourcesOnline, m_rdapOnline, !m_abuseKey.empty(), !m_vtKey.empty(), PluginsCount() > 0);
+    if (plan.dnsbl && !e.queuedD) { e.queuedD = true; m_qDnsbl.push_back(ip); }
+    if (plan.abuse && !e.queuedA) { e.queuedA = true; m_qAbuse.push_back(ip); }
+    if (plan.pdns && !e.queuedP) { e.queuedP = true; m_qPdns.push_back(ip); }
+    if (plan.rdap && !e.queuedR) { e.queuedR = true; m_qRdap.push_back(ip); }
+    if (plan.vt && !e.queuedV) { e.queuedV = true; m_qVt.push_back(ip); }
+    if (plan.plugins && !e.queuedG) { e.queuedG = true; m_qPlug.push_back(ip); }
+    TouchResolvedLocked(ip);
     m_cv.notify_all();
 }
 
@@ -353,7 +221,7 @@ void ThreatResolver::Invalidate(const std::wstring& ip) {
         return;
     }
     Entry& e = it->second;
-    if (e.queuedD || e.queuedA || e.queuedP) return;
+    if (e.queuedD || e.queuedA || e.queuedP || e.queuedR || e.queuedV || e.queuedG) return;
     e.info = ThreatInfo{};
     if (m_online) EnqueueLocked(ip, e);
 }
@@ -372,105 +240,10 @@ size_t ThreatResolver::CacheCount() {
     return m_cache.size();
 }
 
-void ThreatResolver::LoadCache() {
-    std::wstring path = CachePath();
-    HANDLE h = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ, nullptr,
-                           OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (h == INVALID_HANDLE_VALUE) return;
-    const DWORD cap = 8u * 1024 * 1024;
-    std::string data;
-    data.resize(cap);
-    DWORD got = 0;
-    BOOL ok = ReadFile(h, &data[0], cap, &got, nullptr);
-    CloseHandle(h);
-    if (!ok || !got) return;
-    data.resize(got);
-
-    std::lock_guard<std::mutex> lk(m_mtx);
-    size_t p = 0;
-    while (p < data.size()) {
-        size_t e = data.find('\n', p);
-        if (e == std::string::npos) e = data.size();
-        std::string line = data.substr(p, e - p);
-        p = e + 1;
-        while (!line.empty() && (line.back() == '\r' || line.back() == '\n')) line.pop_back();
-        if (line.empty()) continue;
-
-        std::vector<std::string> f;
-        size_t a = 0;
-        while (a <= line.size()) {
-            size_t t = line.find('\t', a);
-            f.push_back(line.substr(a, t == std::string::npos ? std::string::npos : t - a));
-            if (t == std::string::npos) break;
-            a = t + 1;
-        }
-        if (f.size() < 10) continue;
-        Entry en;
-        en.info.abuseScore    = atoi(f[1].c_str());
-        en.info.totalReports  = atoi(f[2].c_str());
-        en.info.lastReport    = _strtoui64(f[3].c_str(), nullptr, 10);
-        en.info.isTor         = atoi(f[4].c_str()) != 0;
-        en.info.isWhitelisted = atoi(f[5].c_str()) != 0;
-        en.info.dnsbl         = Widen(f[6]);
-        en.info.dnsblIncomplete = true;
-        en.info.passiveDns    = atoi(f[7].c_str());
-        en.info.pdnsNames     = Widen(f[8]);
-        en.info.ts            = _strtoui64(f[9].c_str(), nullptr, 10);
-
-        if (f.size() >= 20) {
-            en.info.rdapName       = Widen(f[10]);
-            en.info.rdapOrg        = Widen(f[11]);
-            en.info.rdapAbuse      = Widen(f[12]);
-            en.info.rdapCidr       = Widen(f[13]);
-            en.info.rdapRegistered = _strtoui64(f[14].c_str(), nullptr, 10);
-            en.info.vtMalicious    = atoi(f[15].c_str());
-            en.info.vtSuspicious   = atoi(f[16].c_str());
-            en.info.vtTotal        = atoi(f[17].c_str());
-            en.info.vtReputation   = atoi(f[18].c_str());
-            en.info.vtDate         = _strtoui64(f[19].c_str(), nullptr, 10);
-        }
-        en.info.resolved      = true;
-        m_cache[Widen(f[0])] = en;
-    }
-}
-
-void ThreatResolver::SaveCache() {
-    std::lock_guard<std::mutex> lk(m_mtx);
-    if (m_cache.empty()) return;
-    std::wstring path = CachePath();
-    HANDLE h = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr,
-                           CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
-    if (h == INVALID_HANDLE_VALUE) return;
-
-    const unsigned long long now = (unsigned long long)time(nullptr);
-    for (const auto& kv : m_cache) {
-        const ThreatInfo& t = kv.second.info;
-        if (!t.resolved || t.failed || t.dnsblIncomplete || !t.ts || now - t.ts > kCacheTtlSec) continue;
-        std::string line = Narrow(kv.first) + "\t" +
-                           std::to_string(t.abuseScore) + "\t" +
-                           std::to_string(t.totalReports) + "\t" +
-                           std::to_string(t.lastReport) + "\t" +
-                           (t.isTor ? "1" : "0") + "\t" +
-                           (t.isWhitelisted ? "1" : "0") + "\t" +
-                           Sanitize(t.dnsbl) + "\t" +
-                           std::to_string(t.passiveDns) + "\t" +
-                           Sanitize(t.pdnsNames) + "\t" +
-                           std::to_string(t.ts) + "\t" +
-                           Sanitize(t.rdapName) + "\t" +
-                           Sanitize(t.rdapOrg) + "\t" +
-                           Sanitize(t.rdapAbuse) + "\t" +
-                           Sanitize(t.rdapCidr) + "\t" +
-                           std::to_string(t.rdapRegistered) + "\t" +
-                           std::to_string(t.vtMalicious) + "\t" +
-                           std::to_string(t.vtSuspicious) + "\t" +
-                           std::to_string(t.vtTotal) + "\t" +
-                           std::to_string(t.vtReputation) + "\t" +
-                           std::to_string(t.vtDate) + "\r\n";
-        DWORD wr = 0;
-        WriteFile(h, line.data(), (DWORD)line.size(), &wr, nullptr);
-    }
-    CloseHandle(h);
-}
+// Aggregate disk records cannot preserve provider identity/failure/configuration state.
+// Never promote an old/corrupt record to live evidence. Independent live results remain in memory.
+void ThreatResolver::LoadCache() { DeleteFileW(CachePath().c_str()); }
+void ThreatResolver::SaveCache() { DeleteFileW(CachePath().c_str()); }
 
 void ThreatResolver::DnsblWorker() {
     static const DnsblZone kZones[] = {
@@ -482,6 +255,7 @@ void ThreatResolver::DnsblWorker() {
 
     for (;;) {
         std::wstring ip;
+        unsigned long long generation = 0;
         {
             std::unique_lock<std::mutex> lk(m_mtx);
             m_cv.wait_for(lk, std::chrono::milliseconds(500), [&] {
@@ -491,6 +265,7 @@ void ThreatResolver::DnsblWorker() {
             if (m_qDnsbl.empty()) continue;
             ip = m_qDnsbl.front();
             m_qDnsbl.pop_front();
+            generation = m_generation;
             auto it = m_cache.find(ip);
 
         }
@@ -502,6 +277,7 @@ void ThreatResolver::DnsblWorker() {
         if (!rev.empty()) {
             for (const auto& z : kZones) {
                 if (m_stop.load()) return;
+                if (generation != m_generation) break;
                 if (DnsblHit(rev + "." + z.suffix, std::string(z.suffix) == "sbl-xbl.spamhaus.org", incomplete)) {
                     if (!hits.empty()) hits += L", ";
                     hits += z.label;
@@ -511,6 +287,7 @@ void ThreatResolver::DnsblWorker() {
 
         {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             auto it = m_cache.find(ip);
             if (it != m_cache.end()) {
                 it->second.info.dnsbl = hits.empty() ? L"—" : hits;
@@ -525,116 +302,48 @@ void ThreatResolver::DnsblWorker() {
 
 void ThreatResolver::AbuseWorker() {
     for (;;) {
-        std::wstring ip;
+        std::wstring ip, key;
+        unsigned long long generation = 0;
         {
             std::unique_lock<std::mutex> lk(m_mtx);
-            m_cv.wait_for(lk, std::chrono::milliseconds(500), [&] {
-                return m_stop.load() || !m_qAbuse.empty();
-            });
+            m_cv.wait_for(lk, std::chrono::milliseconds(500), [&] { return m_stop.load() || !m_qAbuse.empty(); });
             if (m_stop.load()) return;
             if (m_qAbuse.empty()) continue;
-            ip = m_qAbuse.front();
-            m_qAbuse.pop_front();
-            auto it = m_cache.find(ip);
-
+            ip=m_qAbuse.front(); m_qAbuse.pop_front(); key=m_abuseKey; generation=m_generation;
         }
-
-        std::wstring key;
+        provider::Abuse parsed;
+        bool valid=false;
+        if (!key.empty()) {
+            // check-block omissions do NOT prove an individual address has score zero.
+            // Query only the requested IP and require its identity in the response.
+            const auto r=http::Request("GET", "https://api.abuseipdb.com/api/v2/check?ipAddress="+Narrow(ip)+"&maxAgeInDays=90&verbose",
+                "", "application/json", "", 20000, L"Key: "+key+L"\r\nAccept: application/json");
+            valid=r.ok && provider::ReadAbuse(r.body,Narrow(ip),parsed);
+        }
         {
             std::lock_guard<std::mutex> lk(m_mtx);
-            key = m_abuseKey;
-        }
-
-        if (key.empty()) {
-            std::lock_guard<std::mutex> lk(m_mtx);
-            if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedA = false;
-            TouchResolvedLocked(ip);
-            std::this_thread::sleep_for(std::chrono::milliseconds(30));
-            continue;
-        }
-
-        std::vector<std::wstring> batch;
-        batch.push_back(ip);
-        {
-            std::lock_guard<std::mutex> lk(m_mtx);
-            const std::string net = ToSlash24(Narrow(ip));
-            std::unordered_set<std::wstring> picked;
-            for (auto it = m_qAbuse.begin(); it != m_qAbuse.end() && batch.size() < 16;) {
-                if (!net.empty() && ToSlash24(Narrow(*it)) == net) {
-                    picked.insert(*it);
-                    batch.push_back(*it);
-                    it = m_qAbuse.erase(it);
-                } else {
-                    ++it;
-                }
+            if (generation != m_generation) continue;
+            auto it=m_cache.find(ip);
+            if (it!=m_cache.end()) {
+                if (valid && key==m_abuseKey) {
+                    ThreatInfo value;
+                    value.abuseScore=parsed.abuseScore; value.totalReports=parsed.totalReports;
+                    value.isTor=parsed.isTor; value.isWhitelisted=parsed.isWhitelisted;
+                    value.lastReport=ParseIsoDate(parsed.lastReport);
+                    MergeAbuseEvidence(it->second.info,value);
+                } else if (!key.empty()) it->second.info.failed=true;
+                it->second.queuedA=false;
+                TouchResolvedLocked(ip);
             }
         }
-
-        bool ok = false;
-        {
-            const std::string net = ToSlash24(Narrow(ip));
-            const std::string body = "network=" + net + "&maxAgeInDays=30";
-            std::wstring hdr = L"Key: " + key + L"\r\nAccept: application/json";
-            http::Response r = http::Request("POST",
-                "https://api.abuseipdb.com/api/v2/check-block",
-                body, "application/x-www-form-urlencoded", "", 20000, hdr);
-            if (r.ok && r.body.find("\"reportedAddress\"") != std::string::npos) {
-                std::unordered_map<std::string, ThreatInfo> byIp;
-                ParseBlockReports(r.body, byIp);
-                std::lock_guard<std::mutex> lk(m_mtx);
-                for (const auto& bip : batch) {
-                    auto it = m_cache.find(bip);
-                    if (it == m_cache.end()) continue;
-                    auto hit = byIp.find(Narrow(bip));
-                    if (hit != byIp.end()) MergeAbuseEvidence(it->second.info, hit->second);
-                    else {
-
-                        it->second.info.abuseScore   = 0;
-                        it->second.info.totalReports = 0;
-                    }
-                    if (auto completed = m_cache.find(bip); completed != m_cache.end()) completed->second.queuedA = false;
-                    TouchResolvedLocked(bip);
-                }
-                ok = true;
-            }
-        }
-
-        if (!ok) {
-
-            for (const auto& bip : batch) {
-                if (m_stop.load()) return;
-                std::wstring hdr = L"Key: " + key + L"\r\nAccept: application/json";
-                http::Response r = http::Request("GET",
-                    "https://api.abuseipdb.com/api/v2/check?ipAddress=" + Narrow(bip) +
-                    "&maxAgeInDays=90&verbose",
-                    "", "application/json", "", 20000, hdr);
-                ThreatInfo t;
-                if (r.ok && ParseSingleCheck(r.body, t)) {
-                    std::lock_guard<std::mutex> lk(m_mtx);
-                    auto it = m_cache.find(bip);
-                    if (it != m_cache.end()) MergeAbuseEvidence(it->second.info, t);
-                    if (auto completed = m_cache.find(bip); completed != m_cache.end()) completed->second.queuedA = false;
-                    TouchResolvedLocked(bip);
-                } else {
-                    std::lock_guard<std::mutex> lk(m_mtx);
-                    auto it = m_cache.find(bip);
-                    if (it != m_cache.end()) {
-                        it->second.info.failed = true;
-                        if (auto completed = m_cache.find(bip); completed != m_cache.end()) completed->second.queuedA = false;
-                        TouchResolvedLocked(bip);
-                    }
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-            }
-            continue;
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
+        for (int i=0; i<15 && !m_stop.load(); ++i) std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
 }
 
 void ThreatResolver::RdapWorker() {
     for (;;) {
         std::wstring ip;
+        unsigned long long generation = 0;
         {
             std::unique_lock<std::mutex> lk(m_mtx);
             m_cv.wait_for(lk, std::chrono::milliseconds(500), [&] {
@@ -644,6 +353,7 @@ void ThreatResolver::RdapWorker() {
             if (m_qRdap.empty()) continue;
             ip = m_qRdap.front();
             m_qRdap.pop_front();
+            generation = m_generation;
             auto it = m_cache.find(ip);
 
         }
@@ -651,7 +361,9 @@ void ThreatResolver::RdapWorker() {
         {
             http::Response r = HttpFollow("GET", "https://rdap.org/ip/" + Narrow(ip),
                                           "", L"Accept: application/json", 20000);
-            if (r.ok && !r.body.empty()) {
+            strictjson::Value root;
+            if (r.ok && strictjson::Parse(r.body, root) && root.At("objectClassName").text == "ip network" &&
+                !root.At("startAddress").text.empty() && !root.At("endAddress").text.empty()) {
                 ThreatInfo t;
                 std::string name, cidr;
                 json::GetString(r.body, "name", name);
@@ -681,6 +393,7 @@ void ThreatResolver::RdapWorker() {
                     t.rdapCidr = Widen(start);
                 }
                 std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
                 auto it = m_cache.find(ip);
                 if (it != m_cache.end()) {
                     it->second.info.rdapName       = t.rdapName;
@@ -689,11 +402,17 @@ void ThreatResolver::RdapWorker() {
                     it->second.info.rdapCidr       = t.rdapCidr;
                     it->second.info.rdapRegistered = t.rdapRegistered;
                 }
+            } else {
+                std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
+                auto it = m_cache.find(ip);
+                if (it != m_cache.end()) it->second.info.failed = true;
             }
         }
 
         {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedR = false;
             TouchResolvedLocked(ip);
         }
@@ -704,6 +423,7 @@ void ThreatResolver::RdapWorker() {
 void ThreatResolver::VtWorker() {
     for (;;) {
         std::wstring ip;
+        unsigned long long generation = 0;
         {
             std::unique_lock<std::mutex> lk(m_mtx);
             m_cv.wait_for(lk, std::chrono::milliseconds(500), [&] {
@@ -713,6 +433,7 @@ void ThreatResolver::VtWorker() {
             if (m_qVt.empty()) continue;
             ip = m_qVt.front();
             m_qVt.pop_front();
+            generation = m_generation;
             auto it = m_cache.find(ip);
 
         }
@@ -720,12 +441,14 @@ void ThreatResolver::VtWorker() {
         std::wstring key;
         {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             key = m_vtKey;
         }
 
         if (key.empty()) {
 
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedV = false;
             TouchResolvedLocked(ip);
             std::this_thread::sleep_for(std::chrono::milliseconds(30));
@@ -737,27 +460,26 @@ void ThreatResolver::VtWorker() {
             http::Response r = http::Request("GET",
                 "https://www.virustotal.com/api/v3/ip_addresses/" + Narrow(ip),
                 "", "application/json", "", 20000, hdr);
-            if (r.ok && !r.body.empty()) {
-                ThreatInfo t;
-                ParseVtResponse(r.body, t);
-                std::lock_guard<std::mutex> lk(m_mtx);
-                auto it = m_cache.find(ip);
-                if (it != m_cache.end()) {
-                    it->second.info.vtMalicious  = t.vtMalicious;
-                    it->second.info.vtSuspicious = t.vtSuspicious;
-                    it->second.info.vtTotal      = t.vtTotal;
-                    it->second.info.vtReputation = t.vtReputation;
-                    it->second.info.vtDate       = t.vtDate;
-                }
-            } else if (r.status == 401 || r.status == 403) {
-
-                std::lock_guard<std::mutex> lk(m_mtx);
-                m_vtKey.clear();
+            provider::VirusTotal parsed;
+            const bool valid=r.ok && provider::ReadVt(r.body,Narrow(ip),parsed);
+            std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
+            auto it=m_cache.find(ip);
+            if (it!=m_cache.end()) {
+                if (valid && key==m_vtKey) {
+                    it->second.info.vtMalicious=parsed.malicious;
+                    it->second.info.vtSuspicious=parsed.suspicious;
+                    it->second.info.vtTotal=parsed.total;
+                    it->second.info.vtReputation=parsed.reputation;
+                } else it->second.info.failed=true;
             }
+            // Authentication failure is evidence of an unavailable provider, not a clean verdict.
+
         }
 
         {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedV = false;
             TouchResolvedLocked(ip);
         }
@@ -770,6 +492,7 @@ void ThreatResolver::VtWorker() {
 void ThreatResolver::PlugWorker() {
     for (;;) {
         std::wstring ip;
+        unsigned long long generation = 0;
         {
             std::unique_lock<std::mutex> lk(m_mtx);
             m_cv.wait_for(lk, std::chrono::milliseconds(500), [&] {
@@ -779,6 +502,7 @@ void ThreatResolver::PlugWorker() {
             if (m_qPlug.empty()) continue;
             ip = m_qPlug.front();
             m_qPlug.pop_front();
+            generation = m_generation;
             auto it = m_cache.find(ip);
 
         }
@@ -795,6 +519,7 @@ void ThreatResolver::PlugWorker() {
                 }
             }
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             auto it = m_cache.find(ip);
             if (it != m_cache.end()) {
                 it->second.info.pluginRisk = best;
@@ -805,6 +530,7 @@ void ThreatResolver::PlugWorker() {
             }
         } else {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedG = false;
             TouchResolvedLocked(ip);
         }
@@ -814,6 +540,7 @@ void ThreatResolver::PlugWorker() {
 void ThreatResolver::PdnsWorker() {
     for (;;) {
         std::wstring ip;
+        unsigned long long generation = 0;
         {
             std::unique_lock<std::mutex> lk(m_mtx);
             m_cv.wait_for(lk, std::chrono::milliseconds(500), [&] {
@@ -823,51 +550,26 @@ void ThreatResolver::PdnsWorker() {
             if (m_qPdns.empty()) continue;
             ip = m_qPdns.front();
             m_qPdns.pop_front();
+            generation = m_generation;
             auto it = m_cache.find(ip);
 
         }
 
-        int count = 0;
+        provider::PassiveDns parsed;
+        const auto response=http::Request("GET", "https://cve.circl.lu/pdns/query/"+Narrow(ip), "", "application/json", "", 20000);
+        const bool valid=response.ok && provider::ReadPdns(response.body,Narrow(ip),parsed);
+        const int count=valid ? parsed.records : -1;
         std::wstring names;
-        {
-            http::Response r = http::Request("GET",
-                "https://cve.circl.lu/pdns/query/" + Narrow(ip),
-                "", "application/json", "", 20000);
-            if (r.ok && !r.body.empty()) {
-                std::vector<std::string> objs = json::SplitObjects(r.body);
-                count = (int)objs.size();
-                if (count > 5000) count = 5000;
-
-                std::vector<std::pair<unsigned long long, std::string>> recs;
-                std::unordered_map<std::string, unsigned long long> best;
-                for (const auto& o : objs) {
-                    std::string rrname, last;
-                    if (!json::GetString(o, "rrname", rrname)) continue;
-                    if (rrname.empty()) continue;
-                    json::GetString(o, "time_last", last);
-                    unsigned long long t = ParseIsoDate(last);
-                    if (t > best[rrname]) best[rrname] = t;
-                }
-                std::vector<std::pair<unsigned long long, std::string>> ranked;
-                for (const auto& kv : best) ranked.push_back({ kv.second, kv.first });
-                std::sort(ranked.begin(), ranked.end(),
-                          [](const auto& a, const auto& b) { return a.first > b.first; });
-                std::wstring joined;
-                for (size_t i = 0; i < ranked.size() && i < 3; ++i) {
-                    if (i) joined += L", ";
-                    joined += Widen(ranked[i].second);
-                }
-                names = joined;
-            }
-        }
+        for (const auto& name : parsed.names) { if (!names.empty()) names+=L", "; names+=Widen(name); }
 
         {
             std::lock_guard<std::mutex> lk(m_mtx);
+            if (generation != m_generation) continue;
             auto it = m_cache.find(ip);
             if (it != m_cache.end()) {
                 it->second.info.passiveDns = count;
                 it->second.info.pdnsNames  = names;
-                it->second.info.failed     = (count == 0 && names.empty());
+                it->second.info.failed     = it->second.info.failed || !valid;
                 if (auto completed = m_cache.find(ip); completed != m_cache.end()) completed->second.queuedP = false;
                 TouchResolvedLocked(ip);
             }

@@ -1,4 +1,5 @@
 #include "ui_layout.h"
+#include "evidence_rules.h"
 #include "common.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -466,6 +467,7 @@ private:
     void ShowOverlay(Overlay o);
     void DrawOverlayButton(Painter& p, RECT& r, const std::wstring& label, bool primary, bool danger);
     bool m_demo = false;
+    bool RequireLiveData();
     void EnterDemo();
     void ExitDemo();
     void RebuildDemoRows();
@@ -912,9 +914,6 @@ void App::Tick(bool force) {
         RebuildDemoRows();
         m_rows = m_demoRows;
         RebuildDemoApps();
-        NoteNewConnections();
-        TickAnomaly();
-        PushRateSample(m_mon.SystemRateIn(), m_mon.SystemRateOut());
         RebuildView();
         return;
     }
@@ -964,6 +963,7 @@ void App::Tick(bool force) {
         if (!c.isRemotePublic) continue;
         ThreatInfo t;
         if (m_threat.Get(c.remoteIp, t, threatEnq)) {
+            c.threatIncomplete = t.failed || t.dnsblIncomplete;
             c.threatScore      = t.abuseScore;
             c.threatReports    = t.totalReports;
             c.threatLastReport = t.lastReport;
@@ -972,7 +972,7 @@ void App::Tick(bool force) {
             c.threatDnsblIncomplete = t.dnsblIncomplete;
             c.threatPdns       = t.passiveDns;
             c.threatPdnsNames  = t.pdnsNames;
-            c.threatPending    = !t.resolved;
+            c.threatPending    = threatEnq && !t.resolved;
             c.threatTs         = t.ts;
             c.rdapName         = t.rdapName;
             c.rdapOrg          = t.rdapOrg;
@@ -985,8 +985,8 @@ void App::Tick(bool force) {
             c.vtReputation     = t.vtReputation;
 
             if (t.pluginRisk >= 0) {
-                if (c.threatScore < 0 || t.pluginRisk > c.threatScore)
-                    c.threatScore = t.pluginRisk;
+                // Third-party plugin output is not an AbuseIPDB measurement.
+                c.pluginRisk = t.pluginRisk;
                 c.pluginNote = t.pluginVerdict;
                 if (!t.pluginNote.empty())
                     c.pluginNote += L" — " + t.pluginNote;
@@ -1898,10 +1898,10 @@ void App::DrawHeader(Painter& p) {
     else graph.left = m_rcHeader.right - S(6);
 
     wchar_t buf[160];
-    swprintf(buf, 160, L"↓ %s", FormatBytesPerSec(m_mon.SystemRateIn()).c_str());
+    swprintf(buf, 160, L"↓ %s", (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateIn())).c_str());
     RECT rIn = { graph.left - S(230), m_rcHeader.top + S(8), graph.left - S(116), m_rcHeader.top + S(28) };
     p.Text(buf, rIn, m_fBig, clr::Accent, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-    swprintf(buf, 160, L"↑ %s", FormatBytesPerSec(m_mon.SystemRateOut()).c_str());
+    swprintf(buf, 160, L"↑ %s", (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateOut())).c_str());
     RECT rOut = { graph.left - S(230), m_rcHeader.top + S(26), graph.left - S(116), m_rcHeader.top + S(46) };
     p.Text(buf, rOut, m_fBig, clr::Purple, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
     RECT rSrc = { graph.left - S(230), m_rcHeader.top + S(44), graph.left - S(116), m_rcHeader.top + S(58) };
@@ -2286,8 +2286,8 @@ void App::DrawStats(Painter& p) {
         { std::to_wstring(certWarn),            Tr(L"cert warnings"),      clr::Orange },
         { std::to_wstring(tcp) + L"/" + std::to_wstring(udp), Tr(L"tcp / udp"),  clr::Purple },
         { std::to_wstring(unsigned_),           Tr(L"unsigned process sockets"),   clr::Orange },
-        { FormatBytesPerSec(m_mon.SystemRateIn()),  Tr(L"system download"),     clr::Accent },
-        { FormatBytesPerSec(m_mon.SystemRateOut()), Tr(L"system upload"),     clr::Purple },
+        { (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateIn())),  Tr(L"system download"),     clr::Accent },
+        { (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateOut())), Tr(L"system upload"),     clr::Purple },
         { std::to_wstring((int)m_dns.CacheSize()),  Tr(L"DNS cache entries"), clr::Cyan, true },
         { std::to_wstring(m_dns.HostsEntryCount()), Tr(L"hosts redirects"),
           m_dns.HostsEntryCount() ? clr::Red : clr::TextDim, true },
@@ -2320,10 +2320,10 @@ void App::DrawStats(Painter& p) {
     wchar_t hbuf[256];
     swprintf(hbuf, 256,
              Tr(L"System traffic (NIC)   ↓ %s   ↑ %s   •   session: ↓ %s / ↑ %s   •   monitored sockets: ↓ %s / ↑ %s"),
-             FormatBytesPerSec(m_mon.SystemRateIn()).c_str(),
-             FormatBytesPerSec(m_mon.SystemRateOut()).c_str(),
-             FormatBytes(m_mon.SystemBytesIn()).c_str(),
-             FormatBytes(m_mon.SystemBytesOut()).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateIn())).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateOut())).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytes(m_mon.SystemBytesIn())).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytes(m_mon.SystemBytesOut())).c_str(),
              FormatBytesPerSec(m_mon.TotalRateIn()).c_str(),
              FormatBytesPerSec(m_mon.TotalRateOut()).c_str());
     p.Text(hbuf, gTitle, m_fBold, clr::Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -2479,7 +2479,7 @@ void App::DrawDetail(Painter& p) {
     std::wstring graphProc;
 
     if (c) {
-        ProcDetails d = m_mon.Procs().Get(c->pid);
+        ProcDetails d = m_demo ? ProcDetails{} : m_mon.Procs().Get(c->pid);
         std::wstring title = c->procName + L"  (PID " + std::to_wstring(c->pid) + L")";
         RECT tr = { x, y, splitX - S(120), y + S(22) };
         p.Text(title, tr, m_fBig, clr::Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -2500,7 +2500,7 @@ void App::DrawDetail(Painter& p) {
         if (!d.cmdline.empty()) row(Tr(L"Command"), d.cmdline, clr::TextDim);
         row(Tr(L"User"),d.user + (d.services.empty() ? L"" : (Tr(L"   •   service: ") + d.services)), clr::TextDim);
         {
-            ProcRuntime rt = m_mon.Procs().Runtime(c->pid);
+            ProcRuntime rt = m_demo ? ProcRuntime{} : m_mon.Procs().Runtime(c->pid);
             wchar_t rb[320];
             swprintf(rb, 320, Tr(L"CPU %.1f%%   •   RAM %s   •   %lu threads / %lu handles   •   disk %s"),
                      rt.cpu, FormatBytes(rt.workingSet).c_str(), rt.threads, rt.handles,
@@ -2921,19 +2921,29 @@ void App::DrawOverlay(Painter& p) {
     m_overlayDrawn = true;
 }
 
+bool App::RequireLiveData() {
+    if (!m_demo) return true;
+    Toast(Tr(L"Exit demo mode before using live-system actions."), clr::Yellow);
+    return false;
+}
+
 void App::EnterDemo() {
     if (m_demo) return;
     m_demo = true;
+    m_tab = Tab::Conns;
+    m_selRow = -1; m_scrollY = 0;
+    m_anomNew.clear(); m_lastAnomTick = 0;
     m_paused = false;
     m_lastDemoTick = 0;
     m_demoRows.clear();
-    RebuildDemoRows();
+    Tick(true);
     Toast(Tr(L"Demo mode on — running with sample data (press Ctrl+D to exit)"), clr::Cyan);
     InvalidateRect(m_hwnd, nullptr, FALSE);
 }
 
 void App::ExitDemo() {
     m_demo = false;
+    m_anomNew.clear(); m_lastAnomTick = 0;
     m_demoRows.clear();
     Toast(Tr(L"Demo mode off — loading real system data…"), clr::Green);
     Tick(true);
@@ -3188,6 +3198,7 @@ void App::RefreshFirewallRules(bool force) {
 }
 
 void App::UnblockSelectedIp() {
+    if (!RequireLiveData()) return;
     std::wstring ip;
     if (const Conn* c = SelectedConn())           ip = c->remoteIp;
     else if (const HistEntry* h = SelectedHist()) ip = h->remoteIp;
@@ -3685,7 +3696,7 @@ void App::SetSelection(int viewIndex) {
         }
     }
 
-    if (m_selPid) m_mon.Procs().RequestHash(m_selPid);
+    if (m_selPid && !m_demo) m_mon.Procs().RequestHash(m_selPid);
     m_aiScroll = 0;
 }
 
@@ -3911,6 +3922,10 @@ void App::OnKeyDown(WPARAM key) {
 }
 
 void App::OnCommand(int id) {
+    if (m_demo && (id==IDM_COPY_CMD || id==IDM_COPY_HASH || id==IDM_VT_FILE ||
+        id==ID_TAB_HIST || id==ID_TAB_STATS || id==ID_TAB_GRAPH)) {
+        RequireLiveData(); return;
+    }
     switch (id) {
         case ID_FILTER_ALL:      m_filter = Filter::All;        break;
         case ID_FILTER_ACTIVE:   m_filter = Filter::Active;     break;
@@ -4205,6 +4220,7 @@ void App::CopyToClipboard(const std::wstring& text) {
 }
 
 DWORD App::SelectedPid(std::wstring* nameOut) const {
+    if (m_demo) return 0;
     DWORD pid = 0;
     std::wstring name;
     if (const Conn* c = SelectedConn())            { pid = c->pid; name = c->procName; }
@@ -4222,6 +4238,7 @@ void App::Toast(const std::wstring& msg, COLORREF color) {
 }
 
 void App::KillSelectedProcess(bool tree) {
+    if (!RequireLiveData()) return;
     std::wstring name;
     DWORD pid = SelectedPid(&name);
     if (!pid) { Toast(Tr(L"Select a row first."), clr::Yellow); return; }
@@ -4253,6 +4270,7 @@ void App::KillSelectedProcess(bool tree) {
 }
 
 void App::SuspendSelectedProcess() {
+    if (!RequireLiveData()) return;
     std::wstring name;
     DWORD pid = SelectedPid(&name);
     if (!pid || pid <= 4) { Toast(Tr(L"This process cannot be suspended."), clr::Orange); return; }
@@ -4271,6 +4289,7 @@ void App::SuspendSelectedProcess() {
 }
 
 void App::ShowProcessProperties() {
+    if (!RequireLiveData()) return;
     std::wstring path;
     if (const Conn* c = SelectedConn())            path = c->procPath;
     else if (const AppRow* a = SelectedApp())      path = a->path;
@@ -4287,6 +4306,7 @@ void App::ShowProcessProperties() {
 }
 
 void App::BlockSelectedIp() {
+    if (!RequireLiveData()) return;
     std::wstring ip;
     if (const Conn* c = SelectedConn())           { if (c->isRemotePublic) ip = c->remoteIp; }
     else if (const HistEntry* h = SelectedHist()) { ip = h->remoteIp; }
@@ -4352,6 +4372,7 @@ struct JsonObj {
         swprintf(b, 48, L"%.2f", v);
         s += b;
     }
+    void missing(const wchar_t* k) { key(k); s += L"null"; }
     void flag(const wchar_t* k, bool v) { key(k); s += v ? L"true" : L"false"; }
     std::wstring wrap() const { return L"    {" + s + L"}"; }
 };
@@ -4688,17 +4709,20 @@ void App::ExportData() {
                 o.str(L"domain", c.domain);
                 o.str(L"banner", c.banner);
                 o.str(L"rdap_org", c.rdapOrg);
+                if (c.pluginRisk >= 0) o.num(L"plugin_score", c.pluginRisk); else o.missing(L"plugin_score");
+                o.str(L"plugin_note", c.pluginNote);
                 o.str(L"rdap_cidr", c.rdapCidr);
                 o.str(L"rdap_abuse", c.rdapAbuse);
-                o.num(L"vt_malicious", (long long)c.vtMalicious);
-                o.num(L"vt_suspicious", (long long)c.vtSuspicious);
-                o.num(L"vt_total", (long long)c.vtTotal);
-                o.num(L"vt_reputation", (long long)c.vtReputation);
+                if (c.vtTotal > 0) o.num(L"vt_malicious", (long long)c.vtMalicious); else o.missing(L"vt_malicious");
+                if (c.vtTotal > 0) o.num(L"vt_suspicious", (long long)c.vtSuspicious); else o.missing(L"vt_suspicious");
+                if (c.vtTotal > 0) o.num(L"vt_total", (long long)c.vtTotal); else o.missing(L"vt_total");
+                if (c.vtTotal > 0) o.num(L"vt_reputation", (long long)c.vtReputation); else o.missing(L"vt_reputation");
                 o.flag(L"hosting", c.isHosting);
                 o.flag(L"proxy", c.isProxy);
-                o.num(L"threat_score", (long long)c.threatScore);
+                o.str(L"threat_status", !(m_threatOnline || m_rdapOnline || m_vtOnline) ? L"disabled" : c.threatPending ? L"pending" : c.threatIncomplete ? L"incomplete" : L"complete");
+                if (c.threatScore >= 0) o.num(L"threat_score", (long long)c.threatScore); else o.missing(L"threat_score");
                 o.str(L"threat_dnsbl", c.threatDnsbl);
-                o.num(L"threat_passive_dns", (long long)c.threatPdns);
+                if (c.threatPdns >= 0) o.num(L"threat_passive_dns", (long long)c.threatPdns); else o.missing(L"threat_passive_dns");
                 o.str(L"cert_issuer", c.certIssuer);
                 o.str(L"cert_subject", c.certSubject);
                 o.flag(L"cert_selfsigned", c.certSelfSigned);
@@ -4764,7 +4788,7 @@ void App::ExportData() {
                        esc(c.domain) + L";" + esc(c.banner) + L";" +
                        esc(c.module) + L";" +
                        (c.threatScore >= 0 ? std::to_wstring(c.threatScore) : L"") + L";" +
-                       esc(c.threatDnsbl) + L";" + std::to_wstring(c.threatPdns) + L";" +
+                       esc(c.threatDnsbl) + L";" + (c.threatPdns >= 0 ? std::to_wstring(c.threatPdns) : L"") + L";" +
                        esc(c.certIssuer) + L";" + esc(c.certSubject) + L";" +
                        (c.certSelfSigned ? L"yes" : L"no") + L";" +
                        (c.certExpired ? L"yes" : L"no") + L";" +
@@ -4780,6 +4804,7 @@ void App::ExportData() {
         }
     }
 
+    if (!asJson && !asHtml && !asTxt) out = LabelCsvOrigin(out, m_demo);
     std::string utf8 = Narrow(out);
     HANDLE hf = CreateFileW(file, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hf == INVALID_HANDLE_VALUE) {
@@ -4803,6 +4828,7 @@ static void PostAiResult(HWND hwnd, bool ok, std::wstring text) {
 }
 
 void App::RunAiAnalysis(bool bulk) {
+    if (!RequireLiveData()) return;
     m_showDetail = true;
     m_aiScroll = 0;
     AiConfig cfg = LoadAiConfig();
@@ -5148,10 +5174,10 @@ INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
                     I18nLoadFrom(AppDataDir() + L"\\lang");
                     InvalidateRect(self->m_hwnd, nullptr, TRUE);
                     self->m_geo.SetOnline(self->m_geoOnline);
-                    self->m_threat.SetOnline(self->m_threatOnline || self->m_rdapOnline || self->m_vtOnline);
-                    self->m_threat.SetRdapOnline(self->m_rdapOnline);
-                    self->m_threat.SetAbuseKey(self->m_abuseKey);
-                    self->m_threat.SetVtKey(self->m_vtKey);
+                    self->m_threat.Configure(self->m_threatOnline, self->m_rdapOnline, self->m_abuseKey, self->m_vtKey);
+
+
+
                     self->m_cert.SetOnline(self->m_threatOnline);
                     self->m_banner.SetOnline(self->m_bannerOnline);
                     self->m_interval = (int)interval * 100;
@@ -5232,10 +5258,10 @@ LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
             m_geo.SetOnline(m_geoOnline);
             m_geo.Start();
-            m_threat.SetOnline(m_threatOnline || m_rdapOnline || m_vtOnline);
-            m_threat.SetRdapOnline(m_rdapOnline);
-            m_threat.SetAbuseKey(m_abuseKey);
-            m_threat.SetVtKey(m_vtKey);
+            m_threat.Configure(m_threatOnline, m_rdapOnline, m_abuseKey, m_vtKey);
+
+
+
             m_threat.Start();
             m_cert.SetOnline(m_threatOnline);
             m_cert.Start();
@@ -5431,6 +5457,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
 }
 
 void App::FollowUpAi(int q) {
+    if (!RequireLiveData()) return;
     if (m_lastAiPrompt.empty()) return;
     {
         std::lock_guard<std::mutex> lk(m_aiMtx);

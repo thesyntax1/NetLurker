@@ -39,10 +39,19 @@ int main() {
     assert(combined.dnsbl == L"test-list" && combined.rdapOrg == L"Test organisation");
     assert(combined.vtMalicious == 4);
 
+    for (int mask=0; mask<32; ++mask) {
+        const bool threat=mask&1, rdap=mask&2, abuse=mask&4, vt=mask&8, plugins=mask&16;
+        const auto plan=nl::PlanSources(threat,rdap,abuse,vt,plugins);
+        assert(plan.dnsbl==threat && plan.pdns==threat && plan.abuse==(threat&&abuse));
+        assert(plan.rdap==rdap && plan.vt==vt && plan.plugins==(threat&&plugins));
+    }
     bool flag = false;
     assert(nl::json::GetBool("{\"isTor\": true}", "isTor", flag) && flag);
     assert(nl::json::GetBool("{\"isTor\": false}", "isTor", flag) && !flag);
     assert(!nl::json::GetBool("{\"isTor\": 1}", "isTor", flag));
     assert(!nl::json::GetBool("{}", "isTor", flag));
+    assert(nl::LabelCsvOrigin(L"app;pid\r\nexample;42\r\n",true)==L"data_source;app;pid\r\ndemo;example;42\r\n");
+    assert(nl::LabelCsvOrigin(L"app;pid\nexample;42",false)==L"data_source;app;pid\nlive;example;42");
+    assert(nl::LabelCsvOrigin(L"",true).empty());
     std::cout << "Evidence rules: DNSBL errors, version boundaries, provider merge, JSON booleans passed\n";
 }

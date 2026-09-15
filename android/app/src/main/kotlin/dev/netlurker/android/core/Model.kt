@@ -117,7 +117,7 @@ data class ThreatInfo(
     val lastReportEpochSec: Long = 0L,
     val isTor: Boolean = false,
     val dnsblHits: List<String> = emptyList(),
-    val passiveDnsRecords: Int = 0,
+    val passiveDnsRecords: Int = -1,
     val passiveDnsNames: String = "",
     val rdapName: String = "",
     val rdapOrg: String = "",
@@ -174,9 +174,12 @@ data class Target(
     val verdict: Verdict = Verdict.none,
     val note: String = "",
     /** True when this address only resolves because the device hosts file says so. */
-    val hostsRedirect: Boolean = false
+    val hostsRedirect: Boolean = false,
+    /** In-memory incarnation: a removed/re-added input must not receive an old job's result. */
+    val instanceId: String = java.util.UUID.randomUUID().toString()
 ) {
-    val key: String get() = if (port != null) "$ip:$port" else (ip ?: input)
+    val key: String get() = input.trim().lowercase(java.util.Locale.ROOT) + "|" + (port?.toString() ?: "")
+    fun acceptsResultOf(other: Target): Boolean = key == other.key && instanceId == other.instanceId
     val display: String get() = ip ?: input
 }
 

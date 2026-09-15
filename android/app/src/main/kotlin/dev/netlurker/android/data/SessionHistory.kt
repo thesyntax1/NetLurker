@@ -43,23 +43,31 @@ class SessionHistory {
 
     val elapsedMs: Long get() = System.currentTimeMillis() - firstSampleAtMs
 
+    @get:Synchronized
     val alertsSnapshot: List<AnomalyAlert> get() = alerts.values.sortedByDescending { it.atMs }
 
+    @Synchronized
     fun rateWindowSnapshot(): List<RateSample> = rateWindow.toList()
 
+    @Synchronized
     fun appRateWindow(label: String): List<RateSample> = appRates[label]?.toList().orEmpty()
 
+    @Synchronized
     fun baselineOf(label: String): BaselineTracker.Stat? = baseline.stat(label)
 
+    @Synchronized
     fun baselineSize(): Int = baseline.size()
 
+    @Synchronized
     fun clearBaselines() {
         baseline.clear()
         alerts.clear()
     }
 
+    @Synchronized
     fun restoreBaselines(lines: List<String>) = baseline.restore(lines)
 
+    @Synchronized
     fun serializeBaselines(): List<String> = baseline.serialize()
 
     /**
@@ -69,6 +77,7 @@ class SessionHistory {
      * @param intervalMs the real elapsed time between polls, so rates stay honest when the
      *   poller is throttled by doze mode.
      */
+    @Synchronized
     fun record(
         totalInBytes: Long,
         totalOutBytes: Long,
@@ -88,6 +97,9 @@ class SessionHistory {
         sessionOutBytes = totalOutBytes
 
         val fresh = mutableListOf<AnomalyAlert>()
+        // Unsupported/removed samples break continuity; never divide a multi-poll gap
+        // by just the latest interval and manufacture a burst on recovery.
+        appTotals.keys.retainAll(perApp.keys)
         for ((label, total) in perApp) {
             val previous = appTotals[label]
             appTotals[label] = total
@@ -120,14 +132,18 @@ class SessionHistory {
     }
 
     /** The heartbeat pattern for one application, or null when its traffic is not regular. */
+    @Synchronized
     fun beaconPattern(label: String): BeaconDetector.Pattern? = beacons.pattern(label)
 
+    @Synchronized
     fun beaconSubjects(): Int = beacons.size()
 
+    @Synchronized
     fun noteAppRate(label: String, rate: Double) {
         baseline.observe(label, rate)
     }
 
+    @Synchronized
     fun topApps(apps: List<AppTraffic>, limit: Int): List<CountItem> =
         apps.filter { it.totalBytes > 0 }
             .sortedByDescending { it.totalBytes }
@@ -141,6 +157,7 @@ class SessionHistory {
                 )
             }
 
+    @Synchronized
     fun topCountries(targets: List<Target>, limit: Int): List<CountItem> {
         val grouped = LinkedHashMap<String, Int>()
         for (target in targets) {
@@ -154,6 +171,7 @@ class SessionHistory {
         }
     }
 
+    @Synchronized
     fun topOrganisations(targets: List<Target>, limit: Int): List<CountItem> {
         val grouped = LinkedHashMap<String, Int>()
         for (target in targets) {
@@ -167,6 +185,7 @@ class SessionHistory {
         }
     }
 
+    @Synchronized
     fun topPorts(targets: List<Target>, limit: Int): List<CountItem> {
         val grouped = LinkedHashMap<Int, Int>()
         for (target in targets) {
@@ -183,6 +202,7 @@ class SessionHistory {
         }
     }
 
+    @Synchronized
     fun noteClosed(count: Int = 1) {
         closedCount += count
     }
@@ -197,6 +217,7 @@ class SessionHistory {
         while (window.size > MAX_SAMPLES) window.removeFirst()
     }
 
+    @Synchronized
     fun reset() {
         firstSampleAtMs = System.currentTimeMillis()
         hasTotals = false

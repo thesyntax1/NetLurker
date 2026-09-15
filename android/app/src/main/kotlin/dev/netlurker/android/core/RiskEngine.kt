@@ -155,7 +155,7 @@ object RiskEngine {
                     10, ReasonKeys.VT_SUSPICIOUS, threat.vtSuspicious.toString()
                 )
             }
-            if (threat.rdapRegisteredEpochSec > 0) {
+            if (threat.rdapRegisteredEpochSec in 1..nowEpochSec) {
                 val ageDays = (nowEpochSec - threat.rdapRegisteredEpochSec) / SECONDS_PER_DAY
                 if (ageDays in 0 until YOUNG_REGISTRATION_DAYS) {
                     add(8, ReasonKeys.REGISTRATION_YOUNG, ageDays.toString())
