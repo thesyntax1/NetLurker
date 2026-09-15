@@ -332,3 +332,99 @@ jobs:
           name: android-build-log
           path: android/build.log
           if-no-files-found: ignore
+
+  smoke:
+    name: Android emulator smoke test
+    needs: android
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Download the debug APK
+        uses: actions/download-artifact@v4
+        with:
+          name: NetLurker-debug-apk
+          path: apk
+
+      - name: Give the runner KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install, launch and watch for a crash
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          arch: x86_64
+          disable-animations: true
+          script: |
+            set -x
+            adb wait-for-device
+            adb install -r apk/app-debug.apk
+            adb logcat -c
+            adb shell am start -W -n dev.netlurker.android.debug/dev.netlurker.android.MainActivity
+            sleep 45
+            adb shell dumpsys activity activities > activities.txt
+            adb logcat -d > logcat.txt
+            adb exec-out screencap -p > screen.png || true
+
+      - name: Publish smoke test report
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' > /tmp/smoke.json
+          import json, os, re
+          parts = []
+          crashed = resumed = False
+          if os.path.exists("logcat.txt"):
+              text = open("logcat.txt", encoding="utf-8", errors="replace").read()
+              lines = text.splitlines()
+              fatal = [l for l in lines
+                       if re.search(r"FATAL EXCEPTION|AndroidRuntime|ANR in|Force finishing", l)]
+              crashed = bool(fatal)
+              netlurker = [l for l in lines if "netlurker" in l.lower()]
+              parts.append("logcat lines: %d, NetLurker lines: %d" % (len(lines), len(netlurker)))
+              parts.append("=== crash markers (%d) ===" % len(fatal))
+              parts.extend(fatal[:60])
+              parts.append("=== NetLurker log lines (first 60) ===")
+              parts.extend(netlurker[:60])
+          else:
+              parts.append("(no logcat.txt: the emulator step did not produce one)")
+          if os.path.exists("activities.txt"):
+              acts = open("activities.txt", encoding="utf-8", errors="replace").read()
+              resumed = "dev.netlurker.android" in acts and "ResumedActivity" in acts
+              parts.append("=== activity state ===")
+              parts.extend([l for l in acts.splitlines()
+                            if "netlurker" in l.lower() or "ResumedActivity" in l][:20])
+          body = "\n".join(parts)
+          print(json.dumps({
+              "name": "android-smoke-report",
+              "head_sha": os.environ["GITHUB_SHA"],
+              "status": "completed",
+              "conclusion": "neutral",
+              "output": {
+                  "title": "Smoke test: %s" % ("CRASH detected" if crashed
+                          else ("launched, activity present" if resumed else "launched, state unclear")),
+                  "summary": body[:180],
+                  "text": body[:60000]
+              }
+          }))
+          PY
+          gh api "repos/${GITHUB_REPOSITORY}/check-runs" --input /tmp/smoke.json --jq '{id, name}'
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-smoke-evidence
+          path: |
+            logcat.txt
+            activities.txt
+            screen.png
+          if-no-files-found: ignore
