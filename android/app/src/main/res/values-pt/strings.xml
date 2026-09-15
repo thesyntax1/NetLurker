@@ -141,6 +141,7 @@
     <string name="field.flags" formatted="false">Marcadores</string>
     <string name="field.frequency" formatted="false">Frequência</string>
     <string name="field.gateway" formatted="false">Gateway</string>
+    <string name="field.hosts" formatted="false">Arquivo hosts</string>
     <string name="field.input" formatted="false">Entrada</string>
     <string name="field.installed" formatted="false">Instalada</string>
     <string name="field.installer" formatted="false">Instalada por</string>
@@ -222,6 +223,12 @@
     <string name="graph.what_is_shown" formatted="false">Em vez disso mostra: quanto cada aplicação moveu e onde estão os destinos investigados. Ambos os gráficos vêm de contadores e consultas reais.</string>
     <string name="history.no_traffic_yet" formatted="false">Ainda não foi medido tráfego de aplicações.</string>
     <string name="history.window" formatted="false">últimos 2 minutos</string>
+    <string name="hosts.missing" formatted="false">Não há arquivo hosts neste dispositivo.</string>
+    <string name="hosts.not_readable" formatted="false">O Android impede a leitura deste arquivo sem privilégios elevados. O conteúdo não é adivinhado.</string>
+    <string name="hosts.redirected" formatted="false">redirecionado pelo arquivo hosts</string>
+    <string name="hosts.redirected_names" formatted="false">{ip}: {names}</string>
+    <string name="hosts.summary" formatted="false">{count} entradas · {ips} destinos redirecionados</string>
+    <string name="hosts.title" formatted="false">Arquivo hosts</string>
     <string name="interfaces.no_address" formatted="false">sem endereço</string>
     <string name="interfaces.none" formatted="false">O sistema não reportou nenhuma interface de rede.</string>
     <string name="investigate.add" formatted="false">Adicionar</string>
@@ -291,6 +298,8 @@
     <string name="risk.abuse_score_high" formatted="false">Pontuação de abuso {arg0}/100 com {arg1} relatórios</string>
     <string name="risk.abuse_score_low" formatted="false">Pontuação de abuso baixa a média ({arg0}/100)</string>
     <string name="risk.abuse_score_medium" formatted="false">Pontuação de abuso {arg0}/100</string>
+    <string name="risk.app_beacon" formatted="false">Tráfego regular a cada {arg0} s em {arg1} rajadas</string>
+    <string name="risk.app_exfil_ratio" formatted="false">Saída dominante: {arg0} de envio contra {arg1} de recepção</string>
     <string name="risk.app_traffic_anomaly" formatted="false">{arg0} move {arg1}, {arg2} acima da sua linha base medida</string>
     <string name="risk.banner_eol" formatted="false">O software do servidor está em fim de vida: {arg0}</string>
     <string name="risk.cert_expired" formatted="false">O certificado TLS do servidor remoto expirou</string>
@@ -300,6 +309,7 @@
     <string name="risk.cert_self_signed_datacenter" formatted="false">Certificado autoassinado num IP de centro de dados — sem AC pública</string>
     <string name="risk.datacenter_no_rdns" formatted="false">IP de centro de dados sem DNS reverso</string>
     <string name="risk.dnsbl_listed" formatted="false">Consta em listas negras DNS: {arg0}</string>
+    <string name="risk.hosts_redirect" formatted="false">Resolvido pelo arquivo hosts do dispositivo</string>
     <string name="risk.level.danger" formatted="false">CRÍTICO</string>
     <string name="risk.level.info" formatted="false">INFO</string>
     <string name="risk.level.safe" formatted="false">SEGURO</string>

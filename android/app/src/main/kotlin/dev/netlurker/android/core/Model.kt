@@ -172,7 +172,9 @@ data class Target(
     val cert: IntelResult<CertInfo> = IntelResult.idle(),
     val banner: IntelResult<BannerInfo> = IntelResult.idle(),
     val verdict: Verdict = Verdict.none,
-    val note: String = ""
+    val note: String = "",
+    /** True when this address only resolves because the device hosts file says so. */
+    val hostsRedirect: Boolean = false
 ) {
     val key: String get() = if (port != null) "$ip:$port" else (ip ?: input)
     val display: String get() = ip ?: input

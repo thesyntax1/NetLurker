@@ -39,6 +39,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.netlurker.android.MainViewModel
 import dev.netlurker.android.core.AppTraffic
+import dev.netlurker.android.core.RiskLevel
+import dev.netlurker.android.core.Verdict
 import dev.netlurker.android.core.Format
 
 /**
@@ -184,6 +186,7 @@ fun AppsScreen(viewModel: MainViewModel) {
                 items(visible, key = { it.uid }) { app ->
                     AppRow(
                         app = app,
+                        verdict = viewModel.appVerdict(app),
                         expanded = expanded == app.uid,
                         onToggle = { expanded = if (expanded == app.uid) null else app.uid },
                         onHash = { viewModel.onApkHash(app) }
@@ -225,6 +228,7 @@ private fun FilterChipRow(
 @Composable
 private fun AppRow(
     app: AppTraffic,
+    verdict: Verdict,
     expanded: Boolean,
     onToggle: () -> Unit,
     onHash: () -> Unit
@@ -277,6 +281,11 @@ private fun AppRow(
                     style = MaterialTheme.typography.labelSmall
                 )
             }
+        }
+
+        if (verdict.level != RiskLevel.NONE) {
+            Spacer(Modifier.height(8.dp))
+            VerdictPanel(verdict)
         }
 
         if (!expanded) return@Column

@@ -18,6 +18,7 @@ import dev.netlurker.android.core.Target
 import dev.netlurker.android.core.WifiInfo
 import dev.netlurker.android.data.AppCatalog
 import dev.netlurker.android.data.IntelRepository
+import dev.netlurker.android.data.HostsFile
 import dev.netlurker.android.data.NetworkSource
 import dev.netlurker.android.data.SessionHistory
 import dev.netlurker.android.data.Settings
@@ -69,6 +70,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _interfaces = MutableStateFlow<List<InterfaceInfo>>(emptyList())
     val interfaces: StateFlow<List<InterfaceInfo>> = _interfaces.asStateFlow()
+
+    private val _hosts = MutableStateFlow(HostsFile.Snapshot(readable = false, entries = 0))
+    val hosts: StateFlow<HostsFile.Snapshot> = _hosts.asStateFlow()
 
     private val _device = MutableStateFlow<DeviceSnapshot?>(null)
     val device: StateFlow<DeviceSnapshot?> = _device.asStateFlow()
@@ -141,6 +145,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             _wifi.value = runCatching { network.wifi(locationGranted) }.getOrNull()
             _cellular.value = runCatching { network.cellular() }.getOrNull()
             _interfaces.value = runCatching { network.interfaces() }.getOrDefault(emptyList())
+            _hosts.value = HostsFile.read()
             if (settings.publicIpEnabled) {
                 _device.value = _device.value?.copy(publicIpStatus = IntelStatus.PENDING)
                 val (ip, error) = PublicIp.lookup()
@@ -238,6 +243,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /** Hashes one APK on the IO dispatcher when the user opens its detail panel. */
+    /**
+     * The application-level verdict. Recomputed on read: the inputs are small and callers
+     * recompose around data they already observe.
+     */
+    fun appVerdict(app: AppTraffic): Verdict = RiskEngine.evaluateApp(
+        app,
+        _alerts.value.firstOrNull { it.subject == app.label },
+        history.beaconPattern(app.label)
+    )
+
     fun onApkHash(app: AppTraffic) {
         if (app.apkPath == null || app.apkSha256 != null) return
         viewModelScope.launch(Dispatchers.IO) {

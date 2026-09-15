@@ -141,6 +141,7 @@
     <string name="field.flags" formatted="false">フラグ</string>
     <string name="field.frequency" formatted="false">周波数</string>
     <string name="field.gateway" formatted="false">ゲートウェイ</string>
+    <string name="field.hosts" formatted="false">hosts ファイル</string>
     <string name="field.input" formatted="false">入力</string>
     <string name="field.installed" formatted="false">インストール日</string>
     <string name="field.installer" formatted="false">インストーラ</string>
@@ -222,6 +223,12 @@
     <string name="graph.what_is_shown" formatted="false">代わりに表示するのは各アプリの通信量と調査済み接続先の所在地です。両方のグラフは実際のカウンタと照会結果に基づきます。</string>
     <string name="history.no_traffic_yet" formatted="false">アプリ通信はまだ測定されていません。</string>
     <string name="history.window" formatted="false">直近2分</string>
+    <string name="hosts.missing" formatted="false">このデバイスに hosts ファイルはありません。</string>
+    <string name="hosts.not_readable" formatted="false">Android は特権なしではこのファイルの読み取りを拒否します。内容は推測しません。</string>
+    <string name="hosts.redirected" formatted="false">hosts ファイルによるリダイレクト</string>
+    <string name="hosts.redirected_names" formatted="false">{ip}: {names}</string>
+    <string name="hosts.summary" formatted="false">{count} 件 · リダイレクト先 {ips}</string>
+    <string name="hosts.title" formatted="false">hosts ファイル</string>
     <string name="interfaces.no_address" formatted="false">アドレスなし</string>
     <string name="interfaces.none" formatted="false">ネットワークインターフェースが報告されませんでした。</string>
     <string name="investigate.add" formatted="false">追加</string>
@@ -291,6 +298,8 @@
     <string name="risk.abuse_score_high" formatted="false">AbuseIPDB悪用スコア {arg0}/100、報告 {arg1} 件</string>
     <string name="risk.abuse_score_low" formatted="false">AbuseIPDB悪用スコアは低〜中 ({arg0}/100)</string>
     <string name="risk.abuse_score_medium" formatted="false">AbuseIPDB悪用スコア {arg0}/100</string>
+    <string name="risk.app_beacon" formatted="false">{arg0} 秒ごとに規則的な通信（{arg1} 回）</string>
+    <string name="risk.app_exfil_ratio" formatted="false">送信が支配的：送信 {arg0} / 受信 {arg1}</string>
     <string name="risk.app_traffic_anomaly" formatted="false">{arg0} は {arg1} を通信しており、測定ベースラインを {arg2} 超過</string>
     <string name="risk.banner_eol" formatted="false">サーバソフトウェアはサポート終了: {arg0}</string>
     <string name="risk.cert_expired" formatted="false">リモートサーバのTLS証明書は失効</string>
@@ -300,6 +309,7 @@
     <string name="risk.cert_self_signed_datacenter" formatted="false">データセンターIPで自己署名証明書 — 公的CAなし</string>
     <string name="risk.datacenter_no_rdns" formatted="false">逆引きDNSのないデータセンターIP</string>
     <string name="risk.dnsbl_listed" formatted="false">DNSブラックリストに掲載: {arg0}</string>
+    <string name="risk.hosts_redirect" formatted="false">デバイスの hosts ファイルで名前解決</string>
     <string name="risk.level.danger" formatted="false">危険</string>
     <string name="risk.level.info" formatted="false">情報</string>
     <string name="risk.level.safe" formatted="false">安全</string>

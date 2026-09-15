@@ -260,6 +260,10 @@ private fun TargetCard(
             )
         }
 
+        if (target.hostsRedirect) {
+            InfoRow(s("field.hosts"), s("hosts.redirected"), valueColor = NL.Yellow)
+        }
+
         SectionHeader(s("section.threat"))
         when (target.threat.status) {
             IntelStatus.OK -> target.threat.value?.let { threat ->
@@ -369,41 +373,7 @@ private fun TargetCard(
         }
 
         SectionHeader(s("section.verdict"))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            RiskBadge(target.verdict.score, target.verdict.level)
-            Spacer(Modifier.width(10.dp))
-            Text(
-                text = if (target.verdict.reasons.isEmpty()) s("verdict.no_findings")
-                else s("verdict.findings", "count" to target.verdict.reasons.size.toString()),
-                color = NL.TextDim,
-                style = MaterialTheme.typography.bodySmall
-            )
-        }
-        Spacer(Modifier.height(6.dp))
-        for (reason in target.verdict.reasons) {
-            val pairs = reason.args.mapIndexed { index, value -> "arg$index" to value }.toMutableList()
-            if (reason.key == "risk.port_suspicious" && reason.args.isNotEmpty()) {
-                // The rule note is a catalog entry of its own, so it follows the interface
-                // language instead of being pasted in English.
-                pairs.add("arg1" to s("port_" + reason.args[0]))
-            }
-            Text(
-                text = "▲ +${reason.points}  " + s(reason.key, *pairs.toTypedArray()),
-                color = NL.Yellow,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(vertical = 1.dp)
-            )
-        }
-        for (mitigation in target.verdict.mitigations) {
-            Text(
-                text = "▽ " + s(mitigation.key, *mitigation.args.mapIndexed { index, value ->
-                    "arg$index" to value
-                }.toTypedArray()),
-                color = NL.Green,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(vertical = 1.dp)
-            )
-        }
+        VerdictPanel(target.verdict)
 
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {

@@ -41,6 +41,7 @@ fun NetworkScreen(viewModel: MainViewModel, onRequestLocation: () -> Unit) {
     val wifi by viewModel.wifi.collectAsState()
     val cellular by viewModel.cellular.collectAsState()
     val interfaces by viewModel.interfaces.collectAsState()
+    val hosts by viewModel.hosts.collectAsState()
     val device by viewModel.device.collectAsState()
 
     Column(
@@ -174,6 +175,38 @@ fun NetworkScreen(viewModel: MainViewModel, onRequestLocation: () -> Unit) {
                                 if (iface.mtu > 0) "   mtu ${iface.mtu}" else "",
                             color = NL.TextFaint,
                             style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                }
+            }
+        }
+
+        SectionHeader(
+            s("hosts.title"),
+            trailing = if (hosts.readable) hosts.entries.toString() else "—"
+        )
+        Panel {
+            when {
+                // Saying "not readable" is the whole finding here: Android refuses the file
+                // to unprivileged apps, and guessing its contents would be worse than
+                // admitting the gap.
+                !hosts.readable -> InfoRow(
+                    s("field.hosts"), s("hosts.not_readable"), valueColor = NL.Yellow
+                )
+                hosts.entries == 0 -> InfoRow(
+                    s("field.hosts"), s("hosts.missing"), valueColor = NL.TextDim
+                )
+                else -> {
+                    val summary = s("hosts.summary",
+                        "count" to hosts.entries.toString(),
+                        "ips" to hosts.redirectedIps.size.toString())
+                    InfoRow(s("field.hosts"), summary)
+                    for ((ip, names) in hosts.namesByIp.entries.take(6)) {
+                        InfoRow(
+                            ip,
+                            s("hosts.redirected_names", "ip" to ip, "names" to names.joinToString(", ")),
+                            valueColor = NL.Yellow,
+                            mono = true
                         )
                     }
                 }

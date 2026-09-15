@@ -27,6 +27,9 @@ object ReasonKeys {
     const val BANNER_EOL = "risk.banner_eol"
     const val REGISTRATION_YOUNG = "risk.registration_young"
     const val APP_TRAFFIC_ANOMALY = "risk.app_traffic_anomaly"
+    const val APP_EXFIL_RATIO = "risk.app_exfil_ratio"
+    const val APP_BEACON = "risk.app_beacon"
+    const val HOSTS_REDIRECT = "risk.hosts_redirect"
 
     const val MIT_PRIVATE_NETWORK = "risk.mit_private_network"
     const val MIT_COMMON_WEB_PORT = "risk.mit_common_web_port"
@@ -41,6 +44,7 @@ object ReasonKeys {
         PASSIVE_DNS_MANY, CERT_SELF_SIGNED_DATACENTER, CERT_SELF_SIGNED, CERT_EXPIRED,
         CERT_NOT_YET_VALID, CERT_NAME_MISMATCH, VT_MALICIOUS_HIGH, VT_MALICIOUS_LOW,
         VT_SUSPICIOUS, BANNER_EOL, REGISTRATION_YOUNG, APP_TRAFFIC_ANOMALY,
+        APP_EXFIL_RATIO, APP_BEACON, HOSTS_REDIRECT,
         MIT_PRIVATE_NETWORK, MIT_COMMON_WEB_PORT, MIT_RDAP_KNOWN_ORG, MIT_CLEAN_ALL_SOURCES,
         MIT_EVIDENCE_INCOMPLETE
     )
@@ -173,6 +177,11 @@ object RiskEngine {
             if (cert.nameMismatch) add(12, ReasonKeys.CERT_NAME_MISMATCH)
         }
 
+        // The desktop scores a hosts-file override only for public destinations: pointing
+        // "localhost" at 127.0.0.1 is normal, pointing a public name at a chosen address is
+        // a redirection somebody configured.
+        if (target.hostsRedirect && isPublicIp) add(15, ReasonKeys.HOSTS_REDIRECT)
+
         // --- HTTP banner --------------------------------------------------------
         val banner = if (target.banner.status == IntelStatus.OK) target.banner.value else null
         if (target.banner.status == IntelStatus.PENDING) pendingSources += "banner"
@@ -209,17 +218,64 @@ object RiskEngine {
      * desktop's per-process baseline. The score is deliberately small: a traffic spike on a
      * phone is usually a sync or an update, so it informs rather than condemns.
      */
-    fun evaluateApp(app: AppTraffic, alert: AnomalyAlert?): Verdict {
-        if (alert == null) return Verdict.none
-        return Verdict.fromScore(
-            25,
-            listOf(
-                RiskReason(
-                    ReasonKeys.APP_TRAFFIC_ANOMALY,
-                    listOf(app.label, Format.bytesPerSec(alert.current), Format.percent(alert.percent.toDouble())),
-                    25
-                )
+    /**
+     * Application-level verdict.
+     *
+     * These rules are the desktop's, re-expressed at the grain Android actually exposes. The
+     * desktop scores one connection; here the unit is one application, because an unrooted
+     * app is told how much a UID moved and nothing about where it went. The thresholds are
+     * unchanged, so a score means the same thing on both platforms.
+     */
+    fun evaluateApp(
+        app: AppTraffic,
+        alert: AnomalyAlert?,
+        beacon: BeaconDetector.Pattern? = null
+    ): Verdict {
+        val reasons = mutableListOf<RiskReason>()
+        var score = 0
+
+        fun add(points: Int, key: String, vararg args: String) {
+            score += points
+            reasons += RiskReason(key, args.toList(), points)
+        }
+
+        if (alert != null) {
+            add(
+                25, ReasonKeys.APP_TRAFFIC_ANOMALY,
+                app.label, Format.bytesPerSec(alert.current), Format.percent(alert.percent.toDouble())
             )
-        )
+        }
+
+        // T1041: far more leaving than arriving, at a rate worth noticing. Requires the
+        // counters to be supported, because a zero rateIn on an unsupported device is a
+        // missing measurement rather than a quiet download.
+        if (app.supported && app.rateOut > EXFIL_MIN_BYTES_PER_SEC &&
+            app.rateOut > app.rateIn * EXFIL_RATIO
+        ) {
+            add(
+                20, ReasonKeys.APP_EXFIL_RATIO,
+                Format.bytesPerSec(app.rateOut), Format.bytesPerSec(app.rateIn)
+            )
+        }
+
+        if (beacon != null && beacon.periodSec > 0) {
+            add(
+                if (beacon.periodSec <= BEACON_FAST_PERIOD_SEC) 25 else 12,
+                ReasonKeys.APP_BEACON,
+                beacon.periodSec.toString(), beacon.hits.toString()
+            )
+        }
+
+        if (reasons.isEmpty()) return Verdict.none
+        return Verdict.fromScore(score.coerceIn(0, 100), reasons)
     }
+
+    /** Above this outbound rate an upload-heavy ratio is worth flagging (desktop: 200 KiB/s). */
+    const val EXFIL_MIN_BYTES_PER_SEC = 200.0 * 1024.0
+
+    /** Outbound must exceed inbound by this factor (desktop: 6x). */
+    const val EXFIL_RATIO = 6.0
+
+    /** A heartbeat this fast scores higher than a slow one (desktop: 120 s). */
+    const val BEACON_FAST_PERIOD_SEC = 120
 }

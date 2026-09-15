@@ -3,6 +3,7 @@ package dev.netlurker.android.data
 import dev.netlurker.android.core.AnomalyAlert
 import dev.netlurker.android.core.AppTraffic
 import dev.netlurker.android.core.BaselineTracker
+import dev.netlurker.android.core.BeaconDetector
 import dev.netlurker.android.core.CountItem
 import dev.netlurker.android.core.RateSample
 import dev.netlurker.android.core.Target
@@ -21,6 +22,13 @@ class SessionHistory {
 
     /** Traffic floor for the anomaly detector: 4 KiB/s. Below that a phone is idle. */
     private val baseline = BaselineTracker(warmupSamples = 24, floor = 4096.0)
+
+    /**
+     * Burst floor for the heartbeat detector: 2 KiB/s. An app crossing this from silence is
+     * doing something; how *regularly* it does it is the question the detector answers.
+     */
+    private val burstFloor = 2048.0
+    private val beacons = BeaconDetector()
 
     private val alerts = LinkedHashMap<String, AnomalyAlert>()
     private val firstSampleAtMs = System.currentTimeMillis()
@@ -84,10 +92,12 @@ class SessionHistory {
             val delta = total - previous
             if (delta < 0) continue // counter reset — do not treat it as traffic
             val rate = delta * 1000.0 / intervalMs
-            pushSample(
-                appRates.getOrPut(label) { ArrayDeque() },
-                RateSample(now, 0.0, rate)
-            )
+            val window = appRates.getOrPut(label) { ArrayDeque() }
+            val previousRate = window.lastOrNull()?.outBytesPerSec ?: 0.0
+            pushSample(window, RateSample(now, 0.0, rate))
+            // A burst is the rising edge, not every sample above the floor: recording every
+            // busy poll would turn continuous traffic into a fake heartbeat.
+            if (rate > burstFloor && previousRate <= burstFloor) beacons.record(label, now)
             if (baseline.observe(label, rate)) {
                 val stat = baseline.stat(label) ?: continue
                 val percent = if (stat.ema > 0.5) ((rate / stat.ema - 1.0) * 100.0).toInt() else 0
@@ -102,8 +112,14 @@ class SessionHistory {
                 fresh += alert
             }
         }
+        beacons.prune(now)
         return fresh
     }
+
+    /** The heartbeat pattern for one application, or null when its traffic is not regular. */
+    fun beaconPattern(label: String): BeaconDetector.Pattern? = beacons.pattern(label)
+
+    fun beaconSubjects(): Int = beacons.size()
 
     fun noteAppRate(label: String, rate: Double) {
         baseline.observe(label, rate)

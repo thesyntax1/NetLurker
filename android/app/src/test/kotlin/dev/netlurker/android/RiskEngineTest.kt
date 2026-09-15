@@ -31,7 +31,8 @@ class RiskEngineTest {
         threat: IntelResult<ThreatInfo> = IntelResult.idle(),
         cert: IntelResult<CertInfo> = IntelResult.idle(),
         banner: IntelResult<BannerInfo> = IntelResult.idle(),
-        reverse: IntelResult<String> = IntelResult.idle()
+        reverse: IntelResult<String> = IntelResult.idle(),
+        hostsRedirect: Boolean = false
     ) = Target(
         input = ip,
         ip = ip,
@@ -40,7 +41,8 @@ class RiskEngineTest {
         threat = threat,
         cert = cert,
         banner = banner,
-        reverseDns = reverse
+        reverseDns = reverse,
+        hostsRedirect = hostsRedirect
     )
 
     private fun keys(target: Target) = RiskEngine.evaluate(target, now).reasons.map { it.key }
@@ -277,6 +279,24 @@ class RiskEngineTest {
         assertEquals(0, verdict.score)
         assertFalse(verdict.mitigations.any { it.key == ReasonKeys.MIT_CLEAN_ALL_SOURCES })
         assertTrue(verdict.reasons.isEmpty())
+    }
+
+    @Test
+    @Test
+    fun `a hosts file redirect is scored only for a public destination`() {
+        val internet = keys(target(ip = "203.0.113.9", hostsRedirect = true))
+        assertTrue(internet.contains(ReasonKeys.HOSTS_REDIRECT))
+        assertEquals(15, RiskEngine.evaluate(target(ip = "203.0.113.9", hostsRedirect = true), now)
+            .reasons.first { it.key == ReasonKeys.HOSTS_REDIRECT }.points)
+
+        // Pointing "localhost" at 127.0.0.1 is ordinary configuration, not a finding.
+        assertFalse(keys(target(ip = "127.0.0.1", hostsRedirect = true))
+            .contains(ReasonKeys.HOSTS_REDIRECT))
+    }
+
+    @Test
+    fun `an address the hosts file does not mention gets no redirect finding`() {
+        assertFalse(keys(target(ip = "203.0.113.9")).contains(ReasonKeys.HOSTS_REDIRECT))
     }
 
     @Test

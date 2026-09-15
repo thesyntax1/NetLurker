@@ -29,6 +29,7 @@ import dev.netlurker.android.core.Format
 import dev.netlurker.android.core.IntelStatus
 import dev.netlurker.android.core.RateSample
 import dev.netlurker.android.core.RiskLevel
+import dev.netlurker.android.core.Verdict
 
 /** Risk badge: score over 100 plus the level word, in the level's colour. */
 @Composable
@@ -89,6 +90,51 @@ fun KpiTile(
         if (sub != null) {
             Text(text = sub, color = NL.TextDim, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+/**
+ * The score plus the rule lines behind it, rendered the same way wherever a verdict
+ * appears. Extracted from the investigation screen so the applications screen cannot drift
+ * into describing a risk differently.
+ */
+@Composable
+fun VerdictPanel(verdict: Verdict) {
+    val s = strings()
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        RiskBadge(verdict.score, verdict.level)
+        Spacer(Modifier.width(10.dp))
+        Text(
+            text = if (verdict.reasons.isEmpty()) s("verdict.no_findings")
+            else s("verdict.findings", "count" to verdict.reasons.size.toString()),
+            color = NL.TextDim,
+            style = MaterialTheme.typography.bodySmall
+        )
+    }
+    Spacer(Modifier.height(6.dp))
+    for (reason in verdict.reasons) {
+        val pairs = reason.args.mapIndexed { index, value -> "arg$index" to value }.toMutableList()
+        if (reason.key == "risk.port_suspicious" && reason.args.isNotEmpty()) {
+            // The rule note is a catalog entry of its own, so it follows the interface
+            // language instead of being pasted in English.
+            pairs.add("arg1" to s("port_" + reason.args[0]))
+        }
+        Text(
+            text = "▲ +${reason.points}  " + s(reason.key, *pairs.toTypedArray()),
+            color = NL.Yellow,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(vertical = 1.dp)
+        )
+    }
+    for (mitigation in verdict.mitigations) {
+        Text(
+            text = "▽ " + s(mitigation.key, *mitigation.args.mapIndexed { index, value ->
+                "arg$index" to value
+            }.toTypedArray()),
+            color = NL.Green,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(vertical = 1.dp)
+        )
     }
 }
 

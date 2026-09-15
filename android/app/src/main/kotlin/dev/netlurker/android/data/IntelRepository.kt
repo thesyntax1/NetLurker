@@ -60,6 +60,9 @@ class IntelRepository(
     private val attempts = HashMap<String, HashMap<String, Int>>()
     private val nextTryAt = HashMap<String, Long>()
 
+    private var hostsSnapshot = HostsFile.Snapshot(readable = false, entries = 0)
+    private var hostsReadAtMs = 0L
+
     private val geoThrottle = Mutex()
     private var lastGeoRequestAt = 0L
 
@@ -153,6 +156,19 @@ class IntelRepository(
             return
         }
         val publicAddress = Ip.isPublic(ip)
+
+        // A destination that only resolves because the hosts file says so is worth saying
+        // out loud. Re-read at most once a minute, the same cadence the desktop uses.
+        val hostsNow = System.currentTimeMillis()
+        if (hostsNow - hostsReadAtMs >= 60_000L) {
+            hostsSnapshot = HostsFile.read()
+            hostsReadAtMs = hostsNow
+        }
+        val redirected = hostsSnapshot.redirects(ip)
+        if (current.hostsRedirect != redirected) {
+            current = current.copy(hostsRedirect = redirected)
+            update(key) { current }
+        }
 
         // --- 2. reverse DNS ------------------------------------------------------
         if (force || current.reverseDns.status == IntelStatus.IDLE) {

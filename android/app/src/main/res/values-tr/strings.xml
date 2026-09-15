@@ -141,6 +141,7 @@
     <string name="field.flags" formatted="false">İşaretler</string>
     <string name="field.frequency" formatted="false">Frekans</string>
     <string name="field.gateway" formatted="false">Ağ geçidi</string>
+    <string name="field.hosts" formatted="false">Hosts dosyası</string>
     <string name="field.input" formatted="false">Girdi</string>
     <string name="field.installed" formatted="false">Yüklendi</string>
     <string name="field.installer" formatted="false">Yükleyen</string>
@@ -222,6 +223,12 @@
     <string name="graph.what_is_shown" formatted="false">Bunun yerine gösterilen: her uygulamanın ne kadar veri taşıdığı ve incelenen hedeflerin nerede olduğu. İki grafik gerçek sayaçlardan ve gerçek sorgulardan gelir.</string>
     <string name="history.no_traffic_yet" formatted="false">Henüz uygulama trafiği ölçülmedi.</string>
     <string name="history.window" formatted="false">son 2 dakika</string>
+    <string name="hosts.missing" formatted="false">Bu cihazda hosts dosyası yok.</string>
+    <string name="hosts.not_readable" formatted="false">Android bu dosyayı ayrıcalık yükseltmesi olmadan okumayı engelliyor. İçeriği tahmin edilmiyor.</string>
+    <string name="hosts.redirected" formatted="false">hosts dosyası yönlendiriyor</string>
+    <string name="hosts.redirected_names" formatted="false">{ip}: {names}</string>
+    <string name="hosts.summary" formatted="false">{count} kayıt · {ips} yönlendirme hedefi</string>
+    <string name="hosts.title" formatted="false">Hosts dosyası</string>
     <string name="interfaces.no_address" formatted="false">adres yok</string>
     <string name="interfaces.none" formatted="false">Çerçeve hiçbir ağ arabirimi bildirmedi.</string>
     <string name="investigate.add" formatted="false">Ekle</string>
@@ -291,6 +298,8 @@
     <string name="risk.abuse_score_high" formatted="false">AbuseIPDB kötüye kullanım puanı {arg0}/100, {arg1} şikayet</string>
     <string name="risk.abuse_score_low" formatted="false">AbuseIPDB düşük-orta kötüye kullanım puanı ({arg0}/100)</string>
     <string name="risk.abuse_score_medium" formatted="false">AbuseIPDB kötüye kullanım puanı {arg0}/100</string>
+    <string name="risk.app_beacon" formatted="false">Her {arg0} saniyede bir düzenli trafik ({arg1} atım)</string>
+    <string name="risk.app_exfil_ratio" formatted="false">Giden ağırlıklı: {arg0} gönderim, {arg1} alım</string>
     <string name="risk.app_traffic_anomaly" formatted="false">{arg0} uygulaması {arg1} taşıyor; ölçülen taban çizgisinin {arg2} üzerinde</string>
     <string name="risk.banner_eol" formatted="false">Sunucu yazılımı desteklenmiyor: {arg0}</string>
     <string name="risk.cert_expired" formatted="false">Uzak sunucunun TLS sertifikasının süresi dolmuş</string>
@@ -300,6 +309,7 @@
     <string name="risk.cert_self_signed_datacenter" formatted="false">Veri merkezi IP\'sinde kendinden imzalı sertifika — kamuya açık CA yok</string>
     <string name="risk.datacenter_no_rdns" formatted="false">Ters DNS kaydı olmayan veri merkezi IP\'si</string>
     <string name="risk.dnsbl_listed" formatted="false">DNS kara listelerinde kayıtlı: {arg0}</string>
+    <string name="risk.hosts_redirect" formatted="false">Cihazın hosts dosyası üzerinden çözümleniyor</string>
     <string name="risk.level.danger" formatted="false">KRİTİK</string>
     <string name="risk.level.info" formatted="false">BİLGİ</string>
     <string name="risk.level.safe" formatted="false">GÜVENLİ</string>

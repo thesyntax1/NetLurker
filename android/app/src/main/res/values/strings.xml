@@ -141,6 +141,7 @@
     <string name="field.flags" formatted="false">Flags</string>
     <string name="field.frequency" formatted="false">Frequency</string>
     <string name="field.gateway" formatted="false">Gateway</string>
+    <string name="field.hosts" formatted="false">Hosts file</string>
     <string name="field.input" formatted="false">Input</string>
     <string name="field.installed" formatted="false">Installed</string>
     <string name="field.installer" formatted="false">Installed by</string>
@@ -222,6 +223,12 @@
     <string name="graph.what_is_shown" formatted="false">What is shown instead: how much each application moved, and where the investigated destinations are. Its two charts come from real counters and real lookups.</string>
     <string name="history.no_traffic_yet" formatted="false">No application traffic has been measured yet.</string>
     <string name="history.window" formatted="false">last 2 minutes</string>
+    <string name="hosts.missing" formatted="false">No hosts file on this device.</string>
+    <string name="hosts.not_readable" formatted="false">Android blocks reading this file without elevated privileges. Its contents are not guessed.</string>
+    <string name="hosts.redirected" formatted="false">redirected by the hosts file</string>
+    <string name="hosts.redirected_names" formatted="false">{ip}: {names}</string>
+    <string name="hosts.summary" formatted="false">{count} entries · {ips} redirect targets</string>
+    <string name="hosts.title" formatted="false">Hosts file</string>
     <string name="interfaces.no_address" formatted="false">no address</string>
     <string name="interfaces.none" formatted="false">The framework reported no network interface.</string>
     <string name="investigate.add" formatted="false">Add</string>
@@ -291,6 +298,8 @@
     <string name="risk.abuse_score_high" formatted="false">AbuseIPDB abuse score {arg0}/100 with {arg1} reports</string>
     <string name="risk.abuse_score_low" formatted="false">AbuseIPDB low-to-medium abuse score ({arg0}/100)</string>
     <string name="risk.abuse_score_medium" formatted="false">AbuseIPDB abuse score {arg0}/100</string>
+    <string name="risk.app_beacon" formatted="false">Regular traffic every {arg0} s across {arg1} bursts</string>
+    <string name="risk.app_exfil_ratio" formatted="false">Outbound dominated: {arg0} up against {arg1} down</string>
     <string name="risk.app_traffic_anomaly" formatted="false">{arg0} is moving {arg1}, {arg2} above its measured baseline</string>
     <string name="risk.banner_eol" formatted="false">Server software is end-of-life: {arg0}</string>
     <string name="risk.cert_expired" formatted="false">The remote server\'s TLS certificate has expired</string>
@@ -300,6 +309,7 @@
     <string name="risk.cert_self_signed_datacenter" formatted="false">Self-signed certificate on a datacenter IP — no public CA</string>
     <string name="risk.datacenter_no_rdns" formatted="false">Datacenter IP without reverse DNS</string>
     <string name="risk.dnsbl_listed" formatted="false">Listed on DNS blacklists: {arg0}</string>
+    <string name="risk.hosts_redirect" formatted="false">Resolved through the device hosts file</string>
     <string name="risk.level.danger" formatted="false">CRITICAL</string>
     <string name="risk.level.info" formatted="false">INFO</string>
     <string name="risk.level.safe" formatted="false">SAFE</string>

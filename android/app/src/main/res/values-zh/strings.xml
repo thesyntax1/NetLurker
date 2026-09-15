@@ -141,6 +141,7 @@
     <string name="field.flags" formatted="false">标记</string>
     <string name="field.frequency" formatted="false">频率</string>
     <string name="field.gateway" formatted="false">网关</string>
+    <string name="field.hosts" formatted="false">hosts 文件</string>
     <string name="field.input" formatted="false">输入</string>
     <string name="field.installed" formatted="false">安装时间</string>
     <string name="field.installer" formatted="false">安装来源</string>
@@ -222,6 +223,12 @@
     <string name="graph.what_is_shown" formatted="false">替代展示的是：每个应用的数据量，以及已调查目标的位置。两个图表均来自真实计数器和真实查询。</string>
     <string name="history.no_traffic_yet" formatted="false">尚未测量到应用流量。</string>
     <string name="history.window" formatted="false">最近 2 分钟</string>
+    <string name="hosts.missing" formatted="false">此设备上没有 hosts 文件。</string>
+    <string name="hosts.not_readable" formatted="false">Android 在没有提升权限时阻止读取此文件。内容不会被猜测。</string>
+    <string name="hosts.redirected" formatted="false">被 hosts 文件重定向</string>
+    <string name="hosts.redirected_names" formatted="false">{ip}：{names}</string>
+    <string name="hosts.summary" formatted="false">{count} 条记录 · {ips} 个重定向目标</string>
+    <string name="hosts.title" formatted="false">hosts 文件</string>
     <string name="interfaces.no_address" formatted="false">无地址</string>
     <string name="interfaces.none" formatted="false">框架未报告任何网络接口。</string>
     <string name="investigate.add" formatted="false">添加</string>
@@ -291,6 +298,8 @@
     <string name="risk.abuse_score_high" formatted="false">AbuseIPDB 滥用评分 {arg0}/100，{arg1} 次举报</string>
     <string name="risk.abuse_score_low" formatted="false">AbuseIPDB 滥用评分较低（{arg0}/100）</string>
     <string name="risk.abuse_score_medium" formatted="false">AbuseIPDB 滥用评分 {arg0}/100</string>
+    <string name="risk.app_beacon" formatted="false">每 {arg0} 秒规律通信（共 {arg1} 次）</string>
+    <string name="risk.app_exfil_ratio" formatted="false">出站为主：上行 {arg0}，下行 {arg1}</string>
     <string name="risk.app_traffic_anomaly" formatted="false">{arg0} 正在传输 {arg1}，超出测得基线 {arg2}</string>
     <string name="risk.banner_eol" formatted="false">服务器软件已停止支持：{arg0}</string>
     <string name="risk.cert_expired" formatted="false">远端服务器的 TLS 证书已过期</string>
@@ -300,6 +309,7 @@
     <string name="risk.cert_self_signed_datacenter" formatted="false">数据中心 IP 上的自签名证书——无公共 CA</string>
     <string name="risk.datacenter_no_rdns" formatted="false">无反向 DNS 的数据中心 IP</string>
     <string name="risk.dnsbl_listed" formatted="false">列于 DNS 黑名单：{arg0}</string>
+    <string name="risk.hosts_redirect" formatted="false">通过设备 hosts 文件解析</string>
     <string name="risk.level.danger" formatted="false">危险</string>
     <string name="risk.level.info" formatted="false">信息</string>
     <string name="risk.level.safe" formatted="false">安全</string>

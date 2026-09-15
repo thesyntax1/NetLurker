@@ -141,6 +141,7 @@
     <string name="field.flags" formatted="false">Markierungen</string>
     <string name="field.frequency" formatted="false">Frequenz</string>
     <string name="field.gateway" formatted="false">Gateway</string>
+    <string name="field.hosts" formatted="false">hosts-Datei</string>
     <string name="field.input" formatted="false">Eingabe</string>
     <string name="field.installed" formatted="false">Installiert</string>
     <string name="field.installer" formatted="false">Installiert von</string>
@@ -222,6 +223,12 @@
     <string name="graph.what_is_shown" formatted="false">Stattdessen: wie viel jede Anwendung bewegt hat und wo die untersuchten Ziele liegen. Beide Diagramme stammen aus echten Zählern und Abfragen.</string>
     <string name="history.no_traffic_yet" formatted="false">Es wurde noch kein Anwendungsdatenverkehr gemessen.</string>
     <string name="history.window" formatted="false">letzte 2 Minuten</string>
+    <string name="hosts.missing" formatted="false">Keine hosts-Datei auf diesem Gerät.</string>
+    <string name="hosts.not_readable" formatted="false">Android blockiert das Lesen dieser Datei ohne erhöhte Rechte. Der Inhalt wird nicht geraten.</string>
+    <string name="hosts.redirected" formatted="false">von der hosts-Datei umgeleitet</string>
+    <string name="hosts.redirected_names" formatted="false">{ip}: {names}</string>
+    <string name="hosts.summary" formatted="false">{count} Einträge · {ips} Umleitungsziele</string>
+    <string name="hosts.title" formatted="false">hosts-Datei</string>
     <string name="interfaces.no_address" formatted="false">keine Adresse</string>
     <string name="interfaces.none" formatted="false">Das Framework meldete keine Netzwerkschnittstelle.</string>
     <string name="investigate.add" formatted="false">Hinzufügen</string>
@@ -291,6 +298,8 @@
     <string name="risk.abuse_score_high" formatted="false">AbuseIPDB-Wert {arg0}/100 mit {arg1} Meldungen</string>
     <string name="risk.abuse_score_low" formatted="false">Niedriger bis mittlerer AbuseIPDB-Wert ({arg0}/100)</string>
     <string name="risk.abuse_score_medium" formatted="false">AbuseIPDB-Wert {arg0}/100</string>
+    <string name="risk.app_beacon" formatted="false">Regelmäßiger Verkehr alle {arg0} s über {arg1} Ausbrüche</string>
+    <string name="risk.app_exfil_ratio" formatted="false">Ausgehend dominiert: {arg0} hoch gegen {arg1} runter</string>
     <string name="risk.app_traffic_anomaly" formatted="false">{arg0} bewegt {arg1}, {arg2} über der gemessenen Basislinie</string>
     <string name="risk.banner_eol" formatted="false">Die Server-Software wird nicht mehr unterstützt: {arg0}</string>
     <string name="risk.cert_expired" formatted="false">Das TLS-Zertifikat des Servers ist abgelaufen</string>
@@ -300,6 +309,7 @@
     <string name="risk.cert_self_signed_datacenter" formatted="false">Selbstsigniertes Zertifikat auf einer Rechenzentrums-IP — keine öffentliche CA</string>
     <string name="risk.datacenter_no_rdns" formatted="false">Rechenzentrums-IP ohne Reverse-DNS</string>
     <string name="risk.dnsbl_listed" formatted="false">Auf DNS-Blacklists geführt: {arg0}</string>
+    <string name="risk.hosts_redirect" formatted="false">Über die hosts-Datei des Geräts aufgelöst</string>
     <string name="risk.level.danger" formatted="false">KRITIS</string>
     <string name="risk.level.info" formatted="false">INFO</string>
     <string name="risk.level.safe" formatted="false">SICHER</string>
