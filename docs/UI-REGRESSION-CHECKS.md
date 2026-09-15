@@ -3,7 +3,7 @@
 ## Expected language behavior
 
 - With no saved preference, start in English, regardless of the OS language.
-- Select a language in Settings. Labels update without restarting; the current tab remains selected.
+- Select a language in Settings and press Save. Labels update without restarting; the current tab remains selected.
 - Close/reopen the application: retain the selected language.
 - A previously saved explicit system/auto preference is still respected. An invalid preference falls back to English.
 - Android exports, AI request language, and notifications use the selected application language too.

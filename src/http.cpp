@@ -74,13 +74,20 @@ Response Request(const std::string& method, const std::string& url, const std::s
         }
 
         constexpr size_t limit = 2u * 1024 * 1024;
+        DWORD expectedLength = 0, expectedSize = sizeof(expectedLength);
+        const bool hasLength = WinHttpQueryHeaders(hReq, WINHTTP_QUERY_CONTENT_LENGTH | WINHTTP_QUERY_FLAG_NUMBER,
+            WINHTTP_HEADER_NAME_BY_INDEX, &expectedLength, &expectedSize, WINHTTP_NO_HEADER_INDEX) != FALSE;
         char chunk[16384];
         for (;;) {
             DWORD read = 0;
             if (!WinHttpReadData(hReq, chunk, sizeof(chunk), &read)) {
                 res.error = "incomplete response"; break;
             }
-            if (!read) break;
+            if (!read) {
+                // Some servers close cleanly before their promised Content-Length.
+                if (hasLength && res.body.size() != expectedLength) res.error = "incomplete response";
+                break;
+            }
             if (read > limit - res.body.size()) { res.error = "response too large"; break; }
             res.body.append(chunk, read);
         }
