@@ -6,11 +6,12 @@ namespace nl { namespace http {
 
 Response Request(const std::string& method, const std::string& url, const std::string& body,
                  const std::string& contentType, const std::string& authBearer, int timeoutMs,
-                 const std::wstring& extraHeaders) {
+                 const std::wstring& extraHeaders, RequestPolicy policy) {
     Response res;
     ParsedUrl parsed;
     if (!ParseUrl(Widen(url), parsed)) { res.error = "invalid URL"; return res; }
-    if ((!body.empty() || !authBearer.empty() || !extraHeaders.empty()) && !parsed.secure && !parsed.Loopback()) {
+    const bool publicGeoBody = policy == RequestPolicy::PublicGeolocation && method == "POST" && parsed.PublicGeolocationBatch();
+    if ((!authBearer.empty() || !extraHeaders.empty() || (!body.empty() && !publicGeoBody)) && !parsed.secure && !parsed.Loopback()) {
         res.error = "HTTPS required for credentials or request bodies"; return res;
     }
     if (authBearer.find_first_of("\r\n") != std::string::npos || contentType.find_first_of("\r\n") != std::string::npos) {

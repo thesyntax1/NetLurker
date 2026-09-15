@@ -43,5 +43,8 @@ int main() {
     for (auto url : {L"file:///tmp", L"https://", L"https://u:p@example.com", L"https://example.com/#secret", L"https://example.com/\r\nx", L"https://example.com:0"})
         assert(!nl::http::ParseUrl(url, parsed));
     assert(nl::http::ParseUrl(L"http://localhost.attacker.example/v1", parsed) && !parsed.Loopback());
+    assert(nl::http::ParseUrl(L"http://ip-api.com/batch?fields=status,query", parsed) && parsed.PublicGeolocationBatch());
+    for (auto url : {L"http://ip-api.com.attacker.example/batch", L"http://example.com/batch", L"http://ip-api.com:8080/batch", L"http://ip-api.com/private"})
+        assert(nl::http::ParseUrl(url, parsed) && !parsed.PublicGeolocationBatch());
     std::cout << "Config: atomic replacement, Unicode, unknown sections, injection/readonly/locked rollback and URL policy passed\n";
 }

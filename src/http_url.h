@@ -8,6 +8,10 @@ struct ParsedUrl {
     std::wstring host, path;
     INTERNET_PORT port = 0;
     bool secure = false;
+    bool PublicGeolocationBatch() const {
+        return !secure && host == L"ip-api.com" && port == 80 &&
+            (path == L"/batch" || path.compare(0, 7, L"/batch?") == 0);
+    }
     bool Loopback() const {
         auto lower = host;
         for (auto& c : lower) c = static_cast<wchar_t>(towlower(c));

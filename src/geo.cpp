@@ -239,7 +239,7 @@ void GeoResolver::GeoWorker() {
         auto res = http::Request("POST",
             "http://ip-api.com/batch?fields=status,message,country,countryCode,region,regionName,"
             "city,isp,org,as,asname,reverse,mobile,proxy,hosting,query",
-            payload, "application/json", "", 8000);
+            payload, "application/json", "", 8000, L"", http::RequestPolicy::PublicGeolocation);
 
         const unsigned long long now = (unsigned long long)time(nullptr);
         std::lock_guard<std::mutex> lk(m_mtx);

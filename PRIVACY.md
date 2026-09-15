@@ -20,7 +20,9 @@ network operations; the providers and targets can log them.
 | Public IP check (Android) | `api.ipify.org` / `api64.ipify.org`: request source IP | Off by default; user enables it |
 | Browser actions | Chosen website: IP, domain or hash in the URL | User clicks an external link |
 
-The free geolocation endpoint uses **HTTP, not authenticated HTTPS**. Its response can be
+The free geolocation endpoint uses **HTTP, not authenticated HTTPS**. Windows permits
+its unauthenticated batch request only through an explicit `ip-api.com/batch` exception;
+this does not permit AI/provider credentials over remote HTTP. Its response can be
 observed or modified in transit. Do not treat geolocation-derived heuristics as strong
 security evidence. Plaintext banner probes are intentionally limited to unauthenticated
 requests to the investigated target; they are not an authenticated browsing session.
