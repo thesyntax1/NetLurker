@@ -172,7 +172,7 @@ jobs:
           git rev-parse HEAD | Set-Content build\build-revision.txt -Encoding ascii
           Copy-Item version.json build\build-version.json
           $version = (Get-Content version.json -Raw | ConvertFrom-Json).version
-          if ((Get-Item build\NetLurker.exe).VersionInfo.ProductVersion -ne $version) { throw "Embedded version mismatch" }
+          if ((Get-Item build\NetLurker.exe).VersionInfo.ProductVersion.Trim() -ne $version) { throw "Embedded version mismatch" }
           $exe = "build\NetLurker.exe"
           if (-not (Test-Path $exe)) { throw "build.bat did not produce $exe" }
           $item = Get-Item $exe
@@ -207,7 +207,7 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Prerelease installer version compilation failed" }
             $info = (Get-Item dist/NetLurker-v0.0.0-rc.1-setup.exe).VersionInfo
             Write-Host ($info | Format-List * | Out-String)
-            if ($info.ProductVersion -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch: expected '0.0.0-rc.1', actual '$($info.ProductVersion)'" }
+            if ($info.ProductVersion.Trim() -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch: expected '0.0.0-rc.1', actual '$($info.ProductVersion)'" }
           } catch {
             Write-Host ("::error::" + ($_.ToString() -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'))
             throw

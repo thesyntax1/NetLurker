@@ -97,7 +97,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { throw "Artifact provenance check failed" }
           python tools/release_version.py --version $env:VERSION
           if ($LASTEXITCODE -ne 0) { throw "Version validation failed" }
-          if ((Get-Item build/NetLurker.exe).VersionInfo.ProductVersion -ne $env:VERSION) { throw "Wrong EXE version" }
+          if ((Get-Item build/NetLurker.exe).VersionInfo.ProductVersion.Trim() -ne $env:VERSION) { throw "Wrong EXE version" }
       - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
         with:
           arch: x64
@@ -119,7 +119,7 @@ jobs:
           if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is required on the Windows runner" }
           & $iscc "/DAppVersion=$env:VERSION" "/DNumericVersion=$env:NUMERIC_VERSION" installer/NetLurker.iss
           if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
-          if ((Get-Item "dist/NetLurker-v$env:VERSION-setup.exe").VersionInfo.ProductVersion -ne $env:VERSION) { throw "Installer version mismatch" }
+          if ((Get-Item "dist/NetLurker-v$env:VERSION-setup.exe").VersionInfo.ProductVersion.Trim() -ne $env:VERSION) { throw "Installer version mismatch" }
       - name: Sign the installer when configured
         if: needs.prepare.outputs.windows_signed == 'true'
         shell: pwsh

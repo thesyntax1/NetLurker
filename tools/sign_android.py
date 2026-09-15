@@ -27,7 +27,12 @@ def verify_badging(text: str, version: str):
 
 
 def verify_certificate(text: str, expected: str) -> str:
-    matches = re.findall(r"^Signer #[0-9]+ certificate SHA-256 digest: ([0-9a-fA-F]{64})$", text, re.M)
+    # New SDKs label the selected scheme "V3.0 Signer:"; older ones use
+    # "Signer #1". Accept both exact formats, never public-key/SourceStamp hashes.
+    counts = re.findall(r"^Number of signers:[ \t]*([0-9]+)[ \t]*$", text, re.M)
+    if counts and counts != ["1"]:
+        raise ValueError("Exactly one APK signer is required")
+    matches = re.findall(r"^(?:Signer #[0-9]+|V[1-4](?:\.[0-9]+)? Signer:) certificate SHA-256 digest:[ \t]*([0-9a-fA-F]{64})[ \t]*$", text, re.M)
     if len(matches) != 1 or matches[0].lower() != expected.replace(":", "").lower():
         raise ValueError(f"APK signer differs from ANDROID_SIGNING_CERT_SHA256: expected {expected}, parsed {matches}")
     if re.search(r"CN=Android Debug(?:,|$)", text, re.M):

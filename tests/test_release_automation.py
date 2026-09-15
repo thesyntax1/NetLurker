@@ -91,7 +91,17 @@ class PolicyTest(unittest.TestCase):
     def test_wrong_or_debug_certificate_is_rejected(self):
         text = "Signer #1 certificate SHA-256 digest: " + "a" * 64 + "\n"
         self.assertEqual(verify_certificate(text, "AA:" * 31 + "AA"), "a" * 64)
+        self.assertEqual(verify_certificate(text.rstrip() + "  \t\n", "a" * 64), "a" * 64)
         for invalid in (text.replace("a", "b"), text + text, text + "Signer #1 certificate DN: CN=Android Debug, O=Android\n"):
+            with self.assertRaises(ValueError):
+                verify_certificate(invalid, "a" * 64)
+
+    def test_modern_sdk_scheme_label_preserves_certificate_pinning(self):
+        text = "Number of signers: 1\nV3.0 Signer: certificate SHA-256 digest: " + "a" * 64 + "\n"
+        self.assertEqual(verify_certificate(text, "a" * 64), "a" * 64)
+        for invalid in (text.replace("signers: 1", "signers: 2"),
+                        text.replace("certificate SHA-256", "public key SHA-256"),
+                        text.replace("V3.0 Signer:", "Source Stamp Signer")):
             with self.assertRaises(ValueError):
                 verify_certificate(invalid, "a" * 64)
 
