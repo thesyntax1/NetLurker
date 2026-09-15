@@ -25,6 +25,12 @@ class ProvenanceGuards(unittest.TestCase):
         for operation in ("TickAnomaly(", "NoteNewConnections(", "PushRateSample(", "m_hist.Update("):
             self.assertNotIn(operation, demo)
 
+    def test_demo_does_not_dispatch_live_requeries(self):
+        guard = body("void App::OnCommand(int id)").split("switch (id)")[0]
+        for action in ("IDM_THREAT_REFRESH", "IDM_CERT_REFRESH", "IDM_OPEN_FOLDER", "IDM_WHOIS"):
+            self.assertIn(action, guard)
+        self.assertIn("RequireLiveData(); return;", guard)
+
     def test_csv_origin_is_applied_before_encoding_or_writing(self):
         export = body("void App::ExportData()")
         self.assertLess(export.index("LabelCsvOrigin(out, m_demo)"), export.index("Narrow(out)"))

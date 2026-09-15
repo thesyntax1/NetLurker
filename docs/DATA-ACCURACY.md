@@ -105,10 +105,11 @@ Implemented corrections (the exact revision's CI remains the source of test resu
 - **Plugin provenance:** Windows plugin output is kept separate and exported separately;
   it is no longer substituted for an AbuseIPDB score or fed into AbuseIPDB scoring rules.
 - **Demo provenance:** Windows demo rows cannot drive termination, suspension, firewall,
-  properties or AI actions. They do not update live anomaly/rate baselines or fetch real
+  properties, remote re-query/browser actions or AI actions. They do not update live anomaly/rate baselines or fetch real
   metadata for a coincidentally matching PID. CSV now has a `data_source` column; JSON,
   text and HTML retain their demo markings. Live-only history/statistics/graph tabs require
   leaving demo mode. Source-guard tests are structural; no destructive actions run in CI.
+- **Spreadsheet text:** CSV application/provider text is protected against formula interpretation, and embedded separators/quotes are escaped.
 - **Exports:** missing threat/VT/PDNS measurements use null/blank rather than fabricated
   zeroes; Android includes per-result timestamps/details and Windows a threat status.
 

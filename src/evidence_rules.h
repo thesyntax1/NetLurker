@@ -2,6 +2,17 @@
 #include <string>
 
 namespace nl {
+// Text from processes/providers must remain text when opened in a spreadsheet.
+inline std::wstring CsvText(std::wstring text) {
+    for (auto& c : text) if (c==L'\n' || c==L'\r') c=L' ';
+    const auto first=text.find_first_not_of(L" \t\v\f");
+    if(first!=std::wstring::npos && std::wstring(L"=+-@").find(text[first])!=std::wstring::npos) text=L"'"+text;
+    if(text.find_first_of(L";\"")==std::wstring::npos) return text;
+    std::wstring result=L"\"";
+    for(wchar_t c:text) { if(c==L'\"') result+=L'\"'; result+=c; }
+    return result+L"\"";
+}
+
 struct SourcePlan { bool dnsbl, abuse, pdns, rdap, vt, plugins; };
 inline SourcePlan PlanSources(bool threat, bool rdap, bool abuseKey, bool vtKey, bool plugins) {
     return {threat, threat && abuseKey, threat, rdap, vtKey, threat && plugins};

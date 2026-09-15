@@ -45,6 +45,9 @@ int main() {
         assert(plan.dnsbl==threat && plan.pdns==threat && plan.abuse==(threat&&abuse));
         assert(plan.rdap==rdap && plan.vt==vt && plan.plugins==(threat&&plugins));
     }
+    assert(nl::CsvText(L"=1+1")==L"'=1+1");
+    assert(nl::CsvText(L" \t@SUM(1)")==L"' \t@SUM(1)");
+    assert(nl::CsvText(L"ACME;\"Co\"")==L"\"ACME;\"\"Co\"\"\"");
     bool flag = false;
     assert(nl::json::GetBool("{\"isTor\": true}", "isTor", flag) && flag);
     assert(nl::json::GetBool("{\"isTor\": false}", "isTor", flag) && !flag);

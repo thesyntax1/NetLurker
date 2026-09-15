@@ -3923,7 +3923,9 @@ void App::OnKeyDown(WPARAM key) {
 
 void App::OnCommand(int id) {
     if (m_demo && (id==IDM_COPY_CMD || id==IDM_COPY_HASH || id==IDM_VT_FILE ||
-        id==ID_TAB_HIST || id==ID_TAB_STATS || id==ID_TAB_GRAPH)) {
+        id==ID_TAB_HIST || id==ID_TAB_STATS || id==ID_TAB_GRAPH ||
+        id==IDM_THREAT_REFRESH || id==IDM_CERT_REFRESH || id==IDM_OPEN_FOLDER ||
+        id==IDM_WHOIS || id==IDM_ABUSE_OPEN || id==IDM_CIRCL_OPEN)) {
         RequireLiveData(); return;
     }
     switch (id) {
@@ -4400,10 +4402,7 @@ void App::ExportData() {
     const bool asTxt  = (ToLower(path).find(L".txt") != std::wstring::npos);
     std::wstring out;
 
-    auto esc = [](std::wstring s) {
-        for (auto& ch : s) if (ch == L';' || ch == L'\n' || ch == L'\r') ch = L' ';
-        return s;
-    };
+    auto esc = [](const std::wstring& s) { return CsvText(s); };
     auto hesc = [](const std::wstring& s) {
         std::wstring r;
         r.reserve(s.size());

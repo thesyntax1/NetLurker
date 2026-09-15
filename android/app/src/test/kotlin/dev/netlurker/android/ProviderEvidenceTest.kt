@@ -1,5 +1,6 @@
 package dev.netlurker.android
 
+import dev.netlurker.android.core.Export
 import dev.netlurker.android.core.AppTraffic
 import dev.netlurker.android.core.Ip
 import dev.netlurker.android.core.Target
@@ -51,6 +52,13 @@ class ProviderEvidenceTest {
         assertEquals("dns.google", result.names)
         assertEquals(1700000000L, result.newest)
         rejected { PassiveDns.parse(record, "8.8.4.4") }
+    }
+
+    @Test fun spreadsheetCellsCannotEvaluateProviderOrApplicationText() {
+        assertEquals("'=1+1", Export.escapeCsv("=1+1"))
+        assertEquals("' \t@SUM(1)", Export.escapeCsv(" \t@SUM(1)"))
+        assertEquals("\"ACME;\"\"Co\"\"\"", Export.escapeCsv("ACME;\"Co\""))
+        assertEquals("normal text", Export.escapeCsv("normal text"))
     }
 
     @Test fun resolvingAHostnameNeverChangesItsTargetKey() {

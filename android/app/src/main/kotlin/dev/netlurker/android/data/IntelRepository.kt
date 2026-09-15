@@ -104,7 +104,7 @@ class IntelRepository(
         val existing = _targets.value.firstOrNull { it.input.equals(trimmed, true) && it.port == port }
         if (existing != null) return existing
         val target = Target(input = trimmed, ip = trimmed.takeIf { Ip.isIp(it) }, port = port)
-        _targets.value = _targets.value + target
+        _targets.update { it + target }
         investigate(target.key, force = false)
         return target
     }
@@ -146,7 +146,7 @@ class IntelRepository(
     /** Runs every enabled source for one target, in the order the desktop build uses. */
     fun investigate(key: String, force: Boolean = false) {
         val target = _targets.value.firstOrNull { it.key == key } ?: return
-        val backoffUntil = nextTryAt[key] ?: 0L
+        val backoffUntil = nextTryAt[target.instanceId] ?: 0L
         if (!force && backoffUntil > nowEpochSec()) return
         val job = scope.launch(Dispatchers.IO, start = CoroutineStart.LAZY) {
             try { runInvestigation(target, force) }
@@ -260,7 +260,7 @@ class IntelRepository(
         }
         val response = withContext(Dispatchers.IO) { throttledGeo(ip) }
         return if (response == null) {
-            noteFailure(target.key, "geo")
+            noteFailure(target.instanceId, "geo")
             target.copy(geo = IntelResult.offline("no answer from ip-api.com"))
         } else {
             response.fold(
@@ -269,7 +269,7 @@ class IntelRepository(
                     target.copy(geo = IntelResult.ok(info))
                 },
                 onFailure = { error ->
-                    noteFailure(target.key, "geo")
+                    noteFailure(target.instanceId, "geo")
                     if (error is GeoApi.GeoFailure && error.offline) {
                         target.copy(geo = IntelResult.offline(error.message))
                     } else {
@@ -452,7 +452,7 @@ class IntelRepository(
             sourcesAnswered = sources
         )
         if (sources.isEmpty()) {
-            noteFailure(target.key, "threat")
+            noteFailure(target.instanceId, "threat")
             return target.copy(threat = IntelResult.failed(problems.joinToString("; ")))
         }
         val detail = if (problems.isEmpty()) null else problems.joinToString("; ")
@@ -560,7 +560,8 @@ class IntelRepository(
     }
 
     fun pendingBackoff(key: String): Long {
-        val until = nextTryAt[key] ?: return 0L
+        val identity = _targets.value.firstOrNull { it.key == key }?.instanceId ?: return 0L
+        val until = nextTryAt[identity] ?: return 0L
         return (until - nowEpochSec()).coerceAtLeast(0L)
     }
 

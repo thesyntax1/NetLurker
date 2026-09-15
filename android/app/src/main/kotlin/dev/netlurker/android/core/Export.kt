@@ -417,9 +417,11 @@ object Export {
         writer.endArray()
     }
 
-    private fun escapeCsv(value: String): String {
-        if (value.none { it == ';' || it == '"' || it == '\n' || it == '\r' }) return value
-        return '"' + value.replace("\"", "\"\"") + '"'
+    internal fun escapeCsv(value: String): String {
+        val first = value.firstOrNull { !it.isWhitespace() && it.code >= 32 }
+        val text = if (first in listOf('=', '+', '-', '@')) "'$value" else value
+        if (text.none { it == ';' || it == '"' || it == '\n' || it == '\r' }) return text
+        return '"' + text.replace("\"", "\"\"") + '"'
     }
 
     fun escapeHtml(value: String): String = buildString(value.length) {
