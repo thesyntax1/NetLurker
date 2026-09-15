@@ -4846,7 +4846,7 @@ void App::RunAiAnalysis(bool bulk) {
         if (top.empty()) {
             std::lock_guard<std::mutex> lk(m_aiMtx);
             m_aiTitle = Tr(L"Bulk analysis");
-            m_aiText  = Tr(L"No connection above 25 points right now. The system looks clean.");
+            m_aiText  = Tr(L"No connection at or above 25 points in this snapshot. Missing evidence can hide risk.");
             Layout();
             InvalidateRect(m_hwnd, nullptr, FALSE);
             return;

@@ -102,6 +102,7 @@ Implemented corrections (the exact revision's CI remains the source of test resu
 - **Traffic attribution:** shared Android UIDs are not attributed to individual packages;
   those package counters remain unavailable. History uses package identifiers rather than
   potentially duplicate/localized labels, reseeds after gaps, and synchronizes snapshots.
+- **Empty AI shortlist:** Windows no longer calls the system clean just because the current snapshot has no connection scoring at least 25.
 - **Plugin provenance:** Windows plugin output is kept separate and exported separately;
   it is no longer substituted for an AbuseIPDB score or fed into AbuseIPDB scoring rules.
 - **Demo provenance:** Windows demo rows cannot drive termination, suspension, firewall,
