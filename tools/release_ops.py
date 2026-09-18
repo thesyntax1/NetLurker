@@ -66,12 +66,16 @@ def signing_policy(env: dict) -> tuple[bool, bool]:
         if any(present) and not all(present):
             raise ValueError("Incomplete signing configuration. Configure all of: " + ", ".join(names))
         return all(present)
-    android = complete(("ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"))
+    # Android publication is opt-in. Unused/half-entered Android secrets must
+    # not hold a Windows-only release hostage. Never replace it with a debug APK.
+    android = False
+    if env.get("REQUIRE_ANDROID_RELEASE", "").strip().lower() == "true":
+        android = complete(("ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD"))
+        if not android:
+            raise ValueError("Android publication is enabled but the release signing secrets are missing")
+        if not re.fullmatch(r"[0-9a-fA-F]{64}", env.get("ANDROID_SIGNING_CERT_SHA256", "").replace(":", "")):
+            raise ValueError("Set ANDROID_SIGNING_CERT_SHA256 to the expected release certificate SHA-256 fingerprint")
     windows = complete(("WINDOWS_CERT_BASE64", "WINDOWS_CERT_PASSWORD"))
-    if android and not re.fullmatch(r"[0-9a-fA-F]{64}", env.get("ANDROID_SIGNING_CERT_SHA256", "").replace(":", "")):
-        raise ValueError("Set ANDROID_SIGNING_CERT_SHA256 to the expected release certificate SHA-256 fingerprint")
-    if env.get("REQUIRE_ANDROID_RELEASE", "").lower() == "true" and not android:
-        raise ValueError("Android publication is required but the release signing secrets are missing")
     if env.get("REQUIRE_WINDOWS_SIGNATURE", "").lower() == "true" and not windows:
         raise ValueError("Windows signing is required but certificate secrets are missing")
     return android, windows
@@ -97,7 +101,7 @@ def preflight(tag: str, publish: bool):
     with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
         for key, value in values.items():
             out.write(f"{key}={value}\n")
-    print(f"Version {info['version']}; source {revision}; Android {'signed APK' if android else 'omitted (no key configured)'}; "
+    print(f"Version {info['version']}; source {revision}; Android {'signed APK' if android else 'not enabled (Windows-only release)'}; "
           f"Windows {'signed' if windows else 'UNSIGNED'}; publish={publish}")
 
 
@@ -158,7 +162,7 @@ def manifest(directory: Path, version: str, revision: str, android: bool, run_ur
             raise ValueError("Android signature report does not match payload/status")
     payload = {**info, "source_revision": revision, "build_url": run_url,
                "version_stamping": "tools/release_version.py applied before compilation; tag is not moved",
-               "android": "signed" if android else "omitted: production signing not configured",
+               "android": "signed" if android else "omitted: Android publication is not enabled",
                "signatures": signatures,
                "files": [{"name": name, "sha256": sha256(directory / name), "bytes": (directory / name).stat().st_size}
                          for name in sorted(expected)]}

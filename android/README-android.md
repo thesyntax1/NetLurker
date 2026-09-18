@@ -103,8 +103,10 @@ and checked with `apksigner`, `zipalign` and `aapt2`. The application ID must be
 Configure `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_ALIAS`
 and `ANDROID_KEY_PASSWORD` under GitHub Actions repository secrets. Keep the same
 production key and an offline backup. No signing secrets are supplied to ordinary PR
-builds. Set `REQUIRE_ANDROID_RELEASE=true` to block a release if the key is not configured;
-otherwise an entirely absent Android signing setup produces a clearly disclosed
-Windows-only release. Partial configuration or failed verification always fails.
+builds. Android publication is off by default; unused or unfinished Android settings do
+not block a Windows-only release. Set `REQUIRE_ANDROID_RELEASE=true` to explicitly
+enable Android publication and require complete, verified signing. Once enabled,
+partial configuration or failed verification always fails. No signing setup is needed
+to try a development debug APK; it is not a production release.
 See [release setup and recovery](../docs/RELEASES.md). A signed APK still needs a
 physical-device install/upgrade test before claiming public-release readiness.

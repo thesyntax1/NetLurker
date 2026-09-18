@@ -16,10 +16,21 @@
          font-family: 'Segoe UI', system-ui, Arial, sans-serif; line-height: 1.6; }
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
   header { border-bottom: 1px solid var(--line); padding: 18px 0; }
-  .nav { display: flex; align-items: center; justify-content: space-between; }
+  a { color: var(--cyan); }
+  a:focus-visible, summary:focus-visible { outline: 3px solid var(--cyan); outline-offset: 4px; }
+  .skip { position: absolute; left: 12px; top: -80px; padding: 12px; background: var(--panel); z-index: 2; }
+  .skip:focus { top: 12px; }
+  .nav { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  nav { display: flex; flex-wrap: wrap; gap: 12px 20px; }
+  .steps { padding-left: 22px; color: var(--dim); }
+  .steps li { margin: 14px 0; }
+  code, kbd { background: #10151c; color: var(--text); border: 1px solid var(--line); border-radius: 4px; padding: 2px 5px; }
+  details { border-bottom: 1px solid var(--line); padding: 16px 0; }
+  summary { cursor: pointer; color: var(--text); font-weight: 600; }
+  details p { color: var(--dim); margin-top: 10px; max-width: 76ch; }
   .brand { font-weight: 700; font-size: 20px; color: var(--cyan); letter-spacing: .5px; }
   .brand small { color: var(--faint); font-weight: 400; }
-  .nav a { color: var(--dim); text-decoration: none; margin-left: 22px; font-size: 14px; }
+  .nav a { color: var(--dim); text-decoration: none; margin-left: 0; font-size: 14px; }
   .nav a:hover { color: var(--text); }
   .hero { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center;
           padding: 64px 0 40px; }
@@ -73,18 +84,21 @@
 </style>
 </head>
 <body>
+<a class="skip" href="#content">Skip to content</a>
 <header>
   <div class="wrap nav">
     <div class="brand">NETLURKER <small>// network intelligence</small></div>
-    <nav>
+    <nav aria-label="Main navigation">
       <a href="#features">Features</a>
       <a href="#privacy">Privacy</a>
       <a href="#download">Download</a>
       <a href="https://github.com/thesyntax1/NetLurker">GitHub</a>
+      <a href="https://github.com/thesyntax1/NetLurker/blob/main/README.tr.md" lang="tr">Türkçe rehber</a>
     </nav>
   </div>
 </header>
 
+<main id="content">
 <section class="wrap hero">
   <div>
     <h1>See what connects out.<br><span class="cy">Inspect the evidence.</span></h1>
@@ -96,24 +110,29 @@
       <li>8 languages; portable Windows executable with bundled language files</li>
       <li>Free and open source (MIT)</li>
     </ul>
-    <a class="btn" href="https://github.com/thesyntax1/NetLurker/releases">View release status</a>
+    <a class="btn" href="https://github.com/thesyntax1/NetLurker/releases">Find Windows downloads</a>
     <a class="btn ghost" href="https://github.com/thesyntax1/NetLurker">Source on GitHub</a>
     <div class="badges">
       <span>C++17</span><span>Win32 API</span><span>x64</span><span>Windows desktop</span>
     </div>
   </div>
-  <figure style="margin:0">
-    <img src="hero.png" alt="NetLurker dashboard (illustration)">
-    <figcaption style="color:var(--faint);font-size:12px;margin-top:8px">
-      Legacy UI concept — not a screenshot, measured traffic, or current release evidence.
-    </figcaption>
-  </figure>
+  <aside class="card" aria-labelledby="first-investigation">
+    <b id="first-investigation">Your first investigation</b>
+    <p>Start with one question: which app is making this connection?</p>
+    <ol class="steps">
+      <li><kbd>Ctrl+F</kbd> — find a process, such as <code>proc:chrome</code>.</li>
+      <li>Select a connection and inspect its destination and available evidence.</li>
+      <li><kbd>Enter</kbd> — open the analysis. Without an AI key, local rules are available.</li>
+    </ol>
+    <p>Just exploring? <kbd>Ctrl+D</kbd> opens a labeled synthetic demo.
+    <kbd>F1</kbd> shows shortcuts. Do not block or terminate a process based only on a score.</p>
+  </aside>
 </section>
 
 <section class="wrap" id="real">
-  <h2>Pre-release hardening</h2>
-  <p>A verified capture of the current candidate is still pending. Legacy artwork is not
-  evidence of measured traffic. See the repository for build status, limitations and the release checklist.</p>
+  <h2>Useful context, not a verdict</h2>
+  <p>A low score is not proof of safety. Missing provider data stays unavailable, not “clean”.
+  Inspect the reasons, compare them with what the application is doing, and investigate before acting.</p>
 </section>
 
 <section class="wrap" id="features">
@@ -124,10 +143,10 @@
   <div class="grid" style="margin-top:24px">
     <div class="card"><b>🔍 Identity &amp; enrichment</b>
       <p>Authenticode signatures, publisher, command line, owning module, geo/ASN, reverse DNS,
-      RDAP ownership, TLS certificate analysis, HTTP banner &amp; EOL detection.</p></div>
+      RDAP ownership, TLS certificate details and banner-based version hints.</p></div>
     <div class="card"><b>📈 Risk engine 0–100</b>
-      <p>Heuristic scoring with MITRE-mapped reasons: C2 beacon patterns, persistence, rare
-      privileged ports, unsigned processes, datacenter targets, exfiltration ratios.</p></div>
+      <p>Review signals such as unusual ports, unsigned processes and connection patterns.
+      Every signal needs context; a score is not a probability of malware.</p></div>
     <div class="card"><b>🧠 Structured AI analyst</b>
       <p>One keypress turns evidence into a structured verdict — decision, confidence, reasons,
       concerns, recommendation, follow-up actions. A separate local heuristic report is available without an API key.</p></div>
@@ -135,8 +154,8 @@
       <p>Process ↔ endpoint graph colored by risk, edge thickness by data flow, endpoints
       labeled with country codes.</p></div>
     <div class="card"><b>🚨 Behavioral anomaly</b>
-      <p>Per-process connection baselines (EMA + variance). A process that suddenly talks
-      3× more than usual triggers a toast, a notification, and a report entry.</p></div>
+      <p>Compares connection counts with local per-process baselines when enough observations
+      are available. Changes are prompts to investigate, not confirmed incidents.</p></div>
     <div class="card"><b>🧩 Plugin providers</b>
       <p>Drop a JSON definition in <code>plugins\</code> and feed your own intelligence
       source: IP on stdin, JSON verdict on stdout.</p></div>
@@ -151,8 +170,8 @@
       <b style="margin-top:14px">✓ No telemetry</b><p>No analytics, no ads, no account.</p>
       <b style="margin-top:14px">✓ Explicit lookups</b>
       <p>Several enrichment sources are enabled by default. Review Settings and the privacy policy before monitoring a sensitive network: ip-api.com, AbuseIPDB +
-      DNS blacklists + CIRCL, rdap.org, VirusTotal (only with your key), a single TLS
-      ClientHello and a single HTTP HEAD per target.</p>
+      DNS blacklists + CIRCL, rdap.org, VirusTotal (only with your key), TLS
+      certificate probes and HTTP banner probes.</p>
     </div>
     <div class="card">
       <b>Speaks your language</b>
@@ -170,14 +189,35 @@
 </section>
 
 <section class="wrap" id="download">
-  <h2>Get started <span class="dim">Windows 7+ · x64 · ~2 MB portable executable</span></h2>
-  <a class="btn" href="https://github.com/thesyntax1/NetLurker/releases">View release status</a>
+  <h2>Get started <span class="dim">Windows desktop · x64 · portable ZIP or installer</span></h2>
+  <a class="btn" href="https://github.com/thesyntax1/NetLurker/releases">Find Windows downloads</a>
   <a class="btn ghost" href="https://github.com/thesyntax1/NetLurker#build--test">Build from source</a>
   <p style="color:var(--faint); margin-top:18px; font-size:13px">
-  No installer needed. First run shows a quick-start card and a demo mode with realistic
-  sample data — no API keys required. Use Ctrl+D to switch between demo and real data.</p>
+  Choose <code>-setup.exe</code> for installation or extract the complete <code>-win64.zip</code>,
+  including its <code>lang/</code> folder. No account or AI key is required. If no package has
+  been published yet, use the repository’s build instructions. “Source code” archives are not binaries.</p>
+  <details>
+    <summary>How do I change the language?</summary>
+    <p>Open Settings with Ctrl+S. The language picker is at the top. Choose a language and Save;
+    the first launch is English. Türkçe and seven other interface languages are available.</p>
+  </details>
+  <details>
+    <summary>Do I need to set up signing keys?</summary>
+    <p>No. Signing is a maintainer setting, not an installation step. Check the release’s
+    signature disclosure and SHA256SUMS.txt. Do not disable security protection to dismiss a warning.</p>
+  </details>
+  <details>
+    <summary>What about Android?</summary>
+    <p>The Android companion is available as source and development builds. It does not provide
+    Windows-style live socket-to-app monitoring. Production APK publication is off by default;
+    a debug or unsigned APK is never presented as a production release.</p>
+  </details>
+  <p style="margin-top:24px">Something unclear or not working?
+    <a href="https://github.com/thesyntax1/NetLurker/issues/new/choose">Report a problem or suggest an improvement</a>.
+    Include your version and OS, but remove private addresses and credentials first.</p>
 </section>
 
+</main>
 <footer>
   <div class="wrap">
     NetLurker — Real-time Windows Network Intelligence · MIT License ·

@@ -1,5 +1,20 @@
 # GitHub Releases: sürüm hazırlama ve otomatik yayın
 
+## Basit kullanım: şifre/anahtar doldurmadan Windows yayını
+
+Varsayılan yayın **Windows ZIP + kurulum EXE’si + doğrulama dosyalarıdır**.
+Android imzası kurmak, parola üretmek veya boş secret alanları açmak gerekmez.
+`REQUIRE_ANDROID_RELEASE` tanımsız ya da `false` olduğunda Android imza kayıtları
+kullanılmaz; yarım bırakılmış Android ayarları Windows yayınını durdurmaz. Android
+kaynak kodu ve geliştirme APK’sı korunur; debug APK genel sürüm gibi yayımlanmaz.
+Windows sertifikası yoksa paket açıkça **UNSIGNED** olarak işaretlenir.
+
+Daha önce yalnızca denemek için boş/örnek kayıtlar açtıysanız GitHub'da
+**Settings → Secrets and variables → Actions** altında bunları silebilirsiniz.
+Gerçek bir uygulamada kullanılmış anahtarları veya yedeklerini silmeyin.
+Android'i kapalı tutmak için `REQUIRE_ANDROID_RELEASE` değişkenini kaldırın veya
+`false` yapın; diğer imza alanlarını doldurmanız gerekmez.
+
 ## Kullanım: Releases’ten sürüm yayımla
 
 Önce bu otomasyon değişikliklerini varsayılan dala (`main`) birleştirin. Etiketlenecek
@@ -32,7 +47,7 @@ GitHub’ın otomatik eklediği “Source code” arşivleri, derlenmiş uygulam
 |---|---|
 | `NetLurker-v6.0.1-win64.zip` | Windows x64 EXE, sekiz dil, lisans, gizlilik/güvenlik belgeleri, kaynak bilgisi ve iç dosya özetleri |
 | `NetLurker-v6.0.1-setup.exe` | Varsayılan olarak kullanıcı başına kurulum, kısayollar ve kaldırıcı |
-| `NetLurker-v6.0.1-android.apk` | **Yalnızca üretim imzası yapılandırılmışsa**; normal uygulama kimliğiyle doğrulanmış APK |
+| `NetLurker-v6.0.1-android.apk` | **Yalnızca Android yayını açık ve üretim imzası doğrulanmışsa**; normal uygulama kimliğiyle doğrulanmış APK |
 | `windows-signatures.json` | EXE ve yükleyicinin gerçek Authenticode durumu, dosya ve sertifika SHA-256’ları |
 | `android-signature.json` | APK varsa imza sertifikası ve dosya SHA-256’sı |
 | `RELEASE-MANIFEST.json` | Ortak sürüm, Android versionCode, kaynak commit’i, Actions bağlantısı, dosya özetleri ve imza raporları |
@@ -50,10 +65,11 @@ Yalnızca dosya yükleyen `publish` işi bu yazma iznini ister. Kişisel erişim
 (PAT) gerekmez; yerleşik `GITHUB_TOKEN` kullanılır. Workflow’lar üçüncü taraf
 aksiyonları commit SHA’sına sabitler; Dependabot bunları PR ile günceller.
 
-**Settings → Secrets and variables → Actions** altında aşağıdakileri ayarlayın.
+**Aşağıdaki imza ayarları isteğe bağlıdır; Windows yayını için doldurmayın.**
+İleride imzalı yayın istediğinizde **Settings → Secrets and variables → Actions** bölümünü kullanın.
 Sırları issue, sohbet, kaynak kodu, build log’u veya release notlarına yazmayın.
 
-### Android: kurulabilir ve güncellenebilir APK
+### İleri kullanım — Android: kurulabilir ve güncellenebilir APK
 
 Android imzası **ilk yayımdan itibaren aynı anahtarla** yapılmalı. Kaybolan/değiştirilen
 anahtar mevcut kurulumların normal güncellenmesini engeller. Anahtarı güvenli,
@@ -80,12 +96,12 @@ Normal CI/PR işlerine üretim imza sırları verilmez. CI aynı imzalama yolunu
 bir test anahtarıyla da çalıştırır; bu test APK’sı/anahtarı dağıtılmaz ve üretim imzası
 doğrulanmış gibi sunulmaz.
 
-- Dört Android sırrının **hiçbiri yoksa** Windows yayını yapılır; APK açık gerekçeyle
-  atlanır. Debug ya da imzasız APK, yerine konulmaz.
-- Sırların yalnızca bir kısmı varsa, parmak izi eksik/yanlışsa veya doğrulama
-  başarısızsa yayın başarısız olur; bozuk APK eklenmez.
-- Android’in atlanmasını da engellemek için Variable **`REQUIRE_ANDROID_RELEASE=true`**
-  tanımlayın. Android’i destekleyen ilk genel sürümden önce bunu açmanız önerilir.
+- Android yayını **varsayılan olarak kapalıdır**. Anahtarlar mevcut olsa bile
+  yalnızca bunları eklemek APK yayını başlatmaz.
+- Android'i yayımlamak istediğinizde yukarıdaki ayarları tamamlayıp Variable
+  **`REQUIRE_ANDROID_RELEASE=true`** yapın. Bu, Android'i hem açar hem zorunlu kılar.
+- Açıkken eksik/yarım ayar, yanlış parmak izi veya imza doğrulama hatası yayını
+  durdurur. Debug/imzasız APK hiçbir zaman onun yerine konulmaz.
 
 ### Windows: isteğe bağlı Authenticode
 
@@ -115,8 +131,8 @@ uyarısının kesinlikle görünmeyeceğini garanti etmez; korumaları kapatmay�
 
 Bu hazırlık modu seçtiğiniz dalın commit’ini sürümlendirir ve aynı paketleme/imza
 kontrollerini çalıştırır. Tag’in mevcut olması gerekmez. `NetLurker-release-assets`
-artifact’ini üretir; release/tag oluşturmaz veya değiştirmez. Sırlar yapılandırılmışsa
-aday paket de imzalanır. Otomatik release’lerde emülatörü zorunlu yapmak için
+artifact’ini üretir; release/tag oluşturmaz veya değiştirmez. Windows imza sırları yapılandırılmışsa
+aday Windows paketi de imzalanır. Android ayrıca açıkça etkinleştirilmiş olmalıdır. Otomatik release’lerde emülatörü zorunlu yapmak için
 Variable **`RELEASE_RUN_EMULATOR=true`** kullanın. Kapalıyken UI testleri derlenir,
 çalıştırılmış gibi raporlanmaz. Fiziksel cihaz kontrolü ayrıca yapılmalıdır.
 

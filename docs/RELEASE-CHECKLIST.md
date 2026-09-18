@@ -17,10 +17,12 @@ branch; it creates review artifacts without creating/publishing a tag or release
 See [the release operator guide](RELEASES.md) for setup, signing, retries and version rules.
 
 Android public APKs require a production keystore and pinned certificate fingerprint.
-Without any Android signing secrets, Android is explicitly omitted, never replaced with
-a debug/unsigned APK. Set `REQUIRE_ANDROID_RELEASE=true` to make omission a hard failure.
+Android publication is off by default, even if unused Android secrets exist. Set
+`REQUIRE_ANDROID_RELEASE=true` to enable it and require complete, verified signing.
+While off, unfinished Android settings do not block Windows releases; no debug/unsigned
+APK is substituted. Once enabled, missing/partial keys or failed verification stop publication.
 Windows signing is optional with explicit UNSIGNED disclosure; set
-`REQUIRE_WINDOWS_SIGNATURE=true` to require it. Partial signing configuration is an error.
+`REQUIRE_WINDOWS_SIGNATURE=true` to require it. Partial Windows signing configuration is an error.
 
 Emulator execution remains opt-in (dispatch input or `RELEASE_RUN_EMULATOR=true` repository
 variable) because it uses additional runner time. UI-test compilation is always run;

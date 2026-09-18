@@ -16,6 +16,22 @@ imzalanmış ve cihazda doğrulanmış genel sürüm anlamına gelmez. Hazır s�
 [Releases](https://github.com/thesyntax1/NetLurker/releases) sayfasında bulunacak.
 Kaynak klasörlerindeki eski EXE/ZIP dosyaları dağıtım yolu değildir.
 
+## Hangisini indireyim?
+
+| İstediğim | İndireceğim dosya |
+|---|---|
+| Windows'a kurmak | [Releases](https://github.com/thesyntax1/NetLurker/releases) → Assets → `NetLurker-v…-setup.exe` |
+| Kurmadan denemek | `NetLurker-v…-win64.zip`; arşivin **tamamını** çıkarın |
+| Android yardımcı uygulamasını denemek | Başarılı bir [Build çalışmasındaki](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml) `NetLurker-debug-apk`; yalnızca geliştirme/test sürümü |
+
+Henüz yayın dosyası yoksa başarılı Build çalışmasını veya aşağıdaki kaynak derleme
+adımlarını kullanın. **“Source code (zip)” uygulama değildir.** CI dosyalarını indirmek
+GitHub girişi gerektirebilir. Genel sürüm dosyalarını `SHA256SUMS.txt` ile karşılaştırın.
+
+**Denemek için hesap, abonelik veya AI anahtarı gerekmez.** İmza ayarları geliştirici
+ayarlarıdır; kullanıcı kurulumu için doldurulmaz. Varsayılan yayın Windows içindir;
+Android üretim yayını açıkça etkinleştirilmedikçe geliştirme/test aşamasında kalır.
+
 ## Neden denemeli?
 
 - Bir IP listesinden değil, **uygulamadan başlayın**: bağlantı, hedef, imza ve süreç bağlamı.
@@ -41,9 +57,8 @@ Kaynak klasörlerindeki eski EXE/ZIP dosyaları dağıtım yolu değildir.
 
 ## Üç dakikada deneyin
 
-1. Windows için aşağıdaki komutlarla derleyin veya başarılı bir
-   [Build çalışmasının](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml)
-   geliştirme dosyasını indirin. GitHub hesabıyla giriş gerekebilir.
+1. Yukarıdan Windows yükleyicisini veya taşınabilir ZIP'i seçin. Henüz yayın yoksa
+   başarılı bir Build çalışmasını ya da aşağıdaki kaynak derleme adımlarını kullanın.
 2. `NetLurker.exe` ile `lang/` klasörünü aynı dizinde tutun.
 3. `Ctrl+S` ile dış sorguları inceleyin. **IP zenginleştirme varsayılan olarak açıktır ve
    sorgulanan IP'ler hizmet sağlayıcılara gönderilir.** Hassas ağlarda önce [gizliliği](PRIVACY.md) okuyun.
@@ -51,6 +66,21 @@ Kaynak klasörlerindeki eski EXE/ZIP dosyaları dağıtım yolu değildir.
 5. `Enter` ile rapor, `Ctrl+E` ile dışa aktarım. Kanıtı kontrol etmeden süreç sonlandırmayın.
 
 Demo, kullanım deneyimini gösterir; canlı veri kaynağının doğru çalıştığını kanıtlamaz.
+
+## İlk kullanımda takılırsanız
+
+- **Türkçe yapmak:** `Ctrl+S` → en üstteki Language alanı → Türkçe → Kaydet.
+  İlk açılış İngilizcedir; İptal, önizlenen dil seçimini kaydetmez.
+- **Tablo boş:** Arama filtresini temizleyin, bir uygulama bağlantı kurarken tekrar
+  bakın veya `Ctrl+D` ile etiketli sentetik demoyu açın. Boş tablo sistemin güvenli
+  olduğunu kanıtlamaz. Kısayollar için `F1` kullanın.
+- **Bir bilgiye erişilemiyor:** Ölçüm/sorgu tamamlanmamış veya erişim sınırlı olabilir.
+  Bu, sıfır trafik, temiz sonuç veya tehdit anlamına gelmez; kaynak ayarlarını inceleyin.
+- **Windows güvenlik uyarısı:** Korumanızı kapatmayın. Dosyanın kaynağını ve özetini
+  doğrulayın veya kaynak kodundan derleyin. İmzasız dosyalar açıkça belirtilir.
+- **Hata buldunuz:** [Bildirim açın](https://github.com/thesyntax1/NetLurker/issues/new/choose);
+  sürümü, işletim sistemini ve tekrar üretme adımlarını yazın. Ekran görüntüsü/rapordan
+  özel adresleri, API anahtarlarını ve kişisel bilgileri silin.
 
 ## Puan ne anlama geliyor?
 
@@ -89,8 +119,8 @@ Debug APK değerlendirme içindir. İmzasız release APK, normal bir yayın olar
 ## Güven ve katkı
 
 Releases’te `v6.0.1` gibi bir tag ile **Publish release** seçildiğinde test edilmiş Windows
-ZIP’i ve yükleyici otomatik eklenir. Android APK’sı yalnızca üretim imzası yapılandırılmışsa
-paylaşılır. Yayımlamadan hazırlık modu da vardır: [kurulum ve kullanım](docs/RELEASES.md).
+ZIP’i ve yükleyici otomatik eklenir. Android APK’sı yalnızca üretim yayını açıkça etkinleştirilip imza doğrulaması
+geçtiğinde eklenir. Yayımlamadan hazırlık modu da vardır: [kurulum ve kullanım](docs/RELEASES.md).
 
 Yayın adayları taze derleme, kaynak revizyonu ve SHA-256 özetiyle hazırlanır. Özet dosyası
 kod imzasının veya güvenlik denetiminin yerini tutmaz. SmartScreen uyarısı alırsanız güvenlik

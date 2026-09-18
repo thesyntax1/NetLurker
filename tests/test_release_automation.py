@@ -57,14 +57,23 @@ class PolicyTest(unittest.TestCase):
                 signing_policy({name: "true"})
 
     def test_partial_keys_or_missing_fingerprint_fail_closed(self):
-        for env in ({"WINDOWS_CERT_BASE64": "placeholder"}, {"ANDROID_KEY_ALIAS": "placeholder"}):
+        for env in ({"WINDOWS_CERT_BASE64": "placeholder"}, {"REQUIRE_ANDROID_RELEASE": "true", "ANDROID_KEY_ALIAS": "placeholder"}):
             with self.assertRaises(ValueError):
                 signing_policy(env)
         env = {key: "fixture" for key in ("ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD")}
+        env["REQUIRE_ANDROID_RELEASE"] = "true"
         with self.assertRaises(ValueError):
             signing_policy(env)
         env["ANDROID_SIGNING_CERT_SHA256"] = "a" * 64
         self.assertEqual(signing_policy(env), (True, False))
+
+    def test_unused_android_secrets_cannot_block_or_enable_publication(self):
+        keys = ("ANDROID_KEYSTORE_BASE64", "ANDROID_KEYSTORE_PASSWORD", "ANDROID_KEY_ALIAS", "ANDROID_KEY_PASSWORD", "ANDROID_SIGNING_CERT_SHA256")
+        for flag in ("", "false", "   "):
+            for values in ({}, {"ANDROID_KEY_ALIAS": "netlurker"},
+                           {key: "   " for key in keys}, {key: "unused" for key in keys}):
+                with self.subTest(flag=flag, values=list(values)):
+                    self.assertEqual(signing_policy({**values, "REQUIRE_ANDROID_RELEASE": flag}), (False, False))
 
     def test_release_identity_and_prerelease_flag_are_checked(self):
         release = {"id": 7, "tag_name": "v6.0.1-rc.1", "draft": False, "prerelease": True}

@@ -16,6 +16,22 @@ reviewed public releases. See [Releases](https://github.com/thesyntax1/NetLurker
 for published packages when available. Do not download old executables from source folders
 or assume a green build proves every remote provider is working.
 
+## Choose your download
+
+| I want to… | Use this |
+|---|---|
+| Install on Windows | Open [Releases](https://github.com/thesyntax1/NetLurker/releases) → Assets → `NetLurker-v…-setup.exe` |
+| Try Windows without installation | Choose `NetLurker-v…-win64.zip` and extract the **entire** archive |
+| Evaluate the Android companion | Use `NetLurker-debug-apk` from a successful [Build run](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml); development build only |
+
+If Releases has no published packages yet, use a successful Build run or build from
+source below. “Source code (zip)” is **not** the application. CI artifacts may require
+GitHub sign-in. Compare public downloads with the release's `SHA256SUMS.txt`.
+
+**No account, subscription or AI key is needed to try NetLurker.** Maintainer signing
+settings are not part of installation. Public releases default to Windows; Android
+remains a development companion unless production publication is explicitly enabled.
+
 ## Why try it?
 
 - **Start with a process, not an IP spreadsheet.** Find an application, its open connections,
@@ -48,9 +64,8 @@ or assume a green build proves every remote provider is working.
 
 ### Windows
 
-1. Build from source below, or obtain a development artifact from a successful
-   [Build run](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml).
-   GitHub may require sign-in to download artifacts.
+1. Choose the installer or portable ZIP above. If no package has been published yet,
+   use a successful Build run or build from source below.
 2. Keep `NetLurker.exe` beside the bundled `lang/` directory. Start it normally; some
    process details and TCP statistics require administrator access. Elevated operation is
    not required just to try the UI.
@@ -70,6 +85,21 @@ Build/install the debug APK using the commands below. Device totals, network con
 and manually entered destination investigations work within Android's permissions.
 **Do not expect a live traffic table for every installed app.** An unsigned release APK
 is not installable as a normal release; a debug APK is for evaluation, not production.
+
+## First-run questions
+
+- **Change language:** `Ctrl+S` → the language picker at the top → select your language
+  → Save. First launch is English; Cancel does not save a previewed choice.
+- **Nothing in the table?** Clear the search filter, check again while an application
+  connects, or use `Ctrl+D` to explore a clearly labeled synthetic demo. An empty table
+  is not proof that the system is safe. `F1` shows keyboard shortcuts.
+- **A field says unavailable?** It was not measured successfully or access is restricted;
+  it does not mean zero, clean, or malicious. Check source settings and evidence details.
+- **Windows warns about the download?** An unsigned/unfamiliar file may trigger a warning.
+  Do not disable protection; verify its origin and checksum or build from source.
+- **Found a problem?** [Report it](https://github.com/thesyntax1/NetLurker/issues/new/choose)
+  with your version, OS and reproduction steps. Remove private addresses, API keys and
+  personal data from screenshots/reports first.
 
 ## What the scores mean
 
@@ -129,8 +159,8 @@ python3 -m unittest discover -s tests -p 'test_*.py'
 Release preparation builds fresh artifacts, validates bundled languages, records the source
 revision, and computes SHA-256 checksums. Hashes detect corruption; **they do not replace
 code signing or a security audit**. Publishing a GitHub Release triggers tested Windows ZIP
-and installer delivery; a verified Android APK is included only when production signing is
-configured. A manual preparation mode produces review artifacts without publishing.
+and installer delivery; a verified Android APK is included only when Android publication is explicitly enabled
+and production signing is configured. A manual preparation mode produces review artifacts without publishing.
 See the [release setup guide](docs/RELEASES.md) and [release checklist](docs/RELEASE-CHECKLIST.md).
 
 Windows SmartScreen may warn about an unsigned or unfamiliar binary. Do not disable your
