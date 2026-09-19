@@ -41,7 +41,7 @@ import org.json.JSONObject
  * Enriches investigated destinations. One coroutine per target, results published as they
  * arrive so the UI can show "querying…" per row instead of a blank screen.
  *
- * The honesty contract is enforced here, in one place:
+ * Source state and cache rules:
  *  - a source that is switched off reports DISABLED with the reason, never an empty value;
  *  - a source that needs a key and has none reports DISABLED, not "no threats found";
  *  - a failed request reports FAILED with the underlying error and is never cached;

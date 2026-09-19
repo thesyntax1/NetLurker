@@ -24,20 +24,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Every tab is composed for real on a device.
- *
- * The unit tests pin the scoring arithmetic; they cannot tell you that a screen composes.
- * These assertions are deliberately about *rendering*, not about data: on an emulator with
- * no Wi-Fi, no radio and no granted permissions the honest thing for each panel to show is
- * "unavailable here", and the test's job is to prove that path reaches the screen instead of
- * throwing. A composable that crashes on missing data fails here even though every unit
- * test is green.
- *
- * Two conventions this file has to respect: resource names are the catalog keys, dots
- * included, so they are not valid Kotlin identifiers and go through Resources.getIdentifier
- * the way the app does; and several catalog strings legitimately appear more than once on a
- * screen (a section header and the row inside it can share a label), so presence is asserted
- * by count rather than by assuming a single node.
+ * Device/emulator rendering tests, including missing-network and permission states.
+ * Catalog keys contain dots and are resolved with Resources.getIdentifier. Some
+ * labels occur more than once, so presence checks allow multiple matching nodes.
  */
 @RunWith(AndroidJUnit4::class)
 class ScreenRenderTest {
@@ -106,8 +95,7 @@ class ScreenRenderTest {
     fun networkTabShowsItsUnconditionalSections() {
         clickTab("tab.network")
 
-        // These headers render whether or not the device answers, which is exactly the
-        // honesty contract the rest of the app is built on.
+        // Section headers remain visible when network details are unavailable.
         assertTrue("link section missing", isShown("section.link"))
         assertTrue("hosts section missing", isShown("hosts.title"))
     }

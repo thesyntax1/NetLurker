@@ -22,7 +22,7 @@ against each other.
 | Anomaly / heartbeat | Changes/regularity in observed samples | Backups, updates, streaming and polling can legitimately trigger signals |
 | AI | Model interpretation of collected context | Not new measurement; verify every claim, especially instructions in remote text |
 
-## Corrections made during release hardening
+## Measurement and parsing changes
 
 1. **Android sample timing:** device sampling no longer overwrites the per-UID timestamp
    before app rates are calculated. Unsupported → supported transitions and counter resets
@@ -71,7 +71,7 @@ Known limits to retain in a release announcement:
 Do not use the old promotional artwork as proof that any of these observations were made.
 
 
-## Second audit: provider identity, continuity and synthetic provenance
+## Provider validation, target identity and demo isolation
 
 Implemented corrections (the exact revision's CI remains the source of test results):
 
@@ -96,7 +96,7 @@ Implemented corrections (the exact revision's CI remains the source of test resu
 - **Source switches:** Windows schedules DNSBL/Abuse/CIRCL independently of RDAP/VT and
   rejects results from old configurations. Android RDAP/VT no longer depend on the general
   threat toggle. Already transmitted requests cannot be recalled.
-- **Cache honesty:** Android rejects future/expired entries and incomplete/type-invalid
+- **Cache validation:** Android rejects future/expired entries and incomplete/type-invalid
   payloads; malformed RDAP cache data falls through to a real query. Windows aggregate
   threat cache files are discarded rather than reclassified as current evidence.
 - **Traffic attribution:** shared Android UIDs are not attributed to individual packages;

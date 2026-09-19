@@ -9,15 +9,7 @@ import dev.netlurker.android.core.AppTraffic
 import java.io.File
 import java.security.MessageDigest
 
-/**
- * The installed-application catalogue: names, UIDs, versions, installer of record and the
- * APK signing certificate.
- *
- * This is the honest Android counterpart of the desktop build's process intelligence.
- * Android has no Authenticode, so there is no "signed by Microsoft"; what does exist and
- * is reported here is the signing certificate the package was actually installed with and
- * where it came from. Both are read from the framework, never inferred.
- */
+/** Installed package metadata and APK signing certificates read through PackageManager. */
 class AppCatalog(private val context: Context) {
 
     private val pm: PackageManager = context.packageManager

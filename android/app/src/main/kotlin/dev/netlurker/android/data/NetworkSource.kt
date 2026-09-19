@@ -13,14 +13,7 @@ import dev.netlurker.android.core.WifiInfo
 import java.net.Inet4Address
 import java.net.NetworkInterface
 
-/**
- * Everything the framework will honestly tell us about the device's own network state.
- *
- * Each accessor degrades to an explicit "unavailable" with the reason instead of returning
- * a plausible-looking default: on Android a missing SSID usually means the location
- * permission was denied, and reporting "unknown network" as if it were a scanned SSID
- * would be exactly the fabrication this app refuses.
- */
+/** Network state from Android APIs; permission-restricted fields remain unavailable. */
 class NetworkSource(private val context: Context) {
 
     private val cm: ConnectivityManager =

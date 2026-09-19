@@ -49,6 +49,8 @@ class PackageTest(unittest.TestCase):
             self.assertIn("PRIVACY.md", zf.namelist())
             self.assertIn("LICENSE", zf.namelist())
             self.assertIn("docs/RELEASES.md", zf.namelist())
+            self.assertIn("docs/ROADMAP.md", zf.namelist())
+            self.assertIn(b"mailto:user2102392109@proton.me", zf.read("README.md"))
         self.assertIn(hashlib.sha256(archive.read_bytes()).hexdigest(),
                       (archive.parent / "SHA256SUMS.txt").read_text())
 

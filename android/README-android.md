@@ -5,7 +5,7 @@ Kotlin + Jetpack Compose · Android 8+ build target · eight languages · Englis
 **Experimental companion, not feature parity with Windows.** This build does not implement
 VPN capture, root collection, per-app sockets, or firewall controls.
 
-## What you can actually use
+## Features
 
 - **Investigate:** enter an IP, hostname, `host:port`, or `[IPv6]:port`; review resolution,
   available geo/reputation/RDAP answers, a TLS probe, an HTTP banner, and heuristic reasons.
@@ -16,7 +16,7 @@ VPN capture, root collection, per-app sockets, or firewall controls.
   unavailable traffic counters**. The app does not request Usage Access or implement a
   NetworkStatsManager history collector.
 - **History / Summary:** observations made during the session, device rates, and signals for
-  counters that were actually available. No invented app ↔ destination graph.
+  counters that were actually available. No per-app destination graph is available.
 - **Reports:** JSON, CSV, TXT, HTML; optional remote AI or local heuristic analysis.
 
 Android's restriction is documented by the platform: [1](https://developer.android.com/reference/android/net/TrafficStats).
@@ -53,8 +53,8 @@ cd android
 
 Install `app/build/outputs/apk/debug/app-debug.apk` for evaluation. It has a debug application
 ID suffix and debug signing certificate. `assembleRelease` produces an **unsigned APK**
-unless a release keystore is configured. Do not present that file as an installable public
-release or promise byte-for-byte reproducibility without independently verifying it.
+unless a release keystore is configured. An unsigned release APK is not installable
+as a normal release. Reproducible builds have not been verified.
 
 ## Release signing
 

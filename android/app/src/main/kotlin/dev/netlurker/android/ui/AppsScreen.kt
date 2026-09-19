@@ -45,12 +45,8 @@ import dev.netlurker.android.core.Verdict
 import dev.netlurker.android.core.Format
 
 /**
- * Apps: per-application traffic, straight from the kernel's UID counters.
- *
- * The columns are byte totals since boot and the rate measured over the last poll
- * interval — nothing else. There is deliberately no "destinations" column: Android does
- * not tell an unrooted app which addresses another app is talking to, and a guessed value
- * here would poison every judgement built on top of it.
+ * Package details and available UID counters. Other apps' counters are restricted
+ * on modern Android; this screen does not attribute remote destinations to packages.
  */
 @Composable
 fun AppsScreen(viewModel: MainViewModel) {

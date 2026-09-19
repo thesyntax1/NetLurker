@@ -102,9 +102,8 @@
 <section class="wrap hero">
   <div>
     <h1>See what connects out.<br><span class="cy">Inspect the evidence.</span></h1>
-    <p class="tag">NetLurker turns raw socket tables into actionable network intelligence —
-    process, signature, country, threat feeds, TLS, and behavioral baselines — in one dark,
-    keyboard-driven window.</p>
+    <p class="tag">Inspect Windows connections alongside their processes, signatures and destination
+    lookups. Filter the list, read the available evidence and save a report.</p>
     <ul class="checks">
       <li>Local monitoring; optional external enrichment and AI</li>
       <li>8 languages; portable Windows executable with bundled language files</li>
@@ -141,22 +140,22 @@
   live reputation findings. A risk score is an investigation priority, not a malware probability.</p>
 
   <div class="grid" style="margin-top:24px">
-    <div class="card"><b>🔍 Identity &amp; enrichment</b>
+    <div class="card"><b>Identity &amp; enrichment</b>
       <p>Authenticode signatures, publisher, command line, owning module, geo/ASN, reverse DNS,
       RDAP ownership, TLS certificate details and banner-based version hints.</p></div>
-    <div class="card"><b>📈 Risk engine 0–100</b>
+    <div class="card"><b>Risk engine 0–100</b>
       <p>Review signals such as unusual ports, unsigned processes and connection patterns.
       Every signal needs context; a score is not a probability of malware.</p></div>
-    <div class="card"><b>🧠 Structured AI analyst</b>
+    <div class="card"><b>Structured AI analyst</b>
       <p>One keypress turns evidence into a structured verdict — decision, confidence, reasons,
       concerns, recommendation, follow-up actions. A separate local heuristic report is available without an API key.</p></div>
-    <div class="card"><b>📊 Network graph</b>
+    <div class="card"><b>Network graph</b>
       <p>Process ↔ endpoint graph colored by risk, edge thickness by data flow, endpoints
       labeled with country codes.</p></div>
-    <div class="card"><b>🚨 Behavioral anomaly</b>
+    <div class="card"><b>Behavioral anomaly</b>
       <p>Compares connection counts with local per-process baselines when enough observations
       are available. Changes are prompts to investigate, not confirmed incidents.</p></div>
-    <div class="card"><b>🧩 Plugin providers</b>
+    <div class="card"><b>Plugin providers</b>
       <p>Drop a JSON definition in <code>plugins\</code> and feed your own intelligence
       source: IP on stdin, JSON verdict on stdout.</p></div>
   </div>
@@ -222,6 +221,10 @@
   <div class="wrap">
     NetLurker — Real-time Windows Network Intelligence · MIT License ·
     <a href="https://github.com/thesyntax1/NetLurker">github.com/thesyntax1/NetLurker</a><br>
+    <p style="margin-top:12px">Developer contact:
+      <a href="https://tiktok.com/szoboszlai2113">TikTok — szoboszlai2113</a> ·
+      <a href="mailto:user2102392109@proton.me">user2102392109@proton.me</a>
+    </p>
     Findings are heuristic, not verdicts. Run it only on systems you are authorized to monitor.
   </div>
 </footer>

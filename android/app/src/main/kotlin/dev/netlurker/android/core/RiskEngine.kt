@@ -51,17 +51,9 @@ object ReasonKeys {
 }
 
 /**
- * The scoring model, ported from `EvaluateRisk()` in the desktop build's src/netmon.cpp.
- *
- * What is deliberately absent: every rule that depended on a Windows process — signature
- * state, suspicious install path, suspended process, auto-start persistence. Android gives
- * an unrooted app no way to attribute a socket to another app, and inventing an owner
- * would be exactly the kind of fabricated evidence this project refuses to show. Those
- * rules are replaced by their honest Android equivalent in [evaluateApp]: the APK signing
- * certificate and the installer of record, both real framework data.
- *
- * The same rule applies to evidence quality: a source that has not answered contributes
- * nothing, and the verdict says so instead of scoring an absence as a clean result.
+ * Destination heuristics based on the desktop rules in src/netmon.cpp.
+ * Windows-only process rules are excluded. Unavailable evidence contributes no
+ * score or clean-result mitigation. App-level traffic rules are separate below.
  */
 object RiskEngine {
 
@@ -215,17 +207,9 @@ object RiskEngine {
     }
 
     /**
-     * Anomaly signal for an installed application's traffic, the Android counterpart of the
-     * desktop's per-process baseline. The score is deliberately small: a traffic spike on a
-     * phone is usually a sync or an update, so it informs rather than condemns.
-     */
-    /**
-     * Application-level verdict.
-     *
-     * These rules are the desktop's, re-expressed at the grain Android actually exposes. The
-     * desktop scores one connection; here the unit is one application, because an unrooted
-     * app is told how much a UID moved and nothing about where it went. The thresholds are
-     * unchanged, so a score means the same thing on both platforms.
+     * Scores available app traffic using anomaly, upload-ratio and heartbeat rules.
+     * The sampling unit is an app/UID, not a Windows connection; scores are not
+     * calibrated between platforms. Package signature metadata is not scored here.
      */
     fun evaluateApp(
         app: AppTraffic,

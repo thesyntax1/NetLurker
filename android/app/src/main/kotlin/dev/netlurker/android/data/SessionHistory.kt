@@ -74,8 +74,7 @@ class SessionHistory {
      * Records one poll. Returns the anomalies detected in this sample.
      *
      * @param perApp byte totals per application, as measured by [TrafficSource]
-     * @param intervalMs the real elapsed time between polls, so rates stay honest when the
-     *   poller is throttled by doze mode.
+     * @param intervalMs elapsed time between polls, including delays caused by Doze.
      */
     @Synchronized
     fun record(

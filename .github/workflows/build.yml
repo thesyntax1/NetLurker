@@ -587,8 +587,7 @@ jobs:
               parts.append("=== activity state ===")
               parts.extend([l for l in acts.splitlines()
                             if "netlurker" in l.lower() or "ResumedActivity" in l][:20])
-          # Artifacts cannot be read from here, so the instrumented test result has to be
-          # in the report itself rather than only in the uploaded log.
+          # Include UI-test results in the check report as well as the artifact log.
           ui_exit = None
           if os.path.exists("ui-tests-exit.txt"):
               ui_exit = open("ui-tests-exit.txt").read().strip()

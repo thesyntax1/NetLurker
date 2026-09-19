@@ -48,15 +48,7 @@ import dev.netlurker.android.core.Ports
 import dev.netlurker.android.core.Target
 import kotlinx.coroutines.launch
 
-/**
- * Investigate: the destinations tab.
- *
- * On Windows NetLurker discovers destinations from the kernel socket table. An unrooted
- * Android app is denied that table, so this tab does not pretend to discover anything: it
- * investigates what you give it (an address, a host, a port) and shows only what the
- * lookups actually returned. The panel says plainly what each source answered, what is
- * still querying, and what is switched off.
- */
+/** User-entered destinations with per-source lookup status; no socket discovery. */
 @Composable
 fun InvestigateScreen(viewModel: MainViewModel) {
     val s = strings()

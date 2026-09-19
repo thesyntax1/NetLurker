@@ -1,21 +1,21 @@
 # Security policy
 
-NetLurker is pre-release software. No independent security audit or guaranteed response
-SLA is claimed. Do not use a heuristic score as the sole basis for a security decision.
+NetLurker is in development and has not had an independent security audit.
+Do not use a risk score as the sole basis for a security decision.
 
 ## Reporting a vulnerability
 
-Do not post exploitable details, private targets, API keys or raw exports in a public issue.
-Use GitHub **Report a vulnerability** under the repository's Security tab if private
-vulnerability reporting is enabled. If that option is absent, open a public issue containing
-only a request for a private contact channel—no exploit or sensitive attachment.
+Email [user2102392109@proton.me](mailto:user2102392109@proton.me), or use GitHub
+**Report a vulnerability** if private vulnerability reporting is enabled for the repository.
+Do not post exploit details, API keys or private network data in public issues or TikTok comments.
 
-Useful private report details: affected commit/version, platform, minimal reproduction,
-impact, expected behavior and a proposed fix if available. Sanitize environment-specific data.
+Include the affected version/commit, platform, reproduction steps and likely impact.
+Redact personal data; send only what is needed to reproduce the issue. There is no fixed
+response-time commitment.
 
-Before public launch, the maintainer should enable private vulnerability reporting and
-complete the release security checklist. Only the latest tested release candidate is a
-maintenance target; old development artifacts are not supported releases.
+Reports should be checked against the latest source or release candidate. Older
+development artifacts are not maintained separately. The
+[release checklist](docs/RELEASE-CHECKLIST.md) tracks outstanding validation.
 
 ## Threat boundaries
 

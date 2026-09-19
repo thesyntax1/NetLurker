@@ -13,17 +13,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 
 /**
- * AI-assisted investigation.
- *
- * Two honest modes, never blended:
- *
- *  - With an API key the evidence is sent to the configured OpenAI-compatible endpoint and
- *    the model's answer is returned verbatim, in the interface language.
- *  - Without a key the local rule engine writes the same six-section report from the same
- *    evidence and says in its first line that it is a local rule engine, not a model.
- *
- * The report structure matches the desktop build: VERDICT / CONFIDENCE / WHY / CONCERNS /
- * RECOMMENDATION / STEPS.
+ * Uses the configured OpenAI-compatible endpoint when a key is present.
+ * Without a key, returns a labeled local rule-based report. Both use the same
+ * evidence fields and six-section report layout.
  */
 class AiClient(private val settings: Settings) {
 

@@ -1,60 +1,43 @@
-# NetLurker Yol Haritası
+# Yol haritası
 
-Sürümler `MAJOR.MINOR` düzeninde ilerler; her sürüm tek yürütülebilir
-Windows uygulaması olarak derlenir (C++17 + Win32, harici bağımlılık yok).
+Bu liste öncelikleri gösterir; sürüm tarihi veya özellik taahhüdü değildir.
+Sürüm biçimi ve paketleme kuralları [Yayın rehberinde](RELEASES.md) bulunur.
 
-## Tamamlanan — v6 (mevcut)
+## Mevcut kapsam
 
-| Alan | Durum |
-|---|---|
-| Çoklu dil (i18n) — EN varsayılan, TR/ES/DE/FR/JA/ZH/PT; arayüz, hatalar, risk açıklamaları, sütunlar, araç ipuçları, AI istemleri, raporlar, tarihler | ✅ `lang/*.ini`, `src/i18n.*` |
-| Ürün konumlandırması: "Real-time Windows Network Intelligence" | ✅ README + iniş sayfası |
-| İlk açılış deneyimi (Hızlı Başlangıç + gizlilik notu) | ✅ Hoş geldin kartı |
-| Demo Modu (API anahtarsız örnek veri seti) | ✅ `Ctrl+D`, Özet sekmesinde "DEMO ENVIRONMENT" bandı + tek tık çıkış |
-| Dışa aktarma: JSON / CSV / HTML rapor / TXT | ✅ `Ctrl+E` |
-| Arama + filtreler + sıralama | ✅ tıklanabilir filtre çipleri (All/Connected/Internet/Listening/Suspicious/HTTPS/Unsigned/Unknown/New/TCP/UDP) + 25 sütun sıralama |
-| Bağlantı detay paneli | ✅ |
-| Yapılandırılmış AI analisti (karar/güven/neden/endişe/öneri/adımlar) | ✅ |
-| AI takip soruları: "Neden şüpheli?" / "Ne yapmalıyım?" / "Normalden sapma?" (temel çizgi karşılaştırması) | ✅ |
-| Gizlilik Merkezi (uygulama içi + README) | ✅ |
-| UAC / yönetici gerekçe diyaloğu | ✅ özel koyu tema diyaloğu (Continue as administrator / Continue without elevation) |
-| Sürüm altyapısı (zip + SHA256SUMS + sürümleme) | ✅ Actions + `make_release.ps1` |
-| Kod imzalama | ✅ `sign_release.ps1` (EV sertifikası alınınca çalışır) |
-| README yapısı | ✅ |
-| İniş sayfası | ✅ `docs/landing/index.html` (Pages'e hazır) |
-| 30 saniyelik video | ✅ storyboard + kayıt kılavuzu (`docs/video/`) |
-| Eklenti/sağlayıcı sistemi | ✅ `plugins/*.json` (stdin IP → stdout JSON) |
-| Ağ grafiği görünümü | ✅ 5. sekme |
-| Davranışsal anomali tespiti | ✅ süreç başına temel çizgi (EMA+3σ) |
+- Windows soket tablolarından bağlantı ve süreç bilgileri.
+- Sağlayıcı sorguları, kural tabanlı risk açıklamaları ve isteğe bağlı AI analizi.
+- Arama, filtreler, rapor dışa aktarma ve sekiz arayüz dili.
+- Windows demo modu, ağ grafiği ve bağlantı sayısı geçmişine dayalı anomali işaretleri.
+- JSON tanımlarıyla çalışan harici Windows eklentileri.
+- Android'de cihaz ağı, paket bilgileri ve elle girilen hedeflerin incelenmesi.
+- Windows ZIP/yükleyici paketleme, sürüm kontrolü ve SHA-256 dosyaları.
 
-## v7 — Algılama derinliği
+Platform kısıtları ve veri kaynakları [DATA-ACCURACY.md](DATA-ACCURACY.md) içinde
+ayrıntılıdır. Bir özelliğin kodda bulunması, bütün cihazlarda doğrulandığı anlamına gelmez.
 
-- [ ] **ETW/ETLW sensörü:** `Microsoft-Windows-Kernel-Network` sağlayıcısından
-      bağlantı oluşturma/kapanma olayları; mevcut polling yerine olay tabanlı gerçek
-      zamanlılık ve DNS isteklerinin süreçle eşleştirilmesi.
-- [ ] **Süreç başına trafik geçmişi:** ESTATS verilerinin dairesel tamponu;
-      uygulama sekmesinde 60 dakikalık geriye dönük grafik.
-- [ ] **Kural editörü:** kullanıcı tanımlı uyarı kuralları (süreç/port/IP/ülke
-      desenleri + eşikler), `rules.json` ile kalıcı.
-- [ ] **Syslog / dosya aktarımı:** bulguların `syslog://` veya yerel JSONL
-      günlüğüne akışı (SIEM beslemesi).
+## Yayın öncesi
 
-## v8 — Kurumsal ölçek
+- [ ] Windows'ta normal/yönetici çalıştırma, farklı DPI değerleri ve yükleyici yükseltmesi.
+- [ ] Fiziksel Android cihazında izin reddi, büyük yazı ve okunamayan sayaçlar.
+- [ ] Sağlayıcı kesintisi, zaman aşımı, eksik anahtar ve başarısız sorgu senaryoları.
+- [ ] Test edilen sürümden, özel bilgileri temizlenmiş ekran görüntüleri.
+- [ ] Kısa kullanım videosunun kaydı. `docs/video/` içindeki dosyalar yalnızca kayıt planıdır.
 
-- [ ] **Çekirdek izleme:** ETW'nin yetersiz kaldığı senaryolar için KMDF
-      (sürücü tabanlı) soket olayları — imzalı sürücü ve ayrı yükleyici gerektirir.
-- [ ] **MITRE ATT&CK taktik eşlemesi:** her risk nedeni → taktik/teknik kimliği
-      (T1071, T1547, T1571, T1041…) ve raporda ATT&CK bölümü.
-- [ ] **Toplu karşılaştırma:** aynı ağdaki NetLurker istemcilerinin
-      (opsiyonel, yerel ağ) ortak temel çizgisi; yayılma tespiti.
-- [ ] **Kural paketleri:** YARA benzeri imza dosyaları ile süreç/bellek taraması.
+Ayrıntılı kabul ölçütleri: [RELEASE-CHECKLIST.md](RELEASE-CHECKLIST.md).
+Android üretim yayını kapalıdır; imza kurulumu bu proje için şu anda bir yayın hedefi değildir.
+Windows imzası da yapılandırılmadıkça paketler imzasız olarak belirtilir.
 
-## Dış engelli maddeler
+## Değerlendirilecek işler
 
-Bu üç madde dış kaynak gerektirdiği için yerine eşdeğer teslimatlar kondu:
+Önce tekrarlanabilir hatalar, yanlış pozitifler ve ilk kullanım sorunları ele alınacak.
+Bunlardan sonra değerlendirilebilecek işler:
 
-| Madde | Engel | Eşdeğer teslimat |
-|---|---|---|
-| Kod imzalama (EV sertifikası) | Ücretli sertifika + kimlik doğrulama | `tools/sign_release.ps1` + `docs/RELEASES.md` (imzalama + doğrulama rehberi) |
-| İniş sayfası alan adı | Alan adı satın alma | `docs/landing/index.html` — Pages'e hazır bağımsız HTML |
-| 30 saniyelik video | Video üretimi/çekimi | `docs/video/STORYBOARD.md` — sahne sahne senaryo + kayıt kılavuzu |
+- Windows'ta kısa ömürlü bağlantıları yakalamak için ETW olayları.
+- Kullanılabilen EStats verisinden daha ayrıntılı süreç trafik geçmişi.
+- Kullanıcı tanımlı bildirim eşikleri ve filtre kuralları.
+- Uzun oturumlar için dosyaya JSONL olay kaydı.
+
+Sürücü tabanlı izleme, bellek taraması ve merkezi yönetim mevcut kapsamın dışındadır.
+Yeni bir özellik önerirken kullanım örneğini ve varsa veri kaynağını
+[issue olarak](https://github.com/thesyntax1/NetLurker/issues/new/choose) paylaşabilirsiniz.

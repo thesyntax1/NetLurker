@@ -1,54 +1,38 @@
-# An honest launch plan
+# Release preparation
 
-## Positioning
+## Before publishing
 
-**One sentence:** A native Windows network investigation tool that brings process context,
-destination lookups and explainable risk signals into one place.
+- Run the [release checklist](RELEASE-CHECKLIST.md) against the intended commit.
+- Check installation and the README instructions on a clean machine without personal API keys.
+- Capture the main workflow and an unavailable-provider state from that build.
+- Record the short walkthrough in [video/STORYBOARD.md](video/STORYBOARD.md).
+  Keep the DEMO label visible when using synthetic data.
+- Check the release download links, hashes and signature disclosures.
+- Ask a few testers to install it and complete an investigation without assistance.
+  Track anything that blocks them as an issue.
 
-Lead with that workflow, not a promise to detect every threat. Android is an experimental
-companion with explicit platform limits. Local reports work without an AI subscription.
+## Release notes
 
-Suggested GitHub description:
+Include the version, supported platforms, changes, known issues and checks actually run.
+Link to the download, source, privacy policy and screenshots. The release workflow adds
+file hashes, source revision and signature information; avoid duplicating that section.
 
-> Windows network investigation with explainable risk signals. Experimental Android companion; explicit data and permission limits.
+Describe Windows and Android separately. Android does not provide Windows-style socket
+attribution, and its production APK publication is disabled by default. Note provider
+outages or device-specific restrictions discovered during testing.
 
-Suggested topics: `windows`, `network-monitoring`, `security-tools`, `cpp`, `win32`, `kotlin`,
-`android`, `network-analysis`. Use relevant topics, not keyword stuffing.
+## Walkthrough and feedback
 
-## Before asking for attention
+The developer's TikTok account is [szoboszlai2113](https://tiktok.com/szoboszlai2113).
+A short recording can show installation, filtering a process and inspecting a connection.
+Use an actual build and identify any synthetic data. Check the recording for private
+addresses, paths, account names and keys before posting it.
 
-- Complete the release gates and make one tested download easy to find.
-- Add two actual captures: the main workflow and an unavailable-provider state.
-- Record a 30–45 second demo: launch → find process → inspect reason → export.
-  Keep the synthetic DEMO marker visible if using demo data.
-- Check the README and release ZIP on a clean machine with no personal API keys.
-- Enable private vulnerability reporting and keep bug/feature templates available.
-- Ask 3–5 testers to follow the quick start without help. Fix their first blocking issue
-  before posting to a larger audience.
+Direct bugs and feature requests to GitHub issues. Private security reports can go to
+[user2102392109@proton.me](mailto:user2102392109@proton.me); see [SECURITY.md](../SECURITY.md).
 
-## Suggested first-release post
+## After publishing
 
-> I’m building NetLurker, an open-source Windows network investigation tool in C++/Win32.
-> It connects process identity, observed sockets, IP lookups and rule explanations in one
-> native UI. Local reports work without an AI API key.
->
-> This is a pre-release, not an antivirus. Provider failures and missing measurements are
-> shown explicitly. The Android companion has a smaller scope: no VPN/root capture and no
-> live connection attribution for other apps.
->
-> I’d especially appreciate feedback on false-positive rules, high-DPI layouts and the
-> first-run experience. Here’s the tested download, source, privacy policy and short demo:
-> [insert actual release URL and capture after release gates pass].
-
-Publish only where project/self-promotion is permitted, disclose that you are the author,
-and answer technical criticism with evidence. Do not buy stars, automate promotional
-comments, create fake testimonials, or imply community adoption that has not happened.
-
-## First two weeks
-
-- Days 1–3: respond to installation and data-accuracy reports; publish a focused fix if needed.
-- Days 4–7: document the most common investigation and the limitations users misunderstand.
-- Days 8–14: prioritize repeated problems and useful contributions; avoid a feature spree.
-
-Useful signals: successful first runs, reproducible bug reports, returning testers, and
-merged contributions. Star growth may follow usefulness and trust, but no number is guaranteed.
+Prioritize installation failures, crashes and incorrect results. Group repeated reports
+before expanding the feature set. Update the quick-start instructions when a step causes
+confusion, and record fixes and remaining limitations in the next release notes.

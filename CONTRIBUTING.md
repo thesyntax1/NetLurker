@@ -1,7 +1,7 @@
 # Contributing
 
-The first release needs trustworthy measurements and reproducible tests more than a long
-feature list. Small, evidence-backed fixes are welcome.
+Bug fixes, translations, tests and documentation changes are welcome. For a larger
+feature, open an issue first so the scope and data source can be discussed.
 
 ## Before opening a change
 
@@ -31,6 +31,6 @@ Build Windows with `build.bat` in an x64 VS developer prompt. For Android, run
 emulator/device is required for `connectedDebugAndroidTest`; unit tests alone cannot prove
 the UI renders. Record any checks you could not run.
 
-A useful pull request includes the bug, its observable impact, the source of truth, tests
-run, and screenshots only if they are actual redacted captures. Mark synthetic demo captures
-as DEMO. Do not imply that an illustration is a functioning dashboard.
+In the pull request, describe the problem, the change and the checks you ran. Include
+redacted screenshots for UI changes and retain the DEMO label for synthetic data.
+Report vulnerabilities privately using [SECURITY.md](SECURITY.md).
