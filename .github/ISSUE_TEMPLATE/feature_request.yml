@@ -1,0 +1,31 @@
+name: Suggest an improvement
+description: Help make NetLurker easier or more useful — no technical expertise needed
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What would you like to do?
+      description: Tell us what feels difficult, missing or confusing. A small usability improvement is welcome too.
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Where would this help?
+      options:
+        - Windows
+        - Android
+        - Both
+        - Documentation or download experience
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: What would a good result look like?
+      description: Describe how you would use it. Please leave out private addresses, credentials and personal information.
+  - type: textarea
+    id: technical
+    attributes:
+      label: Technical notes (optional)
+      description: If you know a data source, permission requirement or privacy concern, add it here. It is fine to leave this blank.

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <style name="Theme.NetLurker" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/nl_bg</item>
+        <item name="android:statusBarColor">@color/nl_bg</item>
+        <item name="android:navigationBarColor">@color/nl_surface</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <!-- API 27+; on 26 the platform ignores it, so no values-v27 split is needed. -->
+        <item name="android:windowLightNavigationBar" tools:targetApi="27">false</item>
+        <item name="android:colorAccent">@color/nl_accent</item>
+    </style>
+</resources>

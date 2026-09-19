@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A watchful eye over a signal trace: NetLurker watches the wire, it does not touch it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#388BFD"
+        android:strokeWidth="3"
+        android:pathData="M22,66 L34,66 L40,52 L48,78 L56,58 L62,66 L86,66" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E6EDF3"
+        android:strokeWidth="4"
+        android:pathData="M28,44 C40,30 68,30 80,44 C68,58 40,58 28,44 Z" />
+    <path
+        android:fillColor="#3FB950"
+        android:pathData="M54,44 m-7,0 a7,7 0 1,0 14,0 a7,7 0 1,0 -14,0" />
+</vector>

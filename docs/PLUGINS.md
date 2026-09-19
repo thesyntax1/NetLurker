@@ -5,8 +5,8 @@ eklentileri** çalıştırabilir:
 
 | Yerleşik sağlayıcı | Veri |
 |---|---|
-| AbuseIPDB | Kötüye kullanım puanı + raporlar (isteğe bağlı anahtar) |
-| DNS kara listeleri | Spamhaus SBL/XBL, Blocklist.de, Sorbs, Barracuda, UCEPROTECT |
+| AbuseIPDB | Kötüye kullanım puanı + raporlar (sorgu için anahtar gerekir) |
+| DNS kara listeleri | Spamhaus SBL/XBL, Blocklist.de, Barracuda, UCEPROTECT |
 | CIRCL pasif DNS | IP'nin geçmişte çözdüğü alan adları |
 | RDAP / WHOIS | Ağ sahibi, organizasyon, abuse iletişimi, tahsis tarihi |
 | VirusTotal | Topluluk tespitleri (isteğe bağlı anahtar) |
@@ -33,8 +33,8 @@ koymanız yeterli. NetLurker şu iki klasörü arar (ikisi de yüklenir):
 
 | Alan | Açıklama |
 |---|---|
-| `name` | Görünen ad (risk notuna eklenir) |
-| `exe` | Çalıştırılabilir dosyanın tam yolu |
+| `name` | Tanım adı; aynı adla yüklenen tanım öncekinin yerini alır |
+| `exe` | Çalıştırılabilir dosya; tam yol kullanılması önerilir |
 | `args` | Komut satırı; `{ip}` sorgulanan IP ile değiştirilir |
 | `timeoutMs` | En fazla bekleme süresi (500–60000 ms, varsayılan 8000) |
 
@@ -51,13 +51,16 @@ koymanız yeterli. NetLurker şu iki klasörü arar (ikisi de yüklenir):
 
 | Alan | Açıklama |
 |---|---|
-| `risk` | 0–100 sayı; zorunlu. NetLurker'ın yerel tehdit puanıyla birleştirilir (yüksek olan kazanır) |
+| `risk` | 0–100 sayı; zorunlu. Ayrı bir eklenti sonucu olarak saklanır |
 | `verdict` | İsteğe bağlı: `clean` / `suspicious` / `malicious` |
-| `note` | İsteğe bağlı kısa açıklama (risk notuna eklenir) |
+| `note` | Sonuca eklenen isteğe bağlı açıklama |
 
 4. Çıkış kodu **0** olmalı; aksi halde sonuç yok sayılır.
 
 ### Örnek: PowerShell ile basit eklenti
+
+Bu örnek giriş/çıkış biçimini gösterir. Adresler dokümantasyon için ayrılmıştır;
+bir adresin listede olmaması güvenli olduğunu göstermez.
 
 `plugins\feed.ps1`:
 
@@ -68,7 +71,7 @@ $bad = @('203.0.113.7','198.51.100.23')
 if ($bad -contains $ip) {
   '{"risk": 85, "verdict": "malicious", "note": "yerel kara liste"}'
 } else {
-  '{"risk": 5, "verdict": "clean", "note": ""}'
+  '{"risk": 0, "verdict": "", "note": "Listede kayit yok; guvenlik degerlendirmesi yapilmadi"}'
 }
 ```
 
@@ -78,18 +81,21 @@ if ($bad -contains $ip) {
 {
   "name": "Yerel kara liste",
   "exe": "powershell.exe",
-  "args": "-NoProfile -ExecutionPolicy Bypass -File C:\\tools\\feed.ps1",
+  "args": "-NoProfile -File C:\\tools\\feed.ps1",
   "timeoutMs": 6000
 }
 ```
 
-> Güvenlik notu: Eklentiler NetLurker ile aynı haklarda çalışır. Yalnızca
-> güvendiğiniz eklentileri kurun. NetLurker eklentiye yalnızca IP'yi iletir;
-> başka hiçbir veri paylaşmaz.
+> Eklentiler NetLurker ile aynı kullanıcı yetkileriyle çalışır; bir sandbox içinde
+> değildir. stdin üzerinden IP verilmesi, eklentinin dosya veya ağ erişimini sınırlamaz.
+> Yalnızca güvendiğiniz programları kullanın; sistemin script politikasını devre dışı bırakmayın.
 
-## Sonuç nasıl kullanılır
+## Sonucun kullanılması
 
-- Eklenti puanı ≥ yerel puan ise **Tehdit** sütununa yansır.
-- Puan ≥ 40 ise satırın **risk notuna** `Eklenti: <verdict> — <note>` eklenir.
-- Eklenti puanı diğer sinyallerle birlikte kırmızı/turuncu risk bandını etkiler.
-- Sorgu sonuçları diğer istihbarat verileriyle birlikte 7 gün önbelleklenir.
+- Bir sorguda en fazla dört eklenti çalıştırılır. Geçerli sonuçlardan en yüksek puan seçilir.
+- Puan ve açıklama `pluginRisk` / `pluginNote` alanlarında ayrı tutulur; JSON dışa aktarımında
+  `plugin_score` alanı bulunur. Sonuç AbuseIPDB puanının yerine konulmaz ve onun risk
+  kurallarına eklenmez.
+- Eklenti puanı tek başına genel risk puanını veya renk bandını yükseltmez.
+- Sonuçlar bellek önbelleğinde tutulur; birleşik tehdit disk önbelleği kullanılmaz.
+- Zaman aşımı, sıfırdan farklı çıkış kodu veya geçersiz sonuç, temiz kayıt anlamına gelmez.

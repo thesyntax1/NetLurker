@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Same values as src/ui_draw.h in the desktop build. -->
+    <color name="nl_bg">#FF0D1117</color>
+    <color name="nl_surface">#FF161B22</color>
+    <color name="nl_accent">#FF388BFD</color>
+</resources>

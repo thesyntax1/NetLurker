@@ -1,0 +1,667 @@
+name: Build
+
+# Every platform NetLurker ships on, in one pipeline.
+#
+#   windows -> NetLurker.exe (MSVC, build.bat) plus the lang/*.ini files it reads at runtime
+#   android -> debug and release APKs (Gradle, Kotlin + Compose)
+#   smoke   -> boots an emulator, launches the app, renders every tab. On demand only:
+#              tick "run-emulator" on a manual dispatch, see the job comment for why.
+#
+# Each job verifies its string catalog before compiling, so a missing translation fails the
+# build instead of shipping a raw key to the user. Gradle output is teed to build.log and the
+# Android job publishes test totals and compiler errors as a check run, which keeps them
+# readable through the REST API and not only in the log viewer.
+
+on:
+  workflow_call:
+    inputs:
+      source-ref:
+        type: string
+        default: ""
+      release-version:
+        type: string
+        default: ""
+      run-emulator:
+        type: boolean
+        default: false
+  push:
+    branches: ["**"]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      run-emulator:
+        description: "Boot an emulator and run the instrumented UI tests (the most expensive job)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: build-${{ github.workflow }}-${{ github.event_name }}-${{ github.ref }}-${{ inputs.release-version }}
+  cancel-in-progress: ${{ github.event_name == 'push' || github.event_name == 'pull_request' }}
+
+jobs:
+  release-tooling:
+    name: Release policy and workflow validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+      - name: Check release workflow syntax and expressions
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 -shellcheck= -pyflakes= .github/workflows/build.yml .github/workflows/release.yml
+      - name: Test release policies, manifests and mocked publication
+        run: python3 -m unittest discover -v -s tests -p 'test_release*.py'
+
+  windows:
+    name: Windows x64 (MSVC)
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Stamp shared build version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: python tools/release_version.py --version "$RELEASE_VERSION"
+
+      - name: Verify the desktop language catalog
+        run: python tools/gen_lang.py --check
+
+      - name: Discard any executable left by an earlier build
+        shell: pwsh
+        run: |
+          # Fail closed: never upload a stale executable after a failed compile.
+          Get-ChildItem build -Filter *.exe -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host "removing stale $($_.Name)"
+            Remove-Item $_.FullName -Force
+          }
+
+      - name: Set up the MSVC x64 toolchain
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1
+        with:
+          arch: x64
+
+      - name: Show the toolchain
+        shell: cmd
+        run: |
+          (
+            echo --- image ---
+            echo %ImageOS% %ImageVersion%
+            echo --- Visual Studio installations ---
+            dir /b "C:\Program Files\Microsoft Visual Studio\2022" 2>nul
+            echo --- compiler on PATH ---
+            where cl 2>nul
+            where rc 2>nul
+            where link 2>nul
+            echo --- compiler banner ---
+            cl 2>&1
+          ) > toolchain.log 2>&1
+          type toolchain.log
+
+      - name: Test responsive toolbar geometry
+        shell: cmd
+        run: |
+          if not exist build mkdir build
+          cl /nologo /std:c++17 /EHsc /W4 /Isrc tests\ui_layout_test.cpp /Fo:build\ui_layout_test.obj /Fe:build\ui_layout_test.exe
+          if errorlevel 1 exit /b 1
+          build\ui_layout_test.exe
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /Isrc tests\evidence_rules_test.cpp src\json.cpp /Fo:build\ /Fe:build\evidence_rules_test.exe
+          if errorlevel 1 exit /b 1
+          build\evidence_rules_test.exe
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /Isrc tests\provider_evidence_test.cpp src\json.cpp /Fo:build\ /Fe:build\provider_evidence_test.exe
+          if errorlevel 1 exit /b 1
+          build\provider_evidence_test.exe
+
+      - name: Test transactional settings and native dialog controls
+        shell: cmd
+        run: |
+          cl /nologo /std:c++17 /EHsc /W4 /utf-8 /DUNICODE /D_UNICODE /Isrc tests\config_store_test.cpp /Fo:build\config_store_test.obj /Fe:build\config_store_test.exe /link winhttp.lib
+          if errorlevel 1 exit /b 1
+          build\config_store_test.exe
+          if errorlevel 1 exit /b 1
+          rc /nologo /c65001 /fo build\settings_dialog.res res\netlurker.rc
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /utf-8 /DUNICODE /D_UNICODE /Isrc tests\settings_dialog_test.cpp build\settings_dialog.res /Fo:build\settings_dialog_test.obj /Fe:build\settings_dialog_test.exe /link user32.lib gdi32.lib comctl32.lib
+          if errorlevel 1 exit /b 1
+          build\settings_dialog_test.exe
+          if errorlevel 1 exit /b 1
+          cl /nologo /std:c++17 /EHsc /W4 /utf-8 /DUNICODE /D_UNICODE /Isrc tests\http_test_driver.cpp src\http.cpp /Fo:build\ /Fe:build\http_test_driver.exe /link winhttp.lib user32.lib
+
+      - name: Test release packaging, repository integrity and WinHTTP fixtures
+        shell: pwsh
+        run: |
+          python -m unittest discover -v -s tests -p "test_*.py" 2>&1 | Tee-Object -FilePath tests-output.log
+          exit $LASTEXITCODE
+
+      - name: Build with MSVC
+        shell: pwsh
+        run: |
+          # Tee rather than redirect so the console keeps the output too, and capture the
+          # exit code explicitly: a batch file can stop early without setting errorlevel,
+          # which is how a failed link can otherwise look like a successful build.
+          cmd /c "call build.bat 2>&1" | Tee-Object -FilePath build-output.log
+          $code = $LASTEXITCODE
+          $diag = "build-diag.log"
+          "build.bat exit code : $code" | Set-Content $diag
+          "--- build directory ---" | Add-Content $diag
+          Get-ChildItem build -Force -ErrorAction SilentlyContinue |
+            ForEach-Object { "{0,-26} {1,12:N0}" -f $_.Name, $_.Length } | Add-Content $diag
+          "--- linker smoke test ---" | Add-Content $diag
+          (cmd /c "link 2>&1") | Select-Object -First 3 | Add-Content $diag
+          "--- resource compiler output present: $(Test-Path build\netlurker.res) ---" | Add-Content $diag
+          Get-Content $diag
+          exit $code
+
+      - name: Inspect the executable
+        shell: pwsh
+        run: |
+          git rev-parse HEAD | Set-Content build\build-revision.txt -Encoding ascii
+          Copy-Item version.json build\build-version.json
+          $version = (Get-Content version.json -Raw | ConvertFrom-Json).version
+          if ((Get-Item build\NetLurker.exe).VersionInfo.ProductVersion.Trim() -ne $version) { throw "Embedded version mismatch" }
+          $exe = "build\NetLurker.exe"
+          if (-not (Test-Path $exe)) { throw "build.bat did not produce $exe" }
+          $item = Get-Item $exe
+          "NetLurker.exe : {0:N0} bytes, written {1:yyyy-MM-dd HH:mm:ss} UTC" -f $item.Length, $item.LastWriteTimeUtc
+          $head = [IO.File]::ReadAllBytes($exe)[0..1]
+          if ([Text.Encoding]::ASCII.GetString($head) -ne "MZ") { throw "$exe is not a PE executable" }
+          "PE header     : MZ ok"
+          $lang = Get-ChildItem build\lang\*.ini -ErrorAction SilentlyContinue
+          if (-not $lang) { throw "no language files were bundled" }
+          "lang files    : $($lang.Count)"
+          $lang | ForEach-Object { "  {0,-8} {1,8:N0} bytes" -f $_.Name, $_.Length }
+          Get-FileHash $exe -Algorithm SHA256 |
+            ForEach-Object { "{0}  NetLurker.exe" -f $_.Hash.ToLower() } |
+            Tee-Object build\SHA256SUMS.txt
+
+      - name: Test release ZIP and installer (no publication)
+        shell: pwsh
+        run: |
+          Start-Transcript -Path release-package.log
+          try {
+            $version = Get-Content version.json -Raw | ConvertFrom-Json
+            $revision = git rev-parse HEAD
+            python tools/package_release.py --input build --output candidate-output --version $version.version --revision $revision
+            if ($LASTEXITCODE -ne 0) { throw "Release ZIP validation failed" }
+            $iscc = (Get-Command ISCC.exe -ErrorAction SilentlyContinue).Source
+            if (-not $iscc) { $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe' }
+            if (-not (Test-Path $iscc)) { throw "Inno Setup 6 is required on the Windows runner" }
+            & $iscc "/DAppVersion=$($version.version)" "/DNumericVersion=$($version.windows_version)" installer/NetLurker.iss
+            if ($LASTEXITCODE -ne 0) { throw "Installer compilation failed" }
+            # Exercise the hyphenated textual version separately. This fixture is NOT uploaded.
+            & $iscc '/DAppVersion=0.0.0-rc.1' '/DNumericVersion=0.0.0.401' installer/NetLurker.iss
+            if ($LASTEXITCODE -ne 0) { throw "Prerelease installer version compilation failed" }
+            $info = (Get-Item dist/NetLurker-v0.0.0-rc.1-setup.exe).VersionInfo
+            Write-Host ($info | Format-List * | Out-String)
+            if ($info.ProductVersion.Trim() -ne '0.0.0-rc.1') { throw "Prerelease installer version mismatch: expected '0.0.0-rc.1', actual '$($info.ProductVersion)'" }
+          } catch {
+            Write-Host ("::error::" + ($_.ToString() -replace '%', '%25' -replace "`r", '%0D' -replace "`n", '%0A'))
+            throw
+          } finally { Stop-Transcript }
+      - name: Publish Windows build report
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          python - <<'PY' > "$RUNNER_TEMP/report.json"
+          import json, os, re, subprocess
+          parts = []
+          exe = "build/NetLurker.exe"
+          parts.append("NetLurker.exe present: %s" % os.path.exists(exe))
+          if os.path.exists("tests-output.log"):
+              parts.append("=== native WinHTTP / packaging fixtures ===\n" + open("tests-output.log", encoding="utf-8", errors="replace").read()[-18000:])
+          if os.path.exists(exe):
+              parts.append("size: %d bytes" % os.path.getsize(exe))
+          if os.path.exists("build-output.log"):
+              lines = open("build-output.log", encoding="utf-8",
+                             errors="replace").read().splitlines()
+              problems = [l for l in lines
+                          if re.search(r"error|fatal|cannot open|unresolved|LINK :", l, re.I)]
+              parts.append("=== build.bat problems (%d) ===" % len(problems))
+              parts.extend(problems[:200])
+              parts.append("=== build.bat tail ===")
+              parts.extend(lines[-160:])
+          else:
+              parts.append("(no build-output.log: the build never started)")
+          if os.path.exists("build-diag.log"):
+              parts.append("=== build diagnostics ===")
+              parts.extend(open("build-diag.log", encoding="utf-8",
+                                 errors="replace").read().splitlines()[:60])
+          if os.path.exists("toolchain.log"):
+              parts.append("=== toolchain ===")
+              parts.extend(open("toolchain.log", encoding="utf-8",
+                                 errors="replace").read().splitlines()[:80])
+          if os.path.exists("release-package.log"):
+              parts.append("=== release packaging ===")
+              parts.extend(open("release-package.log", encoding="utf-8-sig", errors="replace").read().splitlines()[-100:])
+          body = "\n".join(parts)
+          print(json.dumps({
+              "name": "windows-build-report",
+              "head_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "status": "completed",
+              "conclusion": "neutral",
+              "output": {
+                  "title": "Windows build: %s" % ("exe produced" if os.path.exists(exe) else "NO exe"),
+                  "summary": body[:180],
+                  "text": body[:60000]
+              }
+          }))
+          PY
+          gh api "repos/${GITHUB_REPOSITORY}/check-runs" --input "$RUNNER_TEMP/report.json" \
+            --jq '{id, name, conclusion}'
+
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: NetLurker-windows-x64
+          path: |
+            build/NetLurker.exe
+            build/lang/*.ini
+            build/SHA256SUMS.txt
+            build/build-revision.txt
+            build/build-version.json
+          if-no-files-found: error
+
+  android:
+    name: Android (Kotlin + Compose)
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Stamp shared build version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: python tools/release_version.py --version "$RELEASE_VERSION"
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@ed408507eac070d1f99cc633dbcf757c94c7933a # v4
+        with:
+          gradle-version: "8.9"
+          cache-read-only: ${{ github.ref != 'refs/heads/main' }}
+
+      - name: Verify the string catalog
+        run: python3 android/tools/gen_strings.py --check
+
+      # Catches an unresolved project symbol in seconds, before a cold Gradle run spends
+      # minutes finding the same thing.
+      - name: Verify project symbols resolve
+        run: python3 android/tools/check_symbols.py
+
+      - name: Unit tests
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain testDebugUnitTest 2>&1 | tee build.log
+
+      - name: Compile instrumented UI tests (no emulator required)
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleDebugAndroidTest 2>&1 | tee -a build.log
+
+      - name: Lint
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain lintDebug 2>&1 | tee -a build.log || {
+            echo "----- lint report -----" | tee -a build.log
+            cat app/build/reports/lint-results-debug.txt 2>/dev/null | tee -a build.log
+            exit 1
+          }
+
+      - name: Assemble debug APK
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleDebug 2>&1 | tee -a build.log
+
+      - name: Assemble release APK
+        working-directory: android
+        run: |
+          set -o pipefail
+          gradle --no-daemon --console=plain assembleRelease 2>&1 | tee -a build.log
+
+      - name: Inspect the APK
+        working-directory: android
+        run: |
+          set -euo pipefail
+          exec > >(tee -a inspect.log) 2>&1
+          git rev-parse HEAD > app/build/outputs/apk/release/build-revision.txt
+          cp ../version.json app/build/outputs/apk/release/build-version.json
+          APK=app/build/outputs/apk/debug/app-debug.apk
+          test -s "$APK"
+          echo "debug APK: $(du -h "$APK" | cut -f1)"
+          unzip -l "$APK" | grep -q "resources.arsc" && echo "resources.arsc present"
+          unzip -l "$APK" | grep -q "AndroidManifest.xml" && echo "manifest present"
+          unzip -l "$APK" | grep -E "classes[0-9]*\.dex" | head -3
+          AAPT=$(ls "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | sort -V | tail -1 || true)
+          if [ -n "${AAPT:-}" ]; then
+            "$AAPT" dump badging "$APK" | head -5
+          fi
+          echo "--- unit test results ---"
+          find app/build/test-results -name "*.xml" -exec grep -h "<testsuite " {} \; || true
+
+      - name: Exercise Android release signing with a disposable test key (never uploaded)
+        run: |
+          set -o pipefail
+          python3 tests/android_signing_smoke.py 2>&1 | tee -a android/build.log
+
+      - name: Publish build report
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' > /tmp/diagnostics.json
+          import glob, json, os, re, subprocess, xml.etree.ElementTree as ET
+          parts = []
+
+          # Test totals, straight from the JUnit XML the build produced.
+          total = failed = skipped = 0
+          suites = []
+          for path in sorted(glob.glob("android/app/build/test-results/**/*.xml", recursive=True)):
+              try:
+                  root = ET.parse(path).getroot()
+              except Exception:
+                  continue
+              total += int(root.get("tests", 0))
+              failed += int(root.get("failures", 0)) + int(root.get("errors", 0))
+              skipped += int(root.get("skipped", 0))
+              for failure in root.findall(".//failure") + root.findall(".//error"):
+                  parts.append("TEST FAILURE: " + failure.get("message", "") + "\n" + (failure.text or "")[:2000])
+              suites.append("  %-28s %2s tests, %s failed"
+                            % (root.get("name", "?").split(".")[-1],
+                               root.get("tests", 0),
+                               int(root.get("failures", 0)) + int(root.get("errors", 0))))
+          if suites:
+              parts.append("=== unit tests: %d run, %d failed, %d skipped ===" % (total, failed, skipped))
+              parts.extend(suites)
+
+          if os.path.exists("android/inspect.log"):
+              parts.append("=== APK inspection ===")
+              parts.extend(open("android/inspect.log", encoding="utf-8",
+                                 errors="replace").read().splitlines()[:120])
+
+          log = "android/build.log"
+          if os.path.exists(log):
+              text = open(log, encoding="utf-8", errors="replace").read()
+              keep = re.compile(
+                  r"^(e: |w: )"
+                  r"|.*FAILURE:|.*What went wrong|.*> Task .* FAILED"
+                  r"|^\s*Error:|Lint found|^\s*\d+ errors?,|Explanation for issue"
+              )
+              errors = [l for l in text.splitlines() if keep.search(l)]
+              parts.append("=== build.log errors (%d) ===" % len(errors))
+              parts.extend(errors[:200])
+              tail = text.splitlines()[-160:]
+              parts.append("=== build.log tail ===")
+              parts.extend(tail)
+          for report in sorted(glob.glob("android/app/build/reports/lint-results-*.txt")):
+              parts.append("=== %s ===" % report)
+              parts.extend(open(report, encoding="utf-8", errors="replace").read().splitlines()[:300])
+          for xml in sorted(glob.glob("android/app/build/test-results/**/*.xml", recursive=True)):
+              content = open(xml, encoding="utf-8", errors="replace").read()
+              if "failure" in content or "error message" in content:
+                  parts.append("=== %s ===" % xml)
+                  parts.extend(content.splitlines()[:400])
+          if os.environ.get("GITHUB_JOB_STATUS", "") == "failure" or failed:
+              parts.append("=== failing test detail ===")
+          body = "\n".join(parts) or "(nothing to report)"
+          print(json.dumps({
+              "name": "build-diagnostics",
+              "head_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "status": "completed",
+              "conclusion": "neutral",
+              "output": {
+                  "title": "Build report: %d tests, %d failed" % (total, failed),
+                  "summary": ("%d unit tests, %d failed. " % (total, failed)) + body[:160],
+                  "text": body[:60000]
+              }
+          }))
+          PY
+          gh api "repos/${GITHUB_REPOSITORY}/check-runs" --input /tmp/diagnostics.json \
+            --jq '{id, name, conclusion}'
+
+      - name: Upload debug APK
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: NetLurker-debug-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      - name: Upload release APK
+        if: success()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: NetLurker-release-apk
+          path: |
+            android/app/build/outputs/apk/release/*.apk
+            android/app/build/outputs/apk/release/build-revision.txt
+            android/app/build/outputs/apk/release/build-version.json
+          if-no-files-found: error
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-build-log
+          path: android/build.log
+          if-no-files-found: ignore
+
+  smoke:
+    # Opt-in, because this is the one job that boots a virtual device: it costs more
+    # runner minutes than the two builds combined, and on a private repository those
+    # minutes are billed. Every push still produces both APKs and the Windows exe; tick
+    # "run-emulator" on a manual dispatch when you want the device evidence too.
+    name: Android emulator smoke test (on demand)
+    needs: android
+    if: ${{ inputs.run-emulator }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 70
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ inputs.source-ref || github.sha }}
+          persist-credentials: false
+
+      - name: Stamp shared build version
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ inputs.release-version }}
+        run: python tools/release_version.py --version "$RELEASE_VERSION"
+
+      - name: Download the debug APK
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: NetLurker-debug-apk
+          path: apk
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Give the runner KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' \
+            | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Install, launch and watch for a crash
+        uses: reactivecircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2
+        with:
+          api-level: 34
+          arch: x86_64
+          disable-animations: true
+          # The action's own input, so the Gradle project is the working directory instead
+          # of a `cd` that silently changes where every later relative path lands.
+          working-directory: ${{ github.workspace }}/android
+          script: |
+            set -x
+            # Nothing in here may abort the rest: the evidence steps matter even when an
+            # earlier command fails, and every exit code is written down so a silent stop
+            # shows up in the report instead of only in a log nobody can download.
+            set +e
+            W="$GITHUB_WORKSPACE"
+            echo "begin cwd=$(pwd) W=$W" > "$W/smoke-steps.txt"
+            adb wait-for-device
+            echo "wait_for_device=$?" >> "$W/smoke-steps.txt"
+            adb install -r "$W/apk/app-debug.apk"
+            echo "install=$?" >> "$W/smoke-steps.txt"
+            adb logcat -c
+            adb shell am start -W -n dev.netlurker.android.debug/dev.netlurker.android.MainActivity
+            echo "am_start=$?" >> "$W/smoke-steps.txt"
+            sleep 45
+            adb shell dumpsys activity activities > "$W/activities.txt"
+            echo "dumpsys=$?" >> "$W/smoke-steps.txt"
+            adb logcat -d > "$W/logcat.txt"
+            echo "logcat=$?" >> "$W/smoke-steps.txt"
+            adb exec-out screencap -p > "$W/screen.png"
+            echo "screencap=$?" >> "$W/smoke-steps.txt"
+            echo "--- instrumented UI tests: every tab, for real ---"
+            chmod +x gradlew
+            echo "chmod=$?" >> "$W/smoke-steps.txt"
+            ./gradlew --no-daemon --stacktrace connectedDebugAndroidTest 2>&1 | tee "$W/ui-tests.log"
+            echo "${PIPESTATUS[0]}" > "$W/ui-tests-exit.txt"
+            echo "gradle=$(cat "$W/ui-tests-exit.txt")" >> "$W/smoke-steps.txt"
+            cat "$W/smoke-steps.txt"
+
+      - name: Publish smoke test report
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY' > /tmp/smoke.json
+          import json, os, re, subprocess
+          parts = []
+          crashed = resumed = False
+          if os.path.exists("logcat.txt"):
+              text = open("logcat.txt", encoding="utf-8", errors="replace").read()
+              lines = text.splitlines()
+              fatal = [l for l in lines
+                       if re.search(r"FATAL EXCEPTION|AndroidRuntime|ANR in|Force finishing", l)]
+              crashed = bool(fatal)
+              netlurker = [l for l in lines if "netlurker" in l.lower()]
+              parts.append("logcat lines: %d, NetLurker lines: %d" % (len(lines), len(netlurker)))
+              parts.append("=== crash markers (%d) ===" % len(fatal))
+              parts.extend(fatal[:60])
+              parts.append("=== NetLurker log lines (first 60) ===")
+              parts.extend(netlurker[:60])
+          else:
+              parts.append("(no logcat.txt: the emulator step did not produce one)")
+          if os.path.exists("activities.txt"):
+              acts = open("activities.txt", encoding="utf-8", errors="replace").read()
+              resumed = "dev.netlurker.android" in acts and "ResumedActivity" in acts
+              parts.append("=== activity state ===")
+              parts.extend([l for l in acts.splitlines()
+                            if "netlurker" in l.lower() or "ResumedActivity" in l][:20])
+          # Include UI-test results in the check report as well as the artifact log.
+          ui_exit = None
+          if os.path.exists("ui-tests-exit.txt"):
+              ui_exit = open("ui-tests-exit.txt").read().strip()
+              parts.append("=== instrumented UI tests (gradle exit %s) ===" % ui_exit)
+              log = []
+              if os.path.exists("ui-tests.log"):
+                  log = open("ui-tests.log", encoding="utf-8", errors="replace").read().splitlines()
+              marks = [l for l in log if re.search(
+                  r"ScreenRenderTest|connectedDebugAndroidTest|BUILD (SUCCESSFUL|FAILED)"
+                  r"|tests completed|There were failing tests|> Task .*FAILED", l)]
+              parts.extend(marks[:100])
+              parts.append("=== UI test log tail ===")
+              parts.extend(log[-40:])
+          else:
+              parts.append("(no ui-tests-exit.txt: the instrumented test step did not run)")
+          if os.path.exists("smoke-steps.txt"):
+              parts.append("=== script step exit codes ===")
+              parts.extend(open("smoke-steps.txt").read().splitlines()[:40])
+          else:
+              parts.append("(no smoke-steps.txt: the emulator script produced no markers)")
+          if crashed:
+              title = "Smoke test: CRASH detected"
+          elif ui_exit is not None and ui_exit != "0":
+              title = "Smoke test: launched, UI tests FAILED"
+          elif ui_exit == "0":
+              title = "Smoke test: launched, UI tests green"
+          elif resumed:
+              title = "Smoke test: launched, activity present, UI tests did not run"
+          else:
+              title = "Smoke test: launched, state unclear"
+          body = "\n".join(parts)
+          print(json.dumps({
+              "name": "android-smoke-report",
+              "head_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
+              "status": "completed",
+              "conclusion": "neutral",
+              "output": {
+                  "title": title,
+                  "summary": body[:180],
+                  "text": body[:60000]
+              }
+          }))
+          PY
+          gh api "repos/${GITHUB_REPOSITORY}/check-runs" --input /tmp/smoke.json --jq '{id, name}'
+
+      - name: Upload smoke evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: android-smoke-evidence
+          path: |
+            logcat.txt
+            activities.txt
+            screen.png
+            ui-tests.log
+            smoke-steps.txt
+          if-no-files-found: ignore
+
+      # Published after the report so a UI failure is visible in the check run and still
+      # turns the job red.
+      - name: Fail when the instrumented UI tests failed
+        if: always()
+        run: |
+          # Absent is a failure too: it means the emulator script stopped before Gradle ran.
+          if [ ! -f ui-tests-exit.txt ]; then
+            echo "instrumented UI tests never ran (no ui-tests-exit.txt)"
+            cat smoke-steps.txt 2>/dev/null || true
+            exit 1
+          fi
+          if [ "$(cat ui-tests-exit.txt)" != "0" ]; then
+            echo "instrumented UI tests failed (exit $(cat ui-tests-exit.txt))"
+            tail -n 60 ui-tests.log || true
+            exit 1
+          fi
+          python3 tools/check_smoke.py .
+          echo "instrumented UI tests and launch evidence passed"
+

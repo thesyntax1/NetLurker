@@ -49,13 +49,16 @@ struct Conn {
     bool         isMobile  = false;
     bool         geoPending  = false;
 
+    bool         threatIncomplete = true;
     int          threatScore  = -1;
     int          threatReports= 0;
     unsigned long long threatLastReport = 0;
     bool         threatTor    = false;
     std::wstring threatDnsbl;
+    bool         threatDnsblIncomplete = true;
+    int          pluginRisk = -1;
     std::wstring pluginNote;
-    int          threatPdns   = 0;
+    int          threatPdns   = -1;
     std::wstring threatPdnsNames;
     bool         threatPending = false;
 

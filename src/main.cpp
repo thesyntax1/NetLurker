@@ -1,3 +1,5 @@
+#include "ui_layout.h"
+#include "evidence_rules.h"
 #include "common.h"
 #include <winsock2.h>
 #include <ws2tcpip.h>
@@ -23,6 +25,9 @@
 #include <shellapi.h>
 #include <dwmapi.h>
 #include <windowsx.h>
+#include "settings_dialog.h"
+#include "config_store.h"
+#include "http_url.h"
 #include <mutex>
 #include <thread>
 #include <memory>
@@ -313,7 +318,7 @@ private:
     std::vector<int>    m_view;
     struct RateSample { unsigned long long ts = 0; double in = 0, out = 0; };
     std::deque<RateSample> m_rateHist;
-    static const unsigned long long kRateWindowMs = 300000;
+    static constexpr unsigned long long kRateWindowMs = 300000;
 
     Tab     m_tab       = Tab::Conns;
     Filter  m_filter    = Filter::All;
@@ -329,7 +334,7 @@ private:
     DWORD   m_selPid    = 0;
     bool    m_paused    = false;
     bool    m_showDetail = true;
-    std::wstring m_lang = L"system";
+    std::wstring m_lang = L"en";
     bool    m_geoOnline  = true;
     bool    m_threatOnline = true;
     bool    m_rdapOnline  = true;
@@ -462,6 +467,7 @@ private:
     void ShowOverlay(Overlay o);
     void DrawOverlayButton(Painter& p, RECT& r, const std::wstring& label, bool primary, bool danger);
     bool m_demo = false;
+    bool RequireLiveData();
     void EnterDemo();
     void ExitDemo();
     void RebuildDemoRows();
@@ -569,6 +575,9 @@ void App::LoadPrefs() {
     wchar_t lkey[64] = L"";
     GetPrivateProfileStringW(L"ui", L"lang", L"en", lkey, 64, p.c_str());
     m_lang = Trim(lkey);
+    const auto languages = I18nLanguages();
+    if (std::none_of(languages.begin(), languages.end(),
+                     [&](const auto& l) { return l.first == m_lang; })) m_lang = L"en";
     wchar_t akey[1024] = L"";
     GetPrivateProfileStringW(L"threat", L"abusekey", L"", akey, 1024, p.c_str());
     m_abuseKey = Trim(akey);
@@ -613,17 +622,18 @@ void App::LoadPrefs() {
 
 void App::SavePrefs() {
     const std::wstring p = ConfigPath();
+    std::vector<IniValue> values;
     auto put = [&](const wchar_t* k, int v) {
-        WritePrivateProfileStringW(L"ui", k, std::to_wstring(v).c_str(), p.c_str());
+        values.push_back({L"ui", k, std::to_wstring(v)});
     };
     put(L"geo", m_geoOnline ? 1 : 0);
-    WritePrivateProfileStringW(L"ui", L"lang", m_lang.c_str(), p.c_str());
+    values.push_back({L"ui", L"lang", m_lang});
     put(L"threat", m_threatOnline ? 1 : 0);
     put(L"rdap", m_rdapOnline ? 1 : 0);
     put(L"banner", m_bannerOnline ? 1 : 0);
     put(L"sortcols", 5);
-    WritePrivateProfileStringW(L"threat", L"abusekey", m_abuseKey.c_str(), p.c_str());
-    WritePrivateProfileStringW(L"threat", L"vtkey", m_vtKey.c_str(), p.c_str());
+    values.push_back({L"threat", L"abusekey", m_abuseKey});
+    values.push_back({L"threat", L"vtkey", m_vtKey});
     put(L"notify", m_notify ? 1 : 0);
     put(L"sound", m_soundAlert ? 1 : 0);
     put(L"notifymin", m_notifyMin);
@@ -641,7 +651,7 @@ void App::SavePrefs() {
         wp.length = sizeof(wp);
         if (GetWindowPlacement(m_hwnd, &wp)) {
             auto putw = [&](const wchar_t* k, int v) {
-                WritePrivateProfileStringW(L"win", k, std::to_wstring(v).c_str(), p.c_str());
+                values.push_back({L"win", k, std::to_wstring(v)});
             };
             const RECT& n = wp.rcNormalPosition;
             putw(L"x", n.left);
@@ -651,6 +661,7 @@ void App::SavePrefs() {
             putw(L"max", (wp.showCmd == SW_SHOWMAXIMIZED) ? 1 : 0);
         }
     }
+    UpdateIniAtomically(p, values);
 }
 
 void App::SetupTray() {
@@ -737,23 +748,12 @@ void App::Layout() {
     GetClientRect(m_hwnd, &rc);
     const int W = rc.right, H = rc.bottom;
 
-    m_rcHeader  = { 0, 0, W, S(62) };
-    m_rcToolbar = { 0, m_rcHeader.bottom, W, m_rcHeader.bottom + S(46) };
-    m_rcStatus  = { 0, H - S(28), W, H };
-
-    int detailH = (m_showDetail && IsTableTab())
-                    ? (std::max)(S(160), (std::min)(S(300), (int)(H * 0.31))) : 0;
-    m_rcDetail  = { 0, m_rcStatus.top - detailH, W, m_rcStatus.top };
-    m_rcTable   = { 0, m_rcToolbar.bottom, W, m_rcDetail.top };
-    if (m_rcTable.bottom < m_rcTable.top + S(60)) m_rcTable.bottom = m_rcTable.top + S(60);
-
-    m_rcTableHead = { m_rcTable.left, m_rcTable.top, m_rcTable.right, m_rcTable.top + S(32) };
-    m_rcRows      = { m_rcTable.left, m_rcTableHead.bottom, m_rcTable.right, m_rcTable.bottom };
-    m_rcScroll    = { m_rcRows.right - S(10), m_rcRows.top, m_rcRows.right, m_rcRows.bottom };
-
+    // The navigation gets its own row; it must not compete with live rates.
+    m_rcHeader = { 0, 0, W, S(102) };
     m_buttons.clear();
     const int pad = S(12), gap = S(6), bh = S(28);
-    int y = m_rcToolbar.top + (m_rcToolbar.bottom - m_rcToolbar.top - bh) / 2;
+    const int available = (std::max)(1, W - 2 * pad);
+    std::vector<int> widths;
 
     struct ChipDef { int id; const wchar_t* txt; Filter f; };
     const ChipDef chips[] = {
@@ -779,23 +779,19 @@ void App::Layout() {
         return (int)sz.cx;
     };
 
-    const bool narrow = (W < S(1180));
-    int x = pad;
     for (const auto& c : chips) {
-        if (narrow && (c.id == ID_FILTER_TCP || c.id == ID_FILTER_UDP ||
-                       c.id == ID_FILTER_HTTPS || c.id == ID_FILTER_RECENT)) continue;
         Button b;
         b.id     = c.id;
         b.label  = c.txt;
         b.toggle = true;
         b.active = (m_filter == c.f);
         int w = textW(b.label, m_fBold) + S(20);
-        b.rc = { x, y, x + w, y + bh };
-        x += w + gap;
+        widths.push_back(w);
         m_buttons.push_back(b);
     }
 
-    int xr = W - pad;
+    const size_t searchIndex = widths.size();
+    widths.push_back(S(180));
     struct ActDef { int id; const wchar_t* txt; bool primary; bool toggle; bool active; bool danger; };
     const bool haveProc = (SelectedPid() != 0);
     std::wstring selRemote;
@@ -823,16 +819,36 @@ void App::Layout() {
         if (a.id == ID_BTN_KILL) b.enabled = haveProc;
         if (a.id == ID_BTN_BLOCK) b.enabled = !selRemote.empty();
         int w = textW(b.label, m_fBold) + S(22);
-        b.rc = { xr - w, y, xr, y + bh };
-        xr -= (w + gap);
+        widths.push_back(w);
         m_buttons.push_back(b);
     }
 
-    int searchLeft  = x + S(6);
-    int searchRight = xr - S(10);
-    int searchW = searchRight - searchLeft;
-    if (searchW < S(140)) { searchW = S(140); searchLeft = (std::max)(pad, searchRight - searchW); }
-    m_rcSearch = { searchLeft, y, searchLeft + (std::min)(searchW, S(420)), y + bh };
+    // Grow the search field only when everything fits on one row. Otherwise wrap
+    // every control (including all filters), rather than hiding or overlapping it.
+    int fixedWidth = gap * (int)(widths.size() - 1);
+    for (size_t i = 0; i < widths.size(); ++i)
+        if (i != searchIndex) fixedWidth += widths[i];
+    widths[searchIndex] = (std::max)(S(180), (std::min)(S(420), available - fixedWidth));
+    const auto flow = PackToolbar(widths, available, bh, gap);
+    size_t buttonIndex = 0;
+    for (size_t i = 0; i < flow.items.size(); ++i) {
+        const auto& item = flow.items[i];
+        const int left = pad + item.x, top = m_rcHeader.bottom + S(9) + item.y;
+        RECT bounds = { left, top, left + item.width, top + item.height };
+        if (i == searchIndex) m_rcSearch = bounds;
+        else m_buttons[buttonIndex++].rc = bounds;
+    }
+    m_rcToolbar = { 0, m_rcHeader.bottom, W, m_rcHeader.bottom + flow.height + S(18) };
+    m_rcStatus = { 0, (std::max)(0, H - S(28)), W, H };
+    const int contentH = (std::max)(0, (int)m_rcStatus.top - (int)m_rcToolbar.bottom);
+    const int detailH = (m_showDetail && IsTableTab())
+        ? (std::min)((std::max)(0, contentH - S(100)),
+                     (std::max)(S(160), (std::min)(S(300), (int)(H * 0.31)))) : 0;
+    m_rcDetail = { 0, m_rcStatus.top - detailH, W, m_rcStatus.top };
+    m_rcTable = { 0, m_rcToolbar.bottom, W, (std::max)(m_rcToolbar.bottom, m_rcDetail.top) };
+    m_rcTableHead = { 0, m_rcTable.top, W, (std::min)(m_rcTable.bottom, m_rcTable.top + S(32)) };
+    m_rcRows = { 0, m_rcTableHead.bottom, W, m_rcTable.bottom };
+    m_rcScroll = { W - S(10), m_rcRows.top, W, m_rcRows.bottom };
     ReleaseDC(m_hwnd, hdc);
 
     if (m_search) {
@@ -898,9 +914,6 @@ void App::Tick(bool force) {
         RebuildDemoRows();
         m_rows = m_demoRows;
         RebuildDemoApps();
-        NoteNewConnections();
-        TickAnomaly();
-        PushRateSample(m_mon.SystemRateIn(), m_mon.SystemRateOut());
         RebuildView();
         return;
     }
@@ -950,14 +963,16 @@ void App::Tick(bool force) {
         if (!c.isRemotePublic) continue;
         ThreatInfo t;
         if (m_threat.Get(c.remoteIp, t, threatEnq)) {
+            c.threatIncomplete = t.failed || t.dnsblIncomplete;
             c.threatScore      = t.abuseScore;
             c.threatReports    = t.totalReports;
             c.threatLastReport = t.lastReport;
             c.threatTor        = t.isTor;
             c.threatDnsbl      = t.dnsbl;
+            c.threatDnsblIncomplete = t.dnsblIncomplete;
             c.threatPdns       = t.passiveDns;
             c.threatPdnsNames  = t.pdnsNames;
-            c.threatPending    = !t.resolved;
+            c.threatPending    = threatEnq && !t.resolved;
             c.threatTs         = t.ts;
             c.rdapName         = t.rdapName;
             c.rdapOrg          = t.rdapOrg;
@@ -970,8 +985,8 @@ void App::Tick(bool force) {
             c.vtReputation     = t.vtReputation;
 
             if (t.pluginRisk >= 0) {
-                if (c.threatScore < 0 || t.pluginRisk > c.threatScore)
-                    c.threatScore = t.pluginRisk;
+                // Third-party plugin output is not an AbuseIPDB measurement.
+                c.pluginRisk = t.pluginRisk;
                 c.pluginNote = t.pluginVerdict;
                 if (!t.pluginNote.empty())
                     c.pluginNote += L" — " + t.pluginNote;
@@ -1826,19 +1841,19 @@ void App::DrawHeader(Painter& p) {
     p.FillRect(m_rcHeader, clr::Bg);
 
     const int pad = S(14);
-    int cy = (m_rcHeader.top + m_rcHeader.bottom) / 2;
+    int cy = m_rcHeader.top + S(31);
     p.FillCircle(pad + S(10), cy, S(9), clr::AccentDim);
     p.FillCircle(pad + S(10), cy, S(4), clr::Cyan);
 
     RECT t = { pad + S(26), m_rcHeader.top + S(8), pad + S(300), m_rcHeader.top + S(34) };
     p.Text(L"NetLurker", t, m_fTitle, clr::Text);
     RECT vb = { pad + S(126), m_rcHeader.top + S(13), pad + S(158), m_rcHeader.top + S(29) };
-    DrawBadge(p, vb, L"v5", clr::Cyan, clr::SurfaceHi);
+    DrawBadge(p, vb, L"v6", clr::Cyan, clr::SurfaceHi);
     RECT s = { pad + S(28), m_rcHeader.top + S(33), pad + S(360), m_rcHeader.top + S(52) };
     p.Text(Tr(L"process ↔ network connection monitor  •  threat intelligence + TLS certificate analysis"),
            s, m_fSmall, clr::TextDim);
 
-    int tabX = pad + S(300);
+    int tabX = pad;
     struct TabDef { Tab id; int cmd; const wchar_t* txt; };
     const TabDef tabs[] = {
         { Tab::Conns,   ID_TAB_CONNS, Tr(L"Connections") },
@@ -1854,12 +1869,14 @@ void App::DrawHeader(Painter& p) {
             if (n) label += L" (" + std::to_wstring(n) + L")";
         }
         SIZE sz = p.Measure(label, m_fBold);
-        RECT tr = { tabX, m_rcHeader.top + S(16), tabX + sz.cx + S(22), m_rcHeader.bottom - S(10) };
+        const int maxTabW = (std::max)(1, ((int)m_rcHeader.right - 2 * pad - 4 * S(4)) / 5);
+        const int tabW = (std::min)((int)sz.cx + S(22), maxTabW);
+        RECT tr = { tabX, m_rcHeader.top + S(64), tabX + tabW, m_rcHeader.bottom - S(6) };
         bool on = (m_tab == td.id);
         bool hot = (m_hotBtn == td.cmd);
         if (on)       p.FillRoundRect(tr, S(6), clr::SurfaceHi);
         else if (hot) p.FillRoundRect(tr, S(6), clr::Surface);
-        p.Text(label, tr, m_fBold, on ? clr::Text : clr::TextDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE);
+        p.Text(label, tr, m_fBold, on ? clr::Text : clr::TextDim, DT_CENTER | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
         if (on) {
             RECT ul = { tr.left + S(10), tr.bottom - S(2), tr.right - S(10), tr.bottom };
             p.FillRoundRect(ul, S(1), clr::Accent);
@@ -1881,10 +1898,10 @@ void App::DrawHeader(Painter& p) {
     else graph.left = m_rcHeader.right - S(6);
 
     wchar_t buf[160];
-    swprintf(buf, 160, L"↓ %s", FormatBytesPerSec(m_mon.SystemRateIn()).c_str());
+    swprintf(buf, 160, L"↓ %s", (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateIn())).c_str());
     RECT rIn = { graph.left - S(230), m_rcHeader.top + S(8), graph.left - S(116), m_rcHeader.top + S(28) };
     p.Text(buf, rIn, m_fBig, clr::Accent, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
-    swprintf(buf, 160, L"↑ %s", FormatBytesPerSec(m_mon.SystemRateOut()).c_str());
+    swprintf(buf, 160, L"↑ %s", (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateOut())).c_str());
     RECT rOut = { graph.left - S(230), m_rcHeader.top + S(26), graph.left - S(116), m_rcHeader.top + S(46) };
     p.Text(buf, rOut, m_fBig, clr::Purple, DT_RIGHT | DT_VCENTER | DT_SINGLELINE);
     RECT rSrc = { graph.left - S(230), m_rcHeader.top + S(44), graph.left - S(116), m_rcHeader.top + S(58) };
@@ -2269,8 +2286,8 @@ void App::DrawStats(Painter& p) {
         { std::to_wstring(certWarn),            Tr(L"cert warnings"),      clr::Orange },
         { std::to_wstring(tcp) + L"/" + std::to_wstring(udp), Tr(L"tcp / udp"),  clr::Purple },
         { std::to_wstring(unsigned_),           Tr(L"unsigned process sockets"),   clr::Orange },
-        { FormatBytesPerSec(m_mon.SystemRateIn()),  Tr(L"system download"),     clr::Accent },
-        { FormatBytesPerSec(m_mon.SystemRateOut()), Tr(L"system upload"),     clr::Purple },
+        { (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateIn())),  Tr(L"system download"),     clr::Accent },
+        { (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateOut())), Tr(L"system upload"),     clr::Purple },
         { std::to_wstring((int)m_dns.CacheSize()),  Tr(L"DNS cache entries"), clr::Cyan, true },
         { std::to_wstring(m_dns.HostsEntryCount()), Tr(L"hosts redirects"),
           m_dns.HostsEntryCount() ? clr::Red : clr::TextDim, true },
@@ -2303,10 +2320,10 @@ void App::DrawStats(Painter& p) {
     wchar_t hbuf[256];
     swprintf(hbuf, 256,
              Tr(L"System traffic (NIC)   ↓ %s   ↑ %s   •   session: ↓ %s / ↑ %s   •   monitored sockets: ↓ %s / ↑ %s"),
-             FormatBytesPerSec(m_mon.SystemRateIn()).c_str(),
-             FormatBytesPerSec(m_mon.SystemRateOut()).c_str(),
-             FormatBytes(m_mon.SystemBytesIn()).c_str(),
-             FormatBytes(m_mon.SystemBytesOut()).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateIn())).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytesPerSec(m_mon.SystemRateOut())).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytes(m_mon.SystemBytesIn())).c_str(),
+             (m_demo ? std::wstring(L"—") : FormatBytes(m_mon.SystemBytesOut())).c_str(),
              FormatBytesPerSec(m_mon.TotalRateIn()).c_str(),
              FormatBytesPerSec(m_mon.TotalRateOut()).c_str());
     p.Text(hbuf, gTitle, m_fBold, clr::Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -2462,7 +2479,7 @@ void App::DrawDetail(Painter& p) {
     std::wstring graphProc;
 
     if (c) {
-        ProcDetails d = m_mon.Procs().Get(c->pid);
+        ProcDetails d = m_demo ? ProcDetails{} : m_mon.Procs().Get(c->pid);
         std::wstring title = c->procName + L"  (PID " + std::to_wstring(c->pid) + L")";
         RECT tr = { x, y, splitX - S(120), y + S(22) };
         p.Text(title, tr, m_fBig, clr::Text, DT_LEFT | DT_VCENTER | DT_SINGLELINE | DT_END_ELLIPSIS);
@@ -2483,7 +2500,7 @@ void App::DrawDetail(Painter& p) {
         if (!d.cmdline.empty()) row(Tr(L"Command"), d.cmdline, clr::TextDim);
         row(Tr(L"User"),d.user + (d.services.empty() ? L"" : (Tr(L"   •   service: ") + d.services)), clr::TextDim);
         {
-            ProcRuntime rt = m_mon.Procs().Runtime(c->pid);
+            ProcRuntime rt = m_demo ? ProcRuntime{} : m_mon.Procs().Runtime(c->pid);
             wchar_t rb[320];
             swprintf(rb, 320, Tr(L"CPU %.1f%%   •   RAM %s   •   %lu threads / %lu handles   •   disk %s"),
                      rt.cpu, FormatBytes(rt.workingSet).c_str(), rt.threads, rt.handles,
@@ -2586,6 +2603,8 @@ void App::DrawDetail(Painter& p) {
             }
             if (!c->threatDnsbl.empty() && c->threatDnsbl != L"—")
                 thr += (thr.empty() ? L"" : L" • ") + (Tr(L"blacklist: ") + c->threatDnsbl);
+            if (c->threatDnsblIncomplete)
+                row(L"DNSBL", Tr(L"(lookup failed)"), clr::TextDim);
             if (c->threatPdns > 0)
                 thr += (thr.empty() ? L"" : L" • ") +
                        (Tr(L"passive DNS: ") + std::to_wstring(c->threatPdns) + Tr(L" records"));
@@ -2902,19 +2921,29 @@ void App::DrawOverlay(Painter& p) {
     m_overlayDrawn = true;
 }
 
+bool App::RequireLiveData() {
+    if (!m_demo) return true;
+    Toast(Tr(L"Exit demo mode before using live-system actions."), clr::Yellow);
+    return false;
+}
+
 void App::EnterDemo() {
     if (m_demo) return;
     m_demo = true;
+    m_tab = Tab::Conns;
+    m_selRow = -1; m_scrollY = 0;
+    m_anomNew.clear(); m_lastAnomTick = 0;
     m_paused = false;
     m_lastDemoTick = 0;
     m_demoRows.clear();
-    RebuildDemoRows();
+    Tick(true);
     Toast(Tr(L"Demo mode on — running with sample data (press Ctrl+D to exit)"), clr::Cyan);
     InvalidateRect(m_hwnd, nullptr, FALSE);
 }
 
 void App::ExitDemo() {
     m_demo = false;
+    m_anomNew.clear(); m_lastAnomTick = 0;
     m_demoRows.clear();
     Toast(Tr(L"Demo mode off — loading real system data…"), clr::Green);
     Tick(true);
@@ -3169,6 +3198,7 @@ void App::RefreshFirewallRules(bool force) {
 }
 
 void App::UnblockSelectedIp() {
+    if (!RequireLiveData()) return;
     std::wstring ip;
     if (const Conn* c = SelectedConn())           ip = c->remoteIp;
     else if (const HistEntry* h = SelectedHist()) ip = h->remoteIp;
@@ -3666,7 +3696,7 @@ void App::SetSelection(int viewIndex) {
         }
     }
 
-    if (m_selPid) m_mon.Procs().RequestHash(m_selPid);
+    if (m_selPid && !m_demo) m_mon.Procs().RequestHash(m_selPid);
     m_aiScroll = 0;
 }
 
@@ -3892,6 +3922,12 @@ void App::OnKeyDown(WPARAM key) {
 }
 
 void App::OnCommand(int id) {
+    if (m_demo && (id==IDM_COPY_CMD || id==IDM_COPY_HASH || id==IDM_VT_FILE ||
+        id==ID_TAB_HIST || id==ID_TAB_STATS || id==ID_TAB_GRAPH ||
+        id==IDM_THREAT_REFRESH || id==IDM_CERT_REFRESH || id==IDM_OPEN_FOLDER ||
+        id==IDM_WHOIS || id==IDM_ABUSE_OPEN || id==IDM_CIRCL_OPEN)) {
+        RequireLiveData(); return;
+    }
     switch (id) {
         case ID_FILTER_ALL:      m_filter = Filter::All;        break;
         case ID_FILTER_ACTIVE:   m_filter = Filter::Active;     break;
@@ -4186,6 +4222,7 @@ void App::CopyToClipboard(const std::wstring& text) {
 }
 
 DWORD App::SelectedPid(std::wstring* nameOut) const {
+    if (m_demo) return 0;
     DWORD pid = 0;
     std::wstring name;
     if (const Conn* c = SelectedConn())            { pid = c->pid; name = c->procName; }
@@ -4203,6 +4240,7 @@ void App::Toast(const std::wstring& msg, COLORREF color) {
 }
 
 void App::KillSelectedProcess(bool tree) {
+    if (!RequireLiveData()) return;
     std::wstring name;
     DWORD pid = SelectedPid(&name);
     if (!pid) { Toast(Tr(L"Select a row first."), clr::Yellow); return; }
@@ -4234,6 +4272,7 @@ void App::KillSelectedProcess(bool tree) {
 }
 
 void App::SuspendSelectedProcess() {
+    if (!RequireLiveData()) return;
     std::wstring name;
     DWORD pid = SelectedPid(&name);
     if (!pid || pid <= 4) { Toast(Tr(L"This process cannot be suspended."), clr::Orange); return; }
@@ -4252,6 +4291,7 @@ void App::SuspendSelectedProcess() {
 }
 
 void App::ShowProcessProperties() {
+    if (!RequireLiveData()) return;
     std::wstring path;
     if (const Conn* c = SelectedConn())            path = c->procPath;
     else if (const AppRow* a = SelectedApp())      path = a->path;
@@ -4268,6 +4308,7 @@ void App::ShowProcessProperties() {
 }
 
 void App::BlockSelectedIp() {
+    if (!RequireLiveData()) return;
     std::wstring ip;
     if (const Conn* c = SelectedConn())           { if (c->isRemotePublic) ip = c->remoteIp; }
     else if (const HistEntry* h = SelectedHist()) { ip = h->remoteIp; }
@@ -4333,6 +4374,7 @@ struct JsonObj {
         swprintf(b, 48, L"%.2f", v);
         s += b;
     }
+    void missing(const wchar_t* k) { key(k); s += L"null"; }
     void flag(const wchar_t* k, bool v) { key(k); s += v ? L"true" : L"false"; }
     std::wstring wrap() const { return L"    {" + s + L"}"; }
 };
@@ -4360,10 +4402,7 @@ void App::ExportData() {
     const bool asTxt  = (ToLower(path).find(L".txt") != std::wstring::npos);
     std::wstring out;
 
-    auto esc = [](std::wstring s) {
-        for (auto& ch : s) if (ch == L';' || ch == L'\n' || ch == L'\r') ch = L' ';
-        return s;
-    };
+    auto esc = [](const std::wstring& s) { return CsvText(s); };
     auto hesc = [](const std::wstring& s) {
         std::wstring r;
         r.reserve(s.size());
@@ -4669,17 +4708,20 @@ void App::ExportData() {
                 o.str(L"domain", c.domain);
                 o.str(L"banner", c.banner);
                 o.str(L"rdap_org", c.rdapOrg);
+                if (c.pluginRisk >= 0) o.num(L"plugin_score", c.pluginRisk); else o.missing(L"plugin_score");
+                o.str(L"plugin_note", c.pluginNote);
                 o.str(L"rdap_cidr", c.rdapCidr);
                 o.str(L"rdap_abuse", c.rdapAbuse);
-                o.num(L"vt_malicious", (long long)c.vtMalicious);
-                o.num(L"vt_suspicious", (long long)c.vtSuspicious);
-                o.num(L"vt_total", (long long)c.vtTotal);
-                o.num(L"vt_reputation", (long long)c.vtReputation);
+                if (c.vtTotal > 0) o.num(L"vt_malicious", (long long)c.vtMalicious); else o.missing(L"vt_malicious");
+                if (c.vtTotal > 0) o.num(L"vt_suspicious", (long long)c.vtSuspicious); else o.missing(L"vt_suspicious");
+                if (c.vtTotal > 0) o.num(L"vt_total", (long long)c.vtTotal); else o.missing(L"vt_total");
+                if (c.vtTotal > 0) o.num(L"vt_reputation", (long long)c.vtReputation); else o.missing(L"vt_reputation");
                 o.flag(L"hosting", c.isHosting);
                 o.flag(L"proxy", c.isProxy);
-                o.num(L"threat_score", (long long)c.threatScore);
+                o.str(L"threat_status", !(m_threatOnline || m_rdapOnline || m_vtOnline) ? L"disabled" : c.threatPending ? L"pending" : c.threatIncomplete ? L"incomplete" : L"complete");
+                if (c.threatScore >= 0) o.num(L"threat_score", (long long)c.threatScore); else o.missing(L"threat_score");
                 o.str(L"threat_dnsbl", c.threatDnsbl);
-                o.num(L"threat_passive_dns", (long long)c.threatPdns);
+                if (c.threatPdns >= 0) o.num(L"threat_passive_dns", (long long)c.threatPdns); else o.missing(L"threat_passive_dns");
                 o.str(L"cert_issuer", c.certIssuer);
                 o.str(L"cert_subject", c.certSubject);
                 o.flag(L"cert_selfsigned", c.certSelfSigned);
@@ -4745,7 +4787,7 @@ void App::ExportData() {
                        esc(c.domain) + L";" + esc(c.banner) + L";" +
                        esc(c.module) + L";" +
                        (c.threatScore >= 0 ? std::to_wstring(c.threatScore) : L"") + L";" +
-                       esc(c.threatDnsbl) + L";" + std::to_wstring(c.threatPdns) + L";" +
+                       esc(c.threatDnsbl) + L";" + (c.threatPdns >= 0 ? std::to_wstring(c.threatPdns) : L"") + L";" +
                        esc(c.certIssuer) + L";" + esc(c.certSubject) + L";" +
                        (c.certSelfSigned ? L"yes" : L"no") + L";" +
                        (c.certExpired ? L"yes" : L"no") + L";" +
@@ -4761,6 +4803,7 @@ void App::ExportData() {
         }
     }
 
+    if (!asJson && !asHtml && !asTxt) out = LabelCsvOrigin(out, m_demo);
     std::string utf8 = Narrow(out);
     HANDLE hf = CreateFileW(file, GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
     if (hf == INVALID_HANDLE_VALUE) {
@@ -4784,6 +4827,7 @@ static void PostAiResult(HWND hwnd, bool ok, std::wstring text) {
 }
 
 void App::RunAiAnalysis(bool bulk) {
+    if (!RequireLiveData()) return;
     m_showDetail = true;
     m_aiScroll = 0;
     AiConfig cfg = LoadAiConfig();
@@ -4802,7 +4846,7 @@ void App::RunAiAnalysis(bool bulk) {
         if (top.empty()) {
             std::lock_guard<std::mutex> lk(m_aiMtx);
             m_aiTitle = Tr(L"Bulk analysis");
-            m_aiText  = Tr(L"No connection above 25 points right now. The system looks clean.");
+            m_aiText  = Tr(L"No connection at or above 25 points in this snapshot. Missing evidence can hide risk.");
             Layout();
             InvalidateRect(m_hwnd, nullptr, FALSE);
             return;
@@ -4975,63 +5019,86 @@ INT_PTR CALLBACK App::ElevateProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 }
 
 INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
-    static App* self = nullptr;
+    auto* self = reinterpret_cast<App*>(GetWindowLongPtrW(dlg, GWLP_USERDATA));
+    auto* layout = reinterpret_cast<SettingsDialogLayout*>(GetPropW(dlg, L"SettingsLayout"));
+    HWND fields = layout ? layout->Body() : dlg;
     static HBRUSH brBg = nullptr, brEdit = nullptr;
     switch (msg) {
         case WM_INITDIALOG: {
             self = reinterpret_cast<App*>(lp);
+            SetWindowLongPtrW(dlg, GWLP_USERDATA, lp);
             if (!brBg)   brBg   = CreateSolidBrush(clr::Bg);
             if (!brEdit) brEdit = CreateSolidBrush(clr::Surface);
-            AiConfig cfg = LoadAiConfig();
-            SetDlgItemTextW(dlg, IDC_ED_ENDPOINT, cfg.endpoint.c_str());
-            SetDlgItemTextW(dlg, IDC_ED_MODEL,    cfg.model.c_str());
-            SetDlgItemTextW(dlg, IDC_ED_KEY,      cfg.apiKey.c_str());
+            AiConfig cfg = LoadAiConfig(false);
+            SetDlgItemTextW(fields, IDC_ED_ENDPOINT, cfg.endpoint.c_str());
+            SetDlgItemTextW(fields, IDC_ED_MODEL,    cfg.model.c_str());
+            SetDlgItemTextW(fields, IDC_ED_KEY,      cfg.apiKey.c_str());
             if (self) {
-                CheckDlgButton(dlg, IDC_CHK_GEO,    self->m_geoOnline  ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_NOTIFY, self->m_notify     ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_SOUND,  self->m_soundAlert ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_CONFIRM,self->m_confirmKill ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_THREAT, self->m_threatOnline ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_RDAP,   self->m_rdapOnline   ? BST_CHECKED : BST_UNCHECKED);
-                CheckDlgButton(dlg, IDC_CHK_BANNER, self->m_bannerOnline ? BST_CHECKED : BST_UNCHECKED);
-                SetDlgItemInt(dlg, IDC_ED_INTERVAL,  (UINT)(self->m_interval / 100), FALSE);
-                SetDlgItemInt(dlg, IDC_ED_RISKMIN,   (UINT)self->m_notifyMin, FALSE);
-                SetDlgItemTextW(dlg, IDC_ED_ABUSEKEY, self->m_abuseKey.c_str());
-                SetDlgItemTextW(dlg, IDC_ED_VTKEY,    self->m_vtKey.c_str());
+                CheckDlgButton(fields, IDC_CHK_GEO,    self->m_geoOnline  ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_NOTIFY, self->m_notify     ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_SOUND,  self->m_soundAlert ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_CONFIRM,self->m_confirmKill ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_THREAT, self->m_threatOnline ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_RDAP,   self->m_rdapOnline   ? BST_CHECKED : BST_UNCHECKED);
+                CheckDlgButton(fields, IDC_CHK_BANNER, self->m_bannerOnline ? BST_CHECKED : BST_UNCHECKED);
+                SetDlgItemInt(fields, IDC_ED_INTERVAL,  (UINT)(self->m_interval / 100), FALSE);
+                SetDlgItemInt(fields, IDC_ED_RISKMIN,   (UINT)self->m_notifyMin, FALSE);
+                SetDlgItemTextW(fields, IDC_ED_ABUSEKEY, self->m_abuseKey.c_str());
+                SetDlgItemTextW(fields, IDC_ED_VTKEY,    self->m_vtKey.c_str());
                 int langIdx = 0;
                 for (const auto& l : I18nLanguages()) {
-                    int i = (int)SendDlgItemMessageW(dlg, IDC_CMB_LANG, CB_ADDSTRING, 0,
+                    int i = (int)SendDlgItemMessageW(fields, IDC_CMB_LANG, CB_ADDSTRING, 0,
                                                      (LPARAM)l.second.c_str());
                     if (l.first == self->m_lang) langIdx = i;
                 }
-                SendDlgItemMessageW(dlg, IDC_CMB_LANG, CB_SETCURSEL, (WPARAM)langIdx, 0);
+                SendDlgItemMessageW(fields, IDC_CMB_LANG, CB_SETCURSEL, (WPARAM)langIdx, 0);
             }
 
             SetWindowTextW(dlg, Tr(L"NetLurker - Settings"));
-            SetDlgItemTextW(dlg, IDC_ST_ENDPOINT, Tr(L"AI endpoint (OpenAI-compatible chat/completions URL):"));
-            SetDlgItemTextW(dlg, IDC_ST_MODEL,    Tr(L"Model:"));
-            SetDlgItemTextW(dlg, IDC_ST_INTERVAL, Tr(L"Refresh (x100 ms):"));
-            SetDlgItemTextW(dlg, IDC_ST_KEY,      Tr(L"API key:"));
-            SetDlgItemTextW(dlg, IDC_ST_RISKMIN,  Tr(L"Notification risk threshold (20-100):"));
-            SetDlgItemTextW(dlg, IDC_ST_THREAT,   Tr(L"THREAT INTELLIGENCE"));
-            SetDlgItemTextW(dlg, IDC_ST_ABUSEKEY, Tr(L"AbuseIPDB API key (optional, free at abuseipdb.com):"));
-            SetDlgItemTextW(dlg, IDC_ST_VTKEY,    Tr(L"VirusTotal API key (empty = off; free plan: 4 lookups/minute):"));
-            SetDlgItemTextW(dlg, IDC_ST_LANG,     Tr(L"Language:"));
-            SetDlgItemTextW(dlg, IDC_ST_INFO,     Tr(L"The AI key is stored in %APPDATA%\\NetLurker\\config.ini. If left empty, the OPENAI_API_KEY environment variable is used; otherwise local heuristic analysis runs."));
-            SetDlgItemTextW(dlg, IDC_CHK_GEO,     Tr(L"Enable IP geolocation/org lookup (ip-api.com)"));
-            SetDlgItemTextW(dlg, IDC_CHK_NOTIFY,  Tr(L"Show desktop notification on risky connection"));
-            SetDlgItemTextW(dlg, IDC_CHK_SOUND,   Tr(L"Play alert sound on notification"));
-            SetDlgItemTextW(dlg, IDC_CHK_CONFIRM, Tr(L"Ask for confirmation before killing a process"));
-            SetDlgItemTextW(dlg, IDC_CHK_THREAT,  Tr(L"Enable threat intelligence (AbuseIPDB + DNS blacklists + CIRCL passive DNS + TLS certificate analysis)"));
-            SetDlgItemTextW(dlg, IDC_CHK_RDAP,    Tr(L"Enable RDAP ownership lookup (network/org/contact/registration date)"));
-            SetDlgItemTextW(dlg, IDC_CHK_BANNER,  Tr(L"Enable HTTP banner detection (remote server software)"));
+            SetDlgItemTextW(fields, IDC_ST_ENDPOINT, Tr(L"AI endpoint (OpenAI-compatible chat/completions URL):"));
+            SetDlgItemTextW(fields, IDC_ST_MODEL,    Tr(L"Model:"));
+            SetDlgItemTextW(fields, IDC_ST_INTERVAL, Tr(L"Refresh (x100 ms):"));
+            SetDlgItemTextW(fields, IDC_ST_KEY,      Tr(L"API key:"));
+            SetDlgItemTextW(fields, IDC_ST_RISKMIN,  Tr(L"Notification risk threshold (20-100):"));
+            SetDlgItemTextW(fields, IDC_ST_THREAT,   Tr(L"THREAT INTELLIGENCE"));
+            SetDlgItemTextW(fields, IDC_ST_ABUSEKEY, Tr(L"AbuseIPDB API key (optional, free at abuseipdb.com):"));
+            SetDlgItemTextW(fields, IDC_ST_VTKEY,    Tr(L"VirusTotal API key (empty = off; free plan: 4 lookups/minute):"));
+            SetDlgItemTextW(fields, IDC_ST_LANG,     Tr(L"Language:"));
+            SetDlgItemTextW(fields, IDC_ST_INFO,     Tr(L"The AI key is stored in %APPDATA%\\NetLurker\\config.ini. If left empty, the OPENAI_API_KEY environment variable is used; otherwise local heuristic analysis runs."));
+            SetDlgItemTextW(fields, IDC_CHK_GEO,     Tr(L"Enable IP geolocation/org lookup (ip-api.com)"));
+            SetDlgItemTextW(fields, IDC_CHK_NOTIFY,  Tr(L"Show desktop notification on risky connection"));
+            SetDlgItemTextW(fields, IDC_CHK_SOUND,   Tr(L"Play alert sound on notification"));
+            SetDlgItemTextW(fields, IDC_CHK_CONFIRM, Tr(L"Ask for confirmation before killing a process"));
+            SetDlgItemTextW(fields, IDC_CHK_THREAT,  Tr(L"Enable threat intelligence (AbuseIPDB + DNS blacklists + CIRCL passive DNS + TLS certificate analysis)"));
+            SetDlgItemTextW(fields, IDC_CHK_RDAP,    Tr(L"Enable RDAP ownership lookup (network/org/contact/registration date)"));
+            SetDlgItemTextW(fields, IDC_CHK_BANNER,  Tr(L"Enable HTTP banner detection (remote server software)"));
             SetDlgItemTextW(dlg, IDOK,            Tr(L"Save"));
             SetDlgItemTextW(dlg, IDCANCEL,        Tr(L"Cancel"));
             BOOL dark = TRUE;
             DwmSetWindowAttribute(dlg, 20, &dark, sizeof(dark));
             DwmSetWindowAttribute(dlg, 19, &dark, sizeof(dark));
+            layout = new SettingsDialogLayout(dlg, brBg);
+            if (!SetPropW(dlg, L"SettingsLayout", layout)) { delete layout; EndDialog(dlg, -1); return TRUE; }
+            if (!layout->Initialize()) { EndDialog(dlg, -1); return TRUE; }
             return TRUE;
         }
+        case WM_SIZE:
+            if (layout) layout->Layout();
+            return TRUE;
+        case WM_GETMINMAXINFO:
+            if (layout) layout->MinMax(reinterpret_cast<MINMAXINFO*>(lp));
+            return TRUE;
+        case WM_DPICHANGED:
+            if (layout) layout->ChangeDpi(HIWORD(wp), *reinterpret_cast<RECT*>(lp));
+            return TRUE;
+        case WM_SETTINGCHANGE:
+        case WM_DISPLAYCHANGE:
+            if (layout) { RECT r{}; GetWindowRect(dlg, &r); layout->Clamp(r); layout->Layout(); }
+            break;
+        case WM_NCDESTROY:
+            RemovePropW(dlg, L"SettingsLayout");
+            delete layout;
+            break;
         case WM_CTLCOLORDLG:
         case WM_CTLCOLORBTN:
         case WM_CTLCOLORSTATIC: {
@@ -5047,54 +5114,73 @@ INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
             return (INT_PTR)brEdit;
         }
         case WM_COMMAND:
-            if (LOWORD(wp) == IDOK) {
+            if (LOWORD(wp) == IDOK && self && fields) {
                 AiConfig cfg;
                 wchar_t buf[1024];
-                GetDlgItemTextW(dlg, IDC_ED_ENDPOINT, buf, 1024); cfg.endpoint = Trim(buf);
-                GetDlgItemTextW(dlg, IDC_ED_MODEL,    buf, 1024); cfg.model    = Trim(buf);
-                GetDlgItemTextW(dlg, IDC_ED_KEY,      buf, 1024); cfg.apiKey   = Trim(buf);
-                SaveAiConfig(cfg);
+                GetDlgItemTextW(fields, IDC_ED_ENDPOINT, buf, 1024); cfg.endpoint = Trim(buf);
+                GetDlgItemTextW(fields, IDC_ED_MODEL,    buf, 1024); cfg.model    = Trim(buf);
+                GetDlgItemTextW(fields, IDC_ED_KEY,      buf, 1024); cfg.apiKey   = Trim(buf);
+                auto read = [&](int id) { GetDlgItemTextW(fields, id, buf, 1024); return Trim(buf); };
+                const auto abuseKey = read(IDC_ED_ABUSEKEY), vtKey = read(IDC_ED_VTKEY);
+                BOOL intervalValid = FALSE, riskValid = FALSE;
+                const UINT interval = GetDlgItemInt(fields, IDC_ED_INTERVAL, &intervalValid, FALSE);
+                const UINT risk = GetDlgItemInt(fields, IDC_ED_RISKMIN, &riskValid, FALSE);
+                if (!intervalValid || interval < 5 || interval > 100 || !riskValid || risk < 20 || risk > 100) {
+                    MessageBoxW(dlg, Tr(L"Refresh must be 5-100 (x100 ms), and notification risk must be 20-100."), Tr(L"Settings"), MB_OK | MB_ICONWARNING);
+                    SetFocus(GetDlgItem(fields, (!intervalValid || interval < 5 || interval > 100) ? IDC_ED_INTERVAL : IDC_ED_RISKMIN));
+                    return TRUE;
+                }
+                http::ParsedUrl endpoint;
+                if ((!cfg.apiKey.empty() || !AiEnvironmentKey().empty()) &&
+                    (!http::ParseUrl(cfg.endpoint, endpoint) || (!endpoint.secure && !endpoint.Loopback()) || cfg.model.empty())) {
+                    MessageBoxW(dlg, Tr(L"Enter a valid HTTPS AI endpoint and a model. HTTP is allowed only for loopback servers."), Tr(L"Settings"), MB_OK | MB_ICONWARNING);
+                    SetFocus(GetDlgItem(fields, cfg.model.empty() ? IDC_ED_MODEL : IDC_ED_ENDPOINT));
+                    return TRUE;
+                }
+                const auto langs = I18nLanguages();
+                const int li = (int)SendDlgItemMessageW(fields, IDC_CMB_LANG, CB_GETCURSEL, 0, 0);
+                const auto language = li >= 0 && li < (int)langs.size() ? langs[li].first : self->m_lang;
+                std::vector<IniValue> values{
+                    {L"ai", L"endpoint", cfg.endpoint}, {L"ai", L"model", cfg.model}, {L"ai", L"api_key", cfg.apiKey},
+                    {L"threat", L"abusekey", abuseKey}, {L"threat", L"vtkey", vtKey},
+                    {L"ui", L"lang", language}, {L"ui", L"interval", std::to_wstring(interval * 100)},
+                    {L"ui", L"notifymin", std::to_wstring(risk)}
+                };
+                for (const auto& field : std::vector<std::pair<int, const wchar_t*>>{
+                    {IDC_CHK_GEO, L"geo"}, {IDC_CHK_NOTIFY, L"notify"}, {IDC_CHK_SOUND, L"sound"},
+                    {IDC_CHK_CONFIRM, L"confirmkill"}, {IDC_CHK_THREAT, L"threat"},
+                    {IDC_CHK_RDAP, L"rdap"}, {IDC_CHK_BANNER, L"banner"}})
+                    values.push_back({L"ui", field.second, IsDlgButtonChecked(fields, field.first) == BST_CHECKED ? L"1" : L"0"});
+                if (!UpdateIniAtomically(ConfigPath(), values)) {
+                    MessageBoxW(dlg, Tr(L"Settings could not be saved. Check available disk space and config.ini permissions, then try again. Your changes are still in this dialog."), Tr(L"Settings"), MB_OK | MB_ICONERROR);
+                    return TRUE;
+                }
                 if (self) {
-                    self->m_aiKeyMissing = cfg.apiKey.empty();
-                    self->m_geoOnline  = (IsDlgButtonChecked(dlg, IDC_CHK_GEO) == BST_CHECKED);
-                    self->m_notify     = (IsDlgButtonChecked(dlg, IDC_CHK_NOTIFY) == BST_CHECKED);
-                    self->m_soundAlert = (IsDlgButtonChecked(dlg, IDC_CHK_SOUND) == BST_CHECKED);
-                    self->m_confirmKill= (IsDlgButtonChecked(dlg, IDC_CHK_CONFIRM) == BST_CHECKED);
-                    self->m_threatOnline = (IsDlgButtonChecked(dlg, IDC_CHK_THREAT) == BST_CHECKED);
-                    self->m_rdapOnline   = (IsDlgButtonChecked(dlg, IDC_CHK_RDAP) == BST_CHECKED);
-                    self->m_bannerOnline = (IsDlgButtonChecked(dlg, IDC_CHK_BANNER) == BST_CHECKED);
-                    GetDlgItemTextW(dlg, IDC_ED_ABUSEKEY, buf, 1024);
-                    self->m_abuseKey = Trim(buf);
-                    GetDlgItemTextW(dlg, IDC_ED_VTKEY, buf, 1024);
-                    self->m_vtKey = Trim(buf);
+                    self->m_aiKeyMissing = !LoadAiConfig().Valid();
+                    self->m_geoOnline  = (IsDlgButtonChecked(fields, IDC_CHK_GEO) == BST_CHECKED);
+                    self->m_notify     = (IsDlgButtonChecked(fields, IDC_CHK_NOTIFY) == BST_CHECKED);
+                    self->m_soundAlert = (IsDlgButtonChecked(fields, IDC_CHK_SOUND) == BST_CHECKED);
+                    self->m_confirmKill= (IsDlgButtonChecked(fields, IDC_CHK_CONFIRM) == BST_CHECKED);
+                    self->m_threatOnline = (IsDlgButtonChecked(fields, IDC_CHK_THREAT) == BST_CHECKED);
+                    self->m_rdapOnline   = (IsDlgButtonChecked(fields, IDC_CHK_RDAP) == BST_CHECKED);
+                    self->m_bannerOnline = (IsDlgButtonChecked(fields, IDC_CHK_BANNER) == BST_CHECKED);
+                    self->m_abuseKey = abuseKey;
+                    self->m_vtKey = vtKey;
                     self->m_vtOnline = !self->m_vtKey.empty();
-                    {
-                        int li = (int)SendDlgItemMessageW(dlg, IDC_CMB_LANG, CB_GETCURSEL, 0, 0);
-                        const auto langs = I18nLanguages();
-                        if (li >= 0 && li < (int)langs.size()) {
-                            self->m_lang = langs[li].first;
-                            I18nSetLanguage(self->m_lang);
-                            I18nLoadFrom(ExeDir() + L"\\lang");
-                            I18nLoadFrom(AppDataDir() + L"\\lang");
-                            InvalidateRect(self->m_hwnd, nullptr, TRUE);
-                        }
-                    }
+                    self->m_lang = language;
+                    I18nSetLanguage(self->m_lang);
+                    I18nLoadFrom(ExeDir() + L"\\lang");
+                    I18nLoadFrom(AppDataDir() + L"\\lang");
+                    InvalidateRect(self->m_hwnd, nullptr, TRUE);
                     self->m_geo.SetOnline(self->m_geoOnline);
-                    self->m_threat.SetOnline(self->m_threatOnline || self->m_rdapOnline || self->m_vtOnline);
-                    self->m_threat.SetRdapOnline(self->m_rdapOnline);
-                    self->m_threat.SetAbuseKey(self->m_abuseKey);
-                    self->m_threat.SetVtKey(self->m_vtKey);
+                    self->m_threat.Configure(self->m_threatOnline, self->m_rdapOnline, self->m_abuseKey, self->m_vtKey);
+
+
+
                     self->m_cert.SetOnline(self->m_threatOnline);
                     self->m_banner.SetOnline(self->m_bannerOnline);
-                    UINT iv = GetDlgItemInt(dlg, IDC_ED_INTERVAL, nullptr, FALSE);
-                    if (iv < 5) iv = 5;
-                    if (iv > 100) iv = 100;
-                    self->m_interval = (int)iv * 100;
-                    UINT rm = GetDlgItemInt(dlg, IDC_ED_RISKMIN, nullptr, FALSE);
-                    if (rm < 20) rm = 20;
-                    if (rm > 100) rm = 100;
-                    self->m_notifyMin = (int)rm;
-                    self->SavePrefs();
+                    self->m_interval = (int)interval * 100;
+                    self->m_notifyMin = (int)risk;
                     self->m_effInterval = self->m_interval;
                     SetTimer(self->m_hwnd, 1, self->m_interval, nullptr);
                 }
@@ -5109,7 +5195,13 @@ INT_PTR CALLBACK App::SettingsProc(HWND dlg, UINT msg, WPARAM wp, LPARAM lp) {
 
 void App::ShowSettings() {
 
-    DialogBoxParamW(m_inst, MAKEINTRESOURCEW(IDD_SETTINGS), m_hwnd, &App::SettingsProc, (LPARAM)this);
+    if (DialogBoxParamW(m_inst, MAKEINTRESOURCEW(IDD_SETTINGS), m_hwnd, &App::SettingsProc, (LPARAM)this) == IDOK) {
+        SetWindowTextW(m_hwnd, Tr(L"NetLurker — Network & Process Monitor"));
+        RemoveTray();
+        SetupTray();
+        Layout();
+        RebuildView();
+    }
     InvalidateRect(m_hwnd, nullptr, FALSE);
 }
 
@@ -5165,10 +5257,10 @@ LRESULT App::WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
 
             m_geo.SetOnline(m_geoOnline);
             m_geo.Start();
-            m_threat.SetOnline(m_threatOnline || m_rdapOnline || m_vtOnline);
-            m_threat.SetRdapOnline(m_rdapOnline);
-            m_threat.SetAbuseKey(m_abuseKey);
-            m_threat.SetVtKey(m_vtKey);
+            m_threat.Configure(m_threatOnline, m_rdapOnline, m_abuseKey, m_vtKey);
+
+
+
             m_threat.Start();
             m_cert.SetOnline(m_threatOnline);
             m_cert.Start();
@@ -5364,6 +5456,7 @@ int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE, LPWSTR, int nCmdShow) {
 }
 
 void App::FollowUpAi(int q) {
+    if (!RequireLiveData()) return;
     if (m_lastAiPrompt.empty()) return;
     {
         std::lock_guard<std::mutex> lk(m_aiMtx);

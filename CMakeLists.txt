@@ -25,6 +25,9 @@ add_executable(NetLurker WIN32
     src/http.cpp
     src/json.cpp
     src/ai.cpp
+    src/i18n.cpp
+    src/plugins.cpp
+    src/firewall.cpp
     src/ui_draw.cpp
     res/netlurker.rc
 )
@@ -38,7 +41,7 @@ target_compile_definitions(NetLurker PRIVATE
 target_link_libraries(NetLurker PRIVATE
     iphlpapi ws2_32 winhttp gdiplus comctl32 shlwapi dwmapi
     comdlg32 shell32 ole32 user32 gdi32 advapi32 psapi
-    wintrust crypt32 version wtsapi32
+    wintrust crypt32 version wtsapi32 oleaut32
 )
 
 if(MSVC)
@@ -50,3 +53,8 @@ else()
 endif()
 
 set_target_properties(NetLurker PROPERTIES OUTPUT_NAME "NetLurker")
+
+add_custom_command(TARGET NetLurker POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            "${CMAKE_CURRENT_SOURCE_DIR}/lang" "$<TARGET_FILE_DIR:NetLurker>/lang"
+)

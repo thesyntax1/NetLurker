@@ -19,7 +19,8 @@ struct ThreatInfo {
     bool   isTor       = false;
     bool   isWhitelisted = false;
     std::wstring dnsbl;
-    int    passiveDns  = 0;
+    bool dnsblIncomplete = true;
+    int    passiveDns  = -1;
     std::wstring pdnsNames;
 
     std::wstring rdapName;
@@ -50,10 +51,7 @@ public:
 
     void Start();
     void Stop();
-    void SetOnline(bool on);
-    void SetRdapOnline(bool on);
-    void SetAbuseKey(const std::wstring& key);
-    void SetVtKey(const std::wstring& key);
+    void Configure(bool threat, bool rdap, const std::wstring& abuseKey, const std::wstring& vtKey);
 
     bool Get(const std::wstring& ip, ThreatInfo& out, bool enqueue);
     void Invalidate(const std::wstring& ip);
@@ -76,6 +74,8 @@ private:
     std::atomic<bool> m_stop{false};
     std::atomic<bool> m_online{true};
     std::atomic<bool> m_rdapOnline{true};
+    bool m_sourcesOnline = true; // guarded by m_mtx
+    std::atomic<unsigned long long> m_generation{0}; // jobs publish only into the configuration they started with
     std::wstring m_abuseKey;
     std::wstring m_vtKey;
     std::thread m_tDnsbl, m_tAbuse, m_tPdns, m_tRdap, m_tVt, m_tPlug;

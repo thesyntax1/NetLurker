@@ -1,269 +1,144 @@
-# NetLurker — Real-time Windows Network Intelligence
+# NetLurker
 
-**See which applications are connecting to the internet, where they're connecting,
-and whether those destinations look suspicious.**
+[![Build](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml/badge.svg)](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-[Türkçe README](README.tr.md)
+[Türkçe](README.tr.md) · [Downloads](https://github.com/thesyntax1/NetLurker/releases) · [Build & test](#build--test) · [Contact](#contact)
 
-NetLurker turns the raw socket tables of Windows into actionable network intelligence:
-process attribution, digital signatures, geolocation, threat feeds, TLS inspection and
-behavioral baselines — in one dark, keyboard-driven, dependency-free window.
+NetLurker is a Windows network monitor written in C++17 and Win32. It lists TCP/UDP
+connections with their owning processes and lets you inspect destinations, process
+metadata and risk indicators. The Android companion is written in Kotlin and Compose;
+it supports device network information and investigations of addresses you enter.
 
-Pure **C++17 + Win32**, a single portable x64 executable. No installation.
-No data collection, no telemetry, no account.
-
-![NetLurker](docs/preview.png)
-
----
-
-## Why NetLurker?
-
-Your antivirus makes a verdict about a *file*; NetLurker shows you the **evidence about
-the network**: which process talks to which destination, whether the binary is signed,
-whether the target is a data center, whether it is on a DNS blacklist, whether its
-certificate is sound, whether it talks more than it usually does. One click turns that
-evidence into a **structured analyst report**.
+The project is still in development. Published packages belong in
+[Releases](https://github.com/thesyntax1/NetLurker/releases); Actions artifacts are
+unreviewed development builds.
 
 ## Features
 
-- **Real-time connections** — TCP/TCP6/UDP/UDP6 sockets mapped to their processes;
-  state, rate (KB/s), RTT, total bytes and service name update live.
-- **Process intelligence** — Authenticode signature, publisher, command line, user,
-  parent process, svchost service, owning DLL, SHA-256, integrity level.
-- **Threat intelligence** — AbuseIPDB, 5 DNS blacklists, CIRCL passive DNS,
-  RDAP ownership, VirusTotal (optional key), HTTP banner/EOL.
-- **DNS · TLS · RDAP analysis** — DNS cache/hosts matching, TLS certificate inspection
-  through a hand-written ClientHello (self-signed, expired, rDNS mismatch), network
-  ownership and abuse contact.
-- **AI-assisted investigation** — `Enter` turns the evidence into a report structured as
-  **VERDICT / CONFIDENCE / WHY / CONCERNS / RECOMMENDATION / STEPS**. Without an API key
-  the local heuristic engine produces the same structure and says so plainly
-  ("offline heuristic analysis — local rule engine, not a language model").
-  Three follow-up actions sit under the report: **"Why suspicious?"**, **"What should I
-  do?"** and **"Deviation from normal?"** (comparison against the process baseline).
-  **The model answers in the language of the UI** — English UI, English report.
-- **One-click block / unblock** — a `⛔ Block IP` button in the toolbar (and
-  **Block in Windows Firewall** in the right-click menu) adds the outbound rule; the same
-  button turns into `⛔ Unblock IP` once the rule is live.
-- **Reputation lookups in one click** — right-click → **Open in VirusTotal**,
-  **Check on AbuseIPDB**, **Open passive DNS records (CIRCL)** for the destination IP, and
-  **Check file hash (SHA-256) on VirusTotal** for the owning executable; each opens the
-  analysis page directly in your default browser.
-- **Block and unblock destinations** — right-click a connection to add a Windows Firewall
-  outbound block rule, then verify it: NetLurker reads the live rule list back through the
-  Windows Firewall COM API, marks blocked rows with `⛔`, shows *"blocked by a NetLurker
-  rule"* in the detail panel, counts active rules on the Stats tab, and offers
-  **Remove firewall block for this IP** on the same menu. A rule is only reported as
-  created if it is actually there afterwards.
-- **Network graph** — process ↔ destination graph: risk-colored nodes, thickness = data
-  flow, country labels.
-- **Behavioral anomaly detection** — per-process connection baseline (EMA + variance);
-  deviation above 3σ → alert + notification + report entry.
-- **Search, filter, sort** — free-text search, filter chips
-  (All / Connected / Internet / Listening / Suspicious / HTTPS / Unsigned /
-  Unknown / New / TCP / UDP) and sorting on 25 columns.
-- **Exports** — `Ctrl+E`: **JSON, CSV, HTML security report, TXT** — in the current
-  language, with a KPI summary and an anomaly section.
-- **8 languages** — English (default), Türkçe, Español, Deutsch, Français,
-  日本語, 中文, Português. Interface, errors, risk reasons, column headers, tooltips,
-  duration units, AI prompts, reports and export headers included — 687 catalog keys,
-  verified in CI (`python3 tools/gen_lang.py --check`).
+- Process-to-connection mapping, filtering and sorting on Windows.
+- IP geolocation, RDAP, DNSBL, AbuseIPDB, VirusTotal, TLS and HTTP banner lookups,
+  subject to provider access and configuration.
+- Rule-based risk scores with reasons, plus optional analysis through an
+  OpenAI-compatible endpoint. Local reports work without an AI key.
+- JSON, CSV, HTML and text exports.
+- English, Türkçe, Español, Deutsch, Français, 日本語, 中文 and Português.
+- A portable Windows build and a labeled demo dataset for trying the interface.
 
-## Honest data, or none at all
+## Download
 
-A monitoring tool is only worth as much as its trustworthiness, so NetLurker never
-fills gaps with invented or aged values:
-
-| Situation | What you see |
+| Platform | File |
 |---|---|
-| Lookup still running | `querying…` (never a stale or empty value pretending to be a result) |
-| Enrichment failed / offline | `(lookup failed)` / `(offline)` — retried with exponential backoff (20 s → 10 min) and **never written to the disk cache** |
-| Connectivity returns | pending and failed records are re-queued immediately, not after 24 h |
-| Geo/threat record older than 24 h | discarded and re-queried; every detail panel shows `Data age: fetched 14:32 (3 min ago)` |
-| Per-connection bytes/RTT unavailable (no admin, non-TCP) | `n/a` and *"total/RTT: not measurable (requires administrator rights)"* — not `0` |
-| No AI key | output is labeled as a local rule engine, not as a model answer |
-| Connection age / duration | taken from the kernel socket creation timestamp, so a socket opened hours before NetLurker started still reports its real age; when Windows withholds the timestamp the value is prefixed with `≥` to mark it as a lower bound |
-| Anomaly baseline | measured as **new** outbound connections per minute over a real ≥15 s window — a process that merely keeps sockets open no longer inflates its own rate |
-| Traffic graphs | plotted against real timestamps over a fixed 5 min (system) / 2 min (per app) window; pauses, throttled background ticks and machine sleep show up as gaps instead of an invented straight line, and the per-app graph is labelled with the span it actually covers |
-| Rate counters after sleep/wake or a long stall | discarded for that cycle instead of dividing hours of bytes by one second and reporting a fake spike |
-| Per-app traffic graph without admin rights | says *"not measurable (requires administrator rights)"* instead of drawing a flat zero line |
-| TLS certificate / HTTP banner | re-fetched after 24 h instead of being served from a week-old cache, and each detail row states when it was fetched |
-| LAN device count | reports ARP table entries and how many are *actually reachable right now*, so devices that left the network hours ago are not counted as present |
-| Collection slower than the refresh interval | the interval backs off automatically and the status bar says so (`refresh auto-slowed to 2.4 s (collection takes 810 ms)`) instead of silently queueing late frames |
-| Firewall block result | verified against the live Windows Firewall rule list instead of trusting `netsh`'s exit code — a declined UAC prompt or a policy-managed firewall now says the rule was **not** created |
-| Refresh falling behind | the status-bar clock turns red and shows how many seconds old the data is (`⟳ 14:32:07 (+7s)`) |
-| Demo mode | a **DEMO ENVIRONMENT** band, a status-bar marker, and a warning banner in every export |
+| Windows installer | `NetLurker-v…-setup.exe` under a release's Assets |
+| Windows portable | `NetLurker-v…-win64.zip`; extract the whole archive, including `lang/` |
+| Android development build | `NetLurker-debug-apk` from a successful [Build run](https://github.com/thesyntax1/NetLurker/actions/workflows/build.yml) |
 
-## Screenshots
+If no release is available, use a successful Build run or compile from source below.
+GitHub may require sign-in to download Actions artifacts. The automatic “Source code”
+archives are not compiled applications.
 
-A real screenshot taken from the running program:
+Compare release downloads with `SHA256SUMS.txt`. Windows packages may be unsigned;
+check the release's signature information and don't disable security protection to run
+a download. Android production publication is off by default. Debug APKs are for testing;
+an unsigned release APK is not a substitute for a signed, installable release.
 
-![NetLurker dashboard](docs/preview.png)
+## Getting started
 
-> **Honesty note:** `docs/landing/hero.png` is a **UI concept illustration**, not a
-> screenshot; it is used for decoration on the landing page and labeled as such there.
-> Everything the application displays is real system data; demo-mode data is marked
-> "DEMO" everywhere. For recording a GIF/video, see
-> [docs/video/STORYBOARD.md](docs/video/STORYBOARD.md).
+1. Start `NetLurker.exe`. For the portable build, keep `lang/` beside the executable.
+   Some process details and TCP statistics require administrator access, but opening
+   the interface does not.
+2. Open Settings with `Ctrl+S`. **IP enrichment is enabled by default and sends queried
+   addresses to providers.** See [Privacy](PRIVACY.md) before using it on a sensitive network.
+3. The first launch is in English. The language picker is at the top of Settings;
+   choose a language and Save. Cancel leaves the saved setting unchanged.
+4. Use `Ctrl+F` to find a process, then select a connection to inspect it. In live mode,
+   `Enter` opens analysis; `Ctrl+E` exports the current findings. Review reports for
+   private addresses, paths and keys before sharing them.
+5. `Ctrl+D` toggles synthetic demo data. AI, process-control and remote-query actions
+   are disabled in demo mode. `F1` lists the keyboard shortcuts.
 
-## Demo
+If the table is empty, clear the search filter and check while an application is
+connecting. An unavailable field means a measurement or lookup could not be obtained;
+it is not a measured zero or a clean result.
 
-**Demo mode** (`Ctrl+D`): try the whole program in 30 seconds without any API key.
-An 8-connection realistic data set — signed browsers, DNS, Windows Update and
-suspicious samples (unsigned `updater.exe` → data center 88/100, C2 beacon pattern,
-hosts redirect). A **DEMO ENVIRONMENT** band on the Summary tab; leave with one click.
+## Platform limits
 
-## Installation
+Windows reads OS socket tables. Snapshots can miss short-lived connections, and
+per-process traffic measurements depend on TCP EStats support and privileges.
 
-| | |
-|---|---|
-| Operating system | Windows 7 SP1+ / Windows 10 / Windows 11 (x64) |
-| Download | [Releases](https://github.com/thesyntax11/NetLurker/releases) → `NetLurker-vX.Y.Z-win64.zip`, or the ready-made `dist/NetLurker-portable-win64.zip` in this repository |
-| Installation | Not required (portable): unzip and run `NetLurker.exe`. For a real installer build `installer/NetLurker.iss` with Inno Setup 6 (`iscc installer\NetLurker.iss`) — it produces `dist/NetLurker-vX.Y.Z-setup.exe` |
-| Elevation | The executable starts as the invoking user and asks on first launch whether to relaunch elevated; per-connection rates, process termination and firewall rules need administrator rights |
-| Requirements | ~2 MB disk, internet connection (works offline too, without enrichment) |
-| Language packs | the `lang\` folder next to `NetLurker.exe` (included in the zip) |
+Android does **not** implement VPN capture, root collection, per-app socket attribution
+or firewall controls. On modern Android, other apps' live UID counters are generally
+unavailable. Device totals and manually entered destination lookups are separate from
+per-app measurements. See the [Android guide](android/README-android.md).
 
-### Build from source
+The 0–100 score is a rule-based investigation priority, not a probability of malware.
+Provider errors, missing data and legitimate VPN/cloud traffic can affect what you see.
+TLS inspection does not establish full chain or revocation trust; server banners can
+be spoofed, and AI output needs checking. The [data reference](docs/DATA-ACCURACY.md)
+describes the sources, validation rules and remaining limits.
 
-One executable, three toolchains:
+## Build & test
 
-| Method | Command | Requirement |
-|---|---|---|
-| MSVC | `build.bat` (inside "x64 Native Tools") | Visual Studio 2019+ |
-| MinGW-w64 | `build_mingw.bat` | MSYS2 `mingw-w64-x86_64-toolchain` |
-| Zig (cross) | `ZIG=zig ./tools/build_zig.sh` | Zig 0.14+ / `pip install ziglang` |
+### Windows x64
 
-Regenerate the language catalog: `python3 tools/gen_lang.py`
-(verify without writing: `python3 tools/gen_lang.py --check`)
+Install Visual Studio's **Desktop development with C++** tools and a Windows SDK.
+Run these commands from an **x64 Native Tools Command Prompt** at the repository root:
 
-## Configuration
-
-Settings window (`Ctrl+S`) or `%APPDATA%\NetLurker\config.ini`:
-
-| Setting | Description |
-|---|---|
-| `[ai] endpoint/model/api_key` | OpenAI-compatible API (empty = local heuristic analysis) |
-| `[ui] lang` | `en` (default), `tr`, `es`, `de`, `fr`, `ja`, `zh`, `pt`, `system` |
-| `[ui] interval` | Refresh interval (×100 ms) |
-| `[ui] geo/threat/rdap/banner` | External lookup switches (mirrored in the Privacy Center) |
-| `[threat] abusekey` / `[threat] vtkey` | Optional API keys |
-
-Plugin providers: `plugins\*.json` → [docs/PLUGINS.md](docs/PLUGINS.md)
-
-## Privacy
-
-| Promise | Status |
-|---|---|
-| Network data is processed locally | ✅ never leaves the device |
-| Telemetry / analytics / ads | ✅ none |
-| Account or registration | ✅ not required |
-
-External services are queried **only when you enable them**; the in-app
-**Privacy Center** shows the state of every provider:
-
-| Provider | When | Type |
-|---|---|---|
-| ip-api.com | Geography/ASN/organization | ✓ built-in |
-| DNS blacklists (Spamhaus, Blocklist.de, Sorbs, Barracuda, UCEPROTECT) | Threat score | ✓ built-in |
-| CIRCL passive DNS | IP history | ✓ built-in |
-| rdap.org | Network ownership | ✓ built-in |
-| AbuseIPDB | Abuse score | ○ optional key |
-| VirusTotal | Community detections | ○ optional key |
-| TLS ClientHello / HTTP HEAD | One request to the destination | ✓ built-in |
-| **plugins/\*.json** | Your own source | ○ you define it |
-
-## Why does it ask for administrator rights?
-
-NetLurker also runs as a normal user. Elevation is only for APIs Windows protects:
-per-connection rate/RTT, process termination, firewall IP blocking, and the TCP table of
-all system processes. NetLurker does not use elevation to collect data and does not
-change your network configuration. Clicking the yellow warning in the status bar shows
-this rationale with two options: **Continue as administrator** /
-**Continue without elevation**.
-
-## Releases & integrity
-
-- A GitHub Actions build for every `vX.Y.Z` tag, zip + `SHA256SUMS`.
-  (Workflow: `tools/release.workflow.yml` → `.github/workflows/release.yml`)
-- Verify integrity:
-  ```powershell
-  Get-FileHash .\NetLurker.exe -Algorithm SHA256
-  ```
-- Code-signing helper: `tools/sign_release.ps1` (signtool + verification).
-  Details: [docs/RELEASES.md](docs/RELEASES.md)
-
-**Current build SHA-256** (`dist/NetLurker.exe` in this repository):
-
-```
-b8d6c2b83bd1855f1a6bf2c2b19f29266621f548cb8abf26eb53eacb5db3168d
+```bat
+python tools\gen_lang.py --check
+build.bat
+build\NetLurker.exe
 ```
 
-## Architecture
+Other build paths are `build_mingw.bat`, CMake on Windows and `tools/build_zig.sh` for
+cross-compilation. A cross-compiled binary still needs runtime testing on Windows.
 
-```
-src/
-├── main.cpp      window, tabs, drawing, filter/search, export,
-│                 demo mode, graph, anomalies, privacy center
-├── netmon.cpp    TCP/UDP tables, process mapping, risk engine (0–100, MITRE)
-├── procinfo.cpp  signature/publisher/service/user/module/resource tracking
-├── threat.cpp    AbuseIPDB + DNSBL + CIRCL + RDAP + VirusTotal workers
-├── plugins.cpp   external JSON provider plugins (stdin IP → stdout JSON)
-├── cert.cpp      TLS certificate analysis (hand-written ClientHello)
-├── dns.cpp       DNS cache + hosts redirect detection
-├── geo.cpp       ip-api batch geolocation + disk cache + freshness/backoff
-├── banner.cpp    HTTP banner / EOL detection
-├── history.cpp   history of closed connections
-├── ai.cpp        OpenAI-compatible client + local heuristic analysis
-├── i18n.cpp      zero-dependency multi-language dictionary (lang/*.ini)
-├── wifi.cpp      wireless network info (WLAN API, conditional load)
-└── ui_draw.cpp   GDI+ based dark theme drawing layer
+### Android
+
+Requirements: JDK 17, Android SDK 35 and network access for Gradle dependencies.
+
+```sh
+cd android
+./gradlew testDebugUnitTest lintDebug assembleDebug
+# APK: app/build/outputs/apk/debug/app-debug.apk
+./gradlew connectedDebugAndroidTest  # requires a device or emulator
 ```
 
-Worker model: every provider is fed from a queue on its own thread; results are cached
-on disk (geoip 7 days, threat 7 days) and revalidated after 24 hours. Failed lookups are
-never cached to disk. Heavy work (signature, SHA-256, AI) never blocks the UI thread.
+### Repository checks
 
-## Roadmap
+```sh
+python3 tools/gen_lang.py --check
+python3 android/tools/gen_strings.py --check
+python3 android/tools/check_symbols.py
+python3 -m unittest discover -s tests -p 'test_*.py'
+```
 
-→ [docs/ROADMAP.md](docs/ROADMAP.md)
-
-- **v6 (current):** 8-language i18n, first-run experience, demo mode, network graph,
-  behavioral anomalies, HTML/TXT report, plugin system, privacy center,
-  release/signing infrastructure, landing page.
-- **v7:** ETW sensor, per-process traffic history, rule editor, syslog forwarding.
-- **v8:** KMDF driver monitoring, MITRE ATT&CK tactic mapping, rule packs.
-
-## FAQ
-
-**Windows Defender / SmartScreen warned me?** That is normal for an unsigned open-source
-executable. Verify the SHA-256; the signing steps for a signed build are ready in
-[docs/RELEASES.md](docs/RELEASES.md).
-
-**Where does my data go?** Nowhere. Only local caches and settings are kept under
-`%APPDATA%\NetLurker\`.
-
-**Is an AI key mandatory?** No. Without a key the local heuristic analysis runs in the
-same structured format — and it is labeled as such, never presented as a model answer.
-
-**Connection rates show "n/a"?** Per-connection rates require administrator mode (the
-rationale dialog explains why). The system-wide graph always works.
+Release automation prepares Windows ZIP/installer packages by default. Android
+publication requires an explicit opt-in and verified production signing. Maintainer
+instructions are in [Releases](docs/RELEASES.md) and the
+[release checklist](docs/RELEASE-CHECKLIST.md). CI does not replace device testing.
 
 ## Contributing
 
-1. Fork, branch from `main`.
-2. If you added a new interface string, wrap it in `Tr(L"...")` and refresh the catalog
-   with `python3 tools/gen_lang.py` (CI runs `--check`).
-3. Build with one of the three toolchains; open a PR.
+Bug reports, translation fixes and small pull requests are welcome. Include your build
+version, OS and reproduction steps in an [issue](https://github.com/thesyntax1/NetLurker/issues/new/choose).
+For UI changes, attach a redacted screenshot of the running build; keep the DEMO label
+visible for synthetic data. Older artwork is not a current screenshot—see the
+[visual asset notes](docs/VISUAL-PROVENANCE.md).
 
-Writing a plugin is the easiest way to contribute: [docs/PLUGINS.md](docs/PLUGINS.md)
+[Contribution guide](CONTRIBUTING.md) · [UI checks](docs/UI-REGRESSION-CHECKS.md) · [Roadmap](docs/ROADMAP.md)
+
+## Contact
+
+Developer contact:
+
+- TikTok: [szoboszlai2113](https://tiktok.com/szoboszlai2113)
+- Email: [user2102392109@proton.me](mailto:user2102392109@proton.me)
+
+Use GitHub issues for bugs and feature requests so the discussion is easy to follow.
+For security reports, use the private channels in [SECURITY.md](SECURITY.md), not a
+public issue or social-media comment.
 
 ## License
 
-[MIT](LICENSE) — use it, change it, distribute it. Only run a network monitoring tool on
-systems you are authorized to monitor.
-
----
-
-*NetLurker relies on heuristic rules; it is not a verdict. Always evaluate suspicious
-findings in context.*
+[MIT](LICENSE).

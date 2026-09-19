@@ -1,0 +1,32 @@
+name: Bug report
+description: A reproducible crash, UI problem, or incorrect observation
+title: "[Bug] "
+body:
+  - type: markdown
+    attributes:
+      value: "Do not attach API keys, keystores, raw exports or private network data. For vulnerabilities see SECURITY.md."
+  - type: input
+    id: version
+    attributes:
+      label: Commit or version
+      placeholder: "Full commit SHA / release tag; debug or release build"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: Platform and display settings
+      placeholder: "Windows 11, 150% DPI / Android 14, 200% font size; interface language"
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps, expected result, actual result
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Redacted evidence and provider status
+      description: "For wrong data: identify the API/provider, rule, timestamp, and independent comparison. Mark DEMO data explicitly."

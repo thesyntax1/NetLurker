@@ -1,5 +1,27 @@
+# Windows desktop build
+/build/
+/dist/
+/candidate-input/
+/candidate-output/
+/NetLurker-v*-win64.zip
+/SHA256SUMS*
+
+# Android
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/keystore.properties
+android/.kotlin/
+*.keystore
+*.jks
+
+# Python bytecode from the catalog generators
 __pycache__/
 *.pyc
-build/*.o
-build/*.res
-build/*.pdb
+
+# Release staging / private code-signing material
+/release-assets/
+/android-input/
+*.pfx
+*.p12
