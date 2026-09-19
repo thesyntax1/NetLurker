@@ -69,9 +69,6 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
     buildFeatures {
         compose = true
         buildConfig = true
@@ -92,6 +89,14 @@ android {
         // Resource lookup uses dotted catalog keys (DiscouragedApi).
         // Dependency and SDK upgrades are reviewed separately (GradleDependency/OldTargetApi).
         disable += setOf("Typos", "ButtonCase", "DiscouragedApi", "GradleDependency", "OldTargetApi")
+    }
+}
+
+// kotlinOptions was removed in Kotlin 2.4; compilerOptions is the replacement DSL and
+// applies to every Android variant (see https://kotlinlang.org/docs/gradle-compiler-options.html).
+kotlin {
+    compilerOptions {
+        jvmTarget = JvmTarget.JVM_17
     }
 }
 
