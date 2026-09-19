@@ -13,3 +13,8 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    groups:
+      # Kotlin and its Compose compiler plugin must always move as one: their versions
+      # have to match exactly, so Dependabot must never split them across PRs.
+      kotlin:
+        patterns: ['org.jetbrains.kotlin*']
