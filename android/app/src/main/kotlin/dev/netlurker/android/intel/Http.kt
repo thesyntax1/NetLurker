@@ -65,7 +65,8 @@ object Http {
         var currentUrl = url
         var redirects = 0
         return try {
-            while (true) {
+            var completed: Response? = null
+            while (completed == null) {
                 val endpoint = URL(currentUrl)
                 val host = endpoint.host.lowercase(java.util.Locale.ROOT)
                 val localEndpoint = host in setOf("localhost", "127.0.0.1", "::1", "[::1]")
@@ -104,10 +105,11 @@ object Http {
                 if (status in 300..399) {
                     val location = connection.getHeaderField("Location")
                     if (location.isNullOrBlank() || headers.isNotEmpty() || body != null || redirects >= 3) {
-                        return Response(
+                        completed = Response(
                             false, status, "", "HTTP $status redirect rejected",
                             System.currentTimeMillis() - started
                         )
+                        break
                     }
                     val next = URL(endpoint, location)
                     require(next.protocol == "https") {
@@ -140,7 +142,7 @@ object Http {
                         responseHeaders[key.lowercase()] = values.joinToString(", ")
                     }
                 }
-                return Response(
+                completed = Response(
                     ok = status in 200..299,
                     status = status,
                     body = text,
@@ -149,6 +151,7 @@ object Http {
                     headers = responseHeaders
                 )
             }
+            checkNotNull(completed)
         } catch (e: SocketTimeoutException) {
             Response(false, 0, "", "timeout: ${describe(e)}", System.currentTimeMillis() - started)
         } catch (e: UnknownHostException) {
