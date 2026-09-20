@@ -413,6 +413,11 @@
     <string name="summary.no_destinations" formatted="false">本次会话尚未调查任何目标。</string>
     <string name="summary.no_geo" formatted="false">尚无地理位置结果——请先调查一个目标。</string>
     <string name="summary.no_orgs" formatted="false">尚无所有权信息。</string>
+    <string name="tab.apps" formatted="false">应用</string>
+    <string name="tab.history" formatted="false">历史</string>
+    <string name="tab.investigate" formatted="false">调查</string>
+    <string name="tab.network" formatted="false">网络</string>
+    <string name="tab.summary" formatted="false">摘要</string>
     <string name="traffic.unsupported" formatted="false">Android 限制其他应用的实时流量计数。不可用的值显示为 —，而非零。设备总量单独显示。</string>
     <string name="value.no" formatted="false">否</string>
     <string name="value.yes" formatted="false">是</string>

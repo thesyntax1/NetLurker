@@ -413,6 +413,11 @@
     <string name="summary.no_destinations" formatted="false">このセッションで調査した接続先はありません。</string>
     <string name="summary.no_geo" formatted="false">地理情報はまだありません。まず接続先を調査してください。</string>
     <string name="summary.no_orgs" formatted="false">所有者情報はまだありません。</string>
+    <string name="tab.apps" formatted="false">アプリ</string>
+    <string name="tab.history" formatted="false">履歴</string>
+    <string name="tab.investigate" formatted="false">調査</string>
+    <string name="tab.network" formatted="false">ネットワーク</string>
+    <string name="tab.summary" formatted="false">概要</string>
     <string name="traffic.unsupported" formatted="false">Androidは他のアプリのリアルタイム通信カウンターを制限します。取得できない値は0ではなく—で表示します。端末全体の合計とは別です。</string>
     <string name="value.no" formatted="false">いいえ</string>
     <string name="value.yes" formatted="false">はい</string>

@@ -413,6 +413,11 @@
     <string name="summary.no_destinations" formatted="false">Aucune destination examinée pendant cette session.</string>
     <string name="summary.no_geo" formatted="false">Pas encore de géolocalisation — examinez d\'abord une destination.</string>
     <string name="summary.no_orgs" formatted="false">Pas encore de données de propriété.</string>
+    <string name="tab.apps" formatted="false">Apps</string>
+    <string name="tab.history" formatted="false">Historique</string>
+    <string name="tab.investigate" formatted="false">Inspecter</string>
+    <string name="tab.network" formatted="false">Réseau</string>
+    <string name="tab.summary" formatted="false">Résumé</string>
     <string name="traffic.unsupported" formatted="false">Android limite les compteurs en direct des autres applis. Les valeurs indisponibles sont affichées —, pas zéro. Les totaux de l’appareil sont distincts.</string>
     <string name="value.no" formatted="false">non</string>
     <string name="value.yes" formatted="false">oui</string>

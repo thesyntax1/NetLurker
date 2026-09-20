@@ -413,6 +413,11 @@
     <string name="summary.no_destinations" formatted="false">Bu oturumda hiçbir hedef incelenmedi.</string>
     <string name="summary.no_geo" formatted="false">Henüz konum yanıtı yok — önce bir hedef inceleyin.</string>
     <string name="summary.no_orgs" formatted="false">Henüz sahiplik yanıtı yok.</string>
+    <string name="tab.apps" formatted="false">Uygulamalar</string>
+    <string name="tab.history" formatted="false">Geçmiş</string>
+    <string name="tab.investigate" formatted="false">İncele</string>
+    <string name="tab.network" formatted="false">Ağ</string>
+    <string name="tab.summary" formatted="false">Özet</string>
     <string name="traffic.unsupported" formatted="false">Android, diğer uygulamaların canlı trafik sayaçlarını kısıtlar. Erişilemeyen değerler sıfır değil — olarak gösterilir. Cihaz toplamları ayrıdır.</string>
     <string name="value.no" formatted="false">hayır</string>
     <string name="value.yes" formatted="false">evet</string>

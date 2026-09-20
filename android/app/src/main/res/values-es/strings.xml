@@ -413,6 +413,11 @@
     <string name="summary.no_destinations" formatted="false">No se ha investigado ningún destino en esta sesión.</string>
     <string name="summary.no_geo" formatted="false">Aún no hay geolocalización: investigue primero un destino.</string>
     <string name="summary.no_orgs" formatted="false">Aún no hay datos de propiedad.</string>
+    <string name="tab.apps" formatted="false">Apps</string>
+    <string name="tab.history" formatted="false">Historial</string>
+    <string name="tab.investigate" formatted="false">Investigar</string>
+    <string name="tab.network" formatted="false">Red</string>
+    <string name="tab.summary" formatted="false">Resumen</string>
     <string name="traffic.unsupported" formatted="false">Android limita los contadores en vivo de otras apps. Los valores no disponibles se muestran como —, no cero. Los totales del dispositivo son independientes.</string>
     <string name="value.no" formatted="false">no</string>
     <string name="value.yes" formatted="false">sí</string>

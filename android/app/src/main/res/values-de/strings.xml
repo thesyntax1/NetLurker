@@ -413,6 +413,11 @@
     <string name="summary.no_destinations" formatted="false">In dieser Sitzung wurde kein Ziel untersucht.</string>
     <string name="summary.no_geo" formatted="false">Noch keine Geolokalisierung — untersuchen Sie zuerst ein Ziel.</string>
     <string name="summary.no_orgs" formatted="false">Noch keine Eigentumsdaten.</string>
+    <string name="tab.apps" formatted="false">Apps</string>
+    <string name="tab.history" formatted="false">Verlauf</string>
+    <string name="tab.investigate" formatted="false">Prüfen</string>
+    <string name="tab.network" formatted="false">Netzwerk</string>
+    <string name="tab.summary" formatted="false">Übersicht</string>
     <string name="traffic.unsupported" formatted="false">Android beschränkt Live-Zähler anderer Apps. Nicht verfügbare Werte erscheinen als —, nicht als Null. Gerätesummen sind getrennt.</string>
     <string name="value.no" formatted="false">nein</string>
     <string name="value.yes" formatted="false">ja</string>

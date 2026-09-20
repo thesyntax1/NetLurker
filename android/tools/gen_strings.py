@@ -51,6 +51,11 @@ DYNAMIC_KEYS = {
         "kpi." + x for x in ("download", "upload", "session_down", "session_up", "apps",
                              "active_apps", "destinations", "suspicious", "anomalies", "uptime")
     ],
+    # The bottom navigation is rendered from one data list, so its five catalog keys
+    # are expanded here instead of being repeated as literal s("...") calls.
+    "tab.{...}": [
+        "tab." + x for x in ("investigate", "apps", "network", "history", "summary")
+    ],
 }
 
 

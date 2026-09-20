@@ -1,5 +1,10 @@
 key	en	tr	es	de	fr	ja	zh	pt
 app_name	NetLurker	NetLurker	NetLurker	NetLurker	NetLurker	NetLurker	NetLurker	NetLurker
+tab.apps	Apps	Uygulamalar	Apps	Apps	Apps	アプリ	应用	Apps
+tab.history	History	Geçmiş	Historial	Verlauf	Historique	履歴	历史	Histórico
+tab.investigate	Investigate	İncele	Investigar	Prüfen	Inspecter	調査	调查	Investigar
+tab.network	Network	Ağ	Red	Netzwerk	Réseau	ネットワーク	网络	Rede
+tab.summary	Summary	Özet	Resumen	Übersicht	Résumé	概要	摘要	Resumo
 action.ai_analyze	AI analyze	AI analiz	Análisis IA	KI-Analyse	Analyse IA	AI分析	AI分析	Análise IA
 action.clear_baselines	Clear baselines	Taban çizgilerini sil	Borrar líneas base	Basislinien löschen	Effacer les références	ベースラインを消去	清除基线	Limpar linhas base
 action.clear_cache	Clear cache	Önbelleği temizle	Borrar caché	Cache leeren	Vider le cache	キャッシュを消去	清除缓存	Limpar cache

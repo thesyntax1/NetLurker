@@ -413,6 +413,11 @@
     <string name="summary.no_destinations" formatted="false">No destination has been investigated in this session.</string>
     <string name="summary.no_geo" formatted="false">No geolocation answer yet — investigate a destination first.</string>
     <string name="summary.no_orgs" formatted="false">No ownership answer yet.</string>
+    <string name="tab.apps" formatted="false">Apps</string>
+    <string name="tab.history" formatted="false">History</string>
+    <string name="tab.investigate" formatted="false">Investigate</string>
+    <string name="tab.network" formatted="false">Network</string>
+    <string name="tab.summary" formatted="false">Summary</string>
     <string name="traffic.unsupported" formatted="false">Android restricts other apps’ live traffic counters. Unavailable values are shown as —, not zero. Device totals are separate.</string>
     <string name="value.no" formatted="false">no</string>
     <string name="value.yes" formatted="false">yes</string>
