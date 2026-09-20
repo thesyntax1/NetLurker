@@ -83,6 +83,9 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     private val _alerts = MutableStateFlow<List<AnomalyAlert>>(emptyList())
     val alerts: StateFlow<List<AnomalyAlert>> = _alerts.asStateFlow()
 
+    private val _historyRevision = MutableStateFlow(0)
+    val historyRevision: StateFlow<Int> = _historyRevision.asStateFlow()
+
     private val _running = MutableStateFlow(false)
     val running: StateFlow<Boolean> = _running.asStateFlow()
 
@@ -140,6 +143,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         settings.anomalyNotifications = enabled
     }
 
+    fun clearBaselines() {
+        history.clearBaselines()
+        _alerts.value = history.alertsSnapshot
+        _historyRevision.value += 1
+        persist()
+    }
+
     suspend fun saveSettings(values: SettingsValues): Boolean {
         val previous = settings.snapshot()
         val next = values.normalized()
@@ -189,6 +199,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         history.reset()
         lastPollAtMs = 0L
         _alerts.value = emptyList()
+        _historyRevision.value += 1
         poll()
     }
 
@@ -202,6 +213,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
         val current = runCatching { traffic.snapshot() }.getOrNull() ?: return
         _snapshot.value = current
+        _device.value = _device.value?.copy(uptimeMs = now)
 
         val previous = _apps.value
         if (previous.isNotEmpty()) {
@@ -261,7 +273,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             if (app.apkSha256 != null || app.apkPath == null) continue
             val hash = catalog.apkSha256(app.apkPath) ?: continue
             _apps.value = _apps.value.map {
-                if (it.uid == app.uid) it.copy(apkSha256 = hash) else it
+                if (it.packageName == app.packageName) it.copy(apkSha256 = hash) else it
             }
             changed = true
         }
@@ -284,7 +296,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val hash = catalog.apkSha256(app.apkPath) ?: return@launch
             _apps.value = _apps.value.map {
-                if (it.uid == app.uid) it.copy(apkSha256 = hash) else it
+                if (it.packageName == app.packageName) it.copy(apkSha256 = hash) else it
             }
         }
     }

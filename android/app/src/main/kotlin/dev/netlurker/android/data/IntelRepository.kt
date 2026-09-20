@@ -35,6 +35,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONObject
 
 /**
@@ -208,7 +209,9 @@ class IntelRepository(
         if (force || current.reverseDns.status == IntelStatus.IDLE) {
             current = current.copy(reverseDns = IntelResult.pending())
             update(target) { current }
-            val name = withContext(Dispatchers.IO) { ReverseDns.lookup(ip) }
+            val name = withTimeoutOrNull(5_000L) {
+                withContext(Dispatchers.IO) { ReverseDns.lookup(ip) }
+            }
             current = current.copy(
                 reverseDns = if (name == null) IntelResult.failed("no PTR record")
                 else IntelResult.ok(name)

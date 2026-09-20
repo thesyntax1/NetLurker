@@ -367,6 +367,7 @@
     <string name="settings.banner.detail" formatted="false">Una petición HEAD al destino; lee la línea de estado y la cabecera Server.</string>
     <string name="settings.cache.detail" formatted="false">Solo se almacenan las respuestas correctas, con su hora. Los fallos nunca se guardan, así un problema de red no se convierte en un veredicto permanente.</string>
     <string name="settings.error.endpoint" formatted="false">Introduce una URL HTTPS de IA válida sin credenciales ni fragmento.</string>
+    <string name="settings.error.key" formatted="false">Las claves API no pueden contener caracteres de control.</string>
     <string name="settings.error.model" formatted="false">Introduce un modelo de IA o elimina la clave para usar el análisis local.</string>
     <string name="settings.error.save" formatted="false">No se pudieron guardar los ajustes. Revisa el espacio libre y reintenta. Los cambios siguen aquí.</string>
     <string name="settings.geo" formatted="false">Geolocalización IP (ip-api.com)</string>

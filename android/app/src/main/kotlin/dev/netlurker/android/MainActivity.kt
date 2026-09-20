@@ -29,11 +29,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // Traffic polling is a foreground activity, not a hidden background service. Restart
+        // it when returning from Settings, the browser, or an OS permission screen.
+        viewModel.start()
+    }
+
     override fun onPause() {
-        // Keep observing while the screen is off is not the point: the counters are read on
-        // a poll loop that only makes sense in the foreground, and Android throttles it
-        // anyway. Persist so the baselines survive the process being reclaimed.
-        viewModel.persist()
+        // Do not keep network polling while the activity is covered or the screen is off.
+        // Persist so the baselines survive the process being reclaimed.
+        viewModel.stop()
         super.onPause()
     }
 }

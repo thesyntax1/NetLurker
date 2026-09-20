@@ -78,7 +78,8 @@ class BaselineTracker(
             val ema = parts[1].toDoubleOrNull() ?: continue
             val variance = parts[2].toDoubleOrNull() ?: continue
             val samples = parts[3].toIntOrNull() ?: continue
-            if (parts[0].isBlank()) continue
+            if (parts[0].isBlank() || !ema.isFinite() || !variance.isFinite() ||
+                ema < 0.0 || variance < 0.0 || samples < 1) continue
             stats[parts[0]] = Stat(ema, variance, samples, 0.0)
         }
     }

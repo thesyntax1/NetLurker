@@ -34,6 +34,9 @@ data class SettingsValues(
     fun aiConfigured(): Boolean = aiKey.isNotBlank() && aiEndpoint.isNotBlank() && aiModel.isNotBlank()
 
     fun validationError(): String? {
+        if (listOf(abuseKey, vtKey, aiKey).any { value ->
+                value.any { character -> character < ' ' || character == '\u007f' }
+            }) return "settings.error.key"
         if (aiKey.isBlank()) return null // local analysis does not require an endpoint/model
         val endpoint = runCatching { URI(aiEndpoint.trim()) }.getOrNull()
         if (endpoint == null || !endpoint.scheme.equals("https", ignoreCase = true) || endpoint.host.isNullOrBlank() ||

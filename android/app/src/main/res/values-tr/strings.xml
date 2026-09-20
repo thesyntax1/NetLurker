@@ -367,6 +367,7 @@
     <string name="settings.banner.detail" formatted="false">Hedefe tek bir HEAD isteği; durum satırını ve Server başlığını okur.</string>
     <string name="settings.cache.detail" formatted="false">Yalnızca başarılı yanıtlar, alındıkları zamanla birlikte önbelleğe alınır. Başarısızlıklar asla saklanmaz; böylece bir ağ sorunu kalıcı bir karara dönüşemez.</string>
     <string name="settings.error.endpoint" formatted="false">Kullanıcı bilgisi veya # bölümü içermeyen geçerli bir HTTPS AI adresi girin.</string>
+    <string name="settings.error.key" formatted="false">API anahtarları kontrol karakterleri içeremez.</string>
     <string name="settings.error.model" formatted="false">AI model adı girin veya yerel analiz için anahtarı kaldırın.</string>
     <string name="settings.error.save" formatted="false">Ayarlar kaydedilemedi. Boş depolama alanını kontrol edip tekrar deneyin. Değişiklikleriniz bu pencerede duruyor.</string>
     <string name="settings.geo" formatted="false">IP konumu (ip-api.com)</string>

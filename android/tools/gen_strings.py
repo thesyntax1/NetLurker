@@ -42,7 +42,7 @@ LOCALE_DIR = {"en": "values", **{code: f"values-{code}" for code in LOCALES if c
 # Keys the code builds at runtime; each expansion must exist in the catalog.
 DYNAMIC_KEYS = {
     # SettingsValues validation and async persistence return a key resolved by the footer.
-    "settings.error.{endpoint,model,save}": ["settings.error." + x for x in ("endpoint", "model", "save")],
+    "settings.error.{endpoint,model,key,save}": ["settings.error." + x for x in ("endpoint", "model", "key", "save")],
     "risk.level.{safe,info,warn,danger}": ["risk.level." + x for x in ("safe", "info", "warn", "danger")],
     "geo.status.{idle,pending,ok,failed,offline,disabled,unavailable}": [
         "geo.status." + x for x in ("idle", "pending", "ok", "failed", "offline", "disabled", "unavailable")

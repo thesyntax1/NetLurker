@@ -42,6 +42,9 @@ fun HistoryScreen(viewModel: MainViewModel) {
     val snapshot by viewModel.snapshot.collectAsState()
     val alerts by viewModel.alerts.collectAsState()
     val apps by viewModel.apps.collectAsState()
+    @Suppress("UNUSED_VARIABLE")
+    val historyRevision by viewModel.historyRevision.collectAsState()
+    val baselineCount = viewModel.history.baselineSize()
 
     // The rolling window lives in the session object; reading it here each recomposition
     // keeps the source of truth in one place.
@@ -71,7 +74,7 @@ fun HistoryScreen(viewModel: MainViewModel) {
             )
             KpiTile(
                 label = s("kpi.baselines"),
-                value = viewModel.history.baselineSize().toString(),
+                value = baselineCount.toString(),
                 modifier = Modifier.weight(1f)
             )
         }
@@ -205,7 +208,7 @@ fun HistoryScreen(viewModel: MainViewModel) {
                 s("field.total_up"),
                 Format.bytes(snapshot?.totalTxBytes ?: 0L) + " (" + s("counters.since_boot") + ")"
             )
-            InfoRow(s("field.baselines"), viewModel.history.baselineSize().toString())
+            InfoRow(s("field.baselines"), baselineCount.toString())
         }
 
         Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
@@ -213,7 +216,7 @@ fun HistoryScreen(viewModel: MainViewModel) {
                 Text(s("action.reset_session"), color = NL.Red, style = MaterialTheme.typography.labelSmall)
             }
             Spacer(Modifier.width(8.dp))
-            TextButton(onClick = { viewModel.history.clearBaselines() }) {
+            TextButton(onClick = { viewModel.clearBaselines() }) {
                 Text(s("action.clear_baselines"), color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }
         }

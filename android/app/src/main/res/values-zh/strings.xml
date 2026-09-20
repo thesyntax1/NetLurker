@@ -367,6 +367,7 @@
     <string name="settings.banner.detail" formatted="false">向目标发送一次 HEAD 请求，读取状态行和 Server 头。</string>
     <string name="settings.cache.detail" formatted="false">仅缓存成功应答及其获取时间。失败从不存储，网络问题不会变成永久结论。</string>
     <string name="settings.error.endpoint" formatted="false">请输入有效的 HTTPS AI 地址，不含凭据或片段。</string>
+    <string name="settings.error.key" formatted="false">API 密钥不能包含控制字符。</string>
     <string name="settings.error.model" formatted="false">请输入 AI 模型名称，或移除密钥以使用本地分析。</string>
     <string name="settings.error.save" formatted="false">无法保存设置。请检查可用存储空间后重试。更改仍保留在此窗口。</string>
     <string name="settings.geo" formatted="false">IP 地理位置（ip-api.com）</string>

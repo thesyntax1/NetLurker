@@ -159,8 +159,11 @@ object Rdap {
         val root = runCatching { objectDocument(response.body) }
             .getOrElse { throw IllegalStateException("unparsable response") }
 
+        val startAddress = root.strictString("startAddress")
+        val endAddress = root.strictString("endAddress")
         require(root.strictString("objectClassName") == "ip network" &&
-            Ip.isIp(root.strictString("startAddress")) && Ip.isIp(root.strictString("endAddress"))) { "invalid RDAP network" }
+            Ip.isIp(startAddress) && Ip.isIp(endAddress) &&
+            Ip.isInRange(ip, startAddress, endAddress)) { "invalid RDAP network" }
         var name = root.optString("name")
         var org = ""
         var abuse = ""

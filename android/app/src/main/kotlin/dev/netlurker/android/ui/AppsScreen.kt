@@ -56,7 +56,7 @@ fun AppsScreen(viewModel: MainViewModel) {
     var query by remember { mutableStateOf("") }
     var filter by remember { mutableStateOf("all") }
     var sort by remember { mutableStateOf("traffic") }
-    var expanded by remember { mutableStateOf<Int?>(null) }
+    var expanded by remember { mutableStateOf<String?>(null) }
 
     Column(Modifier.fillMaxSize().padding(horizontal = 12.dp)) {
         Row(
@@ -180,12 +180,14 @@ fun AppsScreen(viewModel: MainViewModel) {
             EmptyState(title = s("apps.empty.title"), detail = s("apps.empty.detail"))
         } else {
             LazyColumn(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                items(visible, key = { it.uid }) { app ->
+                items(visible, key = { it.packageName }) { app ->
                     AppRow(
                         app = app,
                         verdict = viewModel.appVerdict(app),
-                        expanded = expanded == app.uid,
-                        onToggle = { expanded = if (expanded == app.uid) null else app.uid },
+                        expanded = expanded == app.packageName,
+                        onToggle = {
+                            expanded = if (expanded == app.packageName) null else app.packageName
+                        },
                         onHash = { viewModel.onApkHash(app) }
                     )
                 }

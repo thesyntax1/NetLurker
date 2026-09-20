@@ -113,6 +113,14 @@ class IpTest {
     fun `zone suffix is stripped from interface addresses`() {
         assertEquals("fe80::1", Ip.stripZone("fe80::1%wlan0"))
     }
+
+    @Test
+    fun `address ranges are checked numerically for provider evidence`() {
+        assertTrue(Ip.isInRange("8.8.8.8", "8.8.8.0", "8.8.8.255"))
+        assertFalse(Ip.isInRange("8.8.4.4", "8.8.8.0", "8.8.8.255"))
+        assertTrue(Ip.isInRange("2001:db8::2", "2001:db8::", "2001:db8::ffff"))
+        assertFalse(Ip.isInRange("8.8.8.8", "2001:db8::", "2001:db8::ffff"))
+    }
 }
 
 /** The anomaly detector is the desktop algorithm verbatim; the thresholds are pinned. */

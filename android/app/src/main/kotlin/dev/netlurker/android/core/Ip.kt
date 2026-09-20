@@ -1,5 +1,6 @@
 package dev.netlurker.android.core
 
+import java.math.BigInteger
 import java.net.InetAddress
 
 /**
@@ -72,6 +73,19 @@ object Ip {
     fun reverseForDnsbl(s: String): String? {
         if (!isIPv4(s)) return null
         return s.split('.').reversed().joinToString(".")
+    }
+
+    /** Returns true when [candidate] is inside the inclusive address interval. */
+    fun isInRange(candidate: String, start: String, end: String): Boolean {
+        val c = parseOrNull(candidate)
+        val first = parseOrNull(start)
+        val last = parseOrNull(end)
+        if (c == null || first == null || last == null ||
+            c.address.size != first.address.size || first.address.size != last.address.size) return false
+        val value = BigInteger(1, c.address)
+        val lower = BigInteger(1, first.address)
+        val upper = BigInteger(1, last.address)
+        return lower <= value && value <= upper
     }
 
     /** Normalises an interface address such as "fe80::1%wlan0" to "fe80::1". */

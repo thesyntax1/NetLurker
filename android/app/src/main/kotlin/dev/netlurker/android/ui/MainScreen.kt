@@ -91,26 +91,39 @@ fun MainScreen(viewModel: MainViewModel) {
     val locationPermissions = remember {
         arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
     }
-    val locationLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestMultiplePermissions()
-    ) { granted ->
-        viewModel.setLocationPermission(granted[Manifest.permission.ACCESS_FINE_LOCATION] == true)
-    }
     val notificationLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { /* the in-app alert list works either way; nothing to do here */ }
-
-    LaunchedEffect(Unit) {
-        val hasLocation = ContextCompat.checkSelfPermission(
-            context, Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-        viewModel.setLocationPermission(hasLocation)
-        if (!hasLocation) showPermissions = true
+    fun requestNotificationsIfNeeded() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val hasNotifications = ContextCompat.checkSelfPermission(
                 context, Manifest.permission.POST_NOTIFICATIONS
             ) == PackageManager.PERMISSION_GRANTED
             if (!hasNotifications) notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+    }
+    val locationLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { granted ->
+        val hasLocation = granted[Manifest.permission.ACCESS_FINE_LOCATION] == true ||
+            granted[Manifest.permission.ACCESS_COARSE_LOCATION] == true
+        viewModel.setLocationPermission(hasLocation)
+        // Never stack two system permission windows on first launch.
+        showPermissions = false
+        requestNotificationsIfNeeded()
+    }
+
+    LaunchedEffect(Unit) {
+        val hasLocation =
+            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED ||
+                ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+                PackageManager.PERMISSION_GRANTED
+        viewModel.setLocationPermission(hasLocation)
+        if (!hasLocation) {
+            showPermissions = true
+        } else {
+            requestNotificationsIfNeeded()
         }
         viewModel.start()
     }
@@ -148,7 +161,7 @@ fun MainScreen(viewModel: MainViewModel) {
                     actions = {
                         TextButton(onClick = { showSettings = true },
                             modifier = Modifier.semantics { contentDescription = s("settings.title") }) {
-                            Text("⚙", color = NL.TextDim, style = MaterialTheme.typography.titleMedium)
+                            NavIconView(NavIcon.Settings, NL.TextDim)
                         }
                     }
                 )
@@ -266,13 +279,16 @@ fun MainScreen(viewModel: MainViewModel) {
                 showPermissions = false
                 locationLauncher.launch(locationPermissions)
             },
-            onDismiss = { showPermissions = false }
+            onDismiss = {
+                showPermissions = false
+                requestNotificationsIfNeeded()
+            }
         )
     }
 }
 
 private enum class NavIcon {
-    Investigate, Apps, Network, History, Summary
+    Investigate, Apps, Network, History, Summary, Settings
 }
 
 /**
@@ -341,6 +357,23 @@ private fun NavIconView(icon: NavIcon, tint: androidx.compose.ui.graphics.Color)
                 drawRect(tint, point(5f, 14f), androidx.compose.ui.geometry.Size(3f * unit, 7f * unit))
                 drawRect(tint, point(10.5f, 9f), androidx.compose.ui.geometry.Size(3f * unit, 12f * unit))
                 drawRect(tint, point(16f, 5f), androidx.compose.ui.geometry.Size(3f * unit, 16f * unit))
+            }
+            NavIcon.Settings -> {
+                for (angle in 0 until 8) {
+                    val radians = Math.toRadians(angle * 45.0)
+                    val start = point(
+                        12f + kotlin.math.cos(radians).toFloat() * 8f,
+                        12f + kotlin.math.sin(radians).toFloat() * 8f
+                    )
+                    val end = point(
+                        12f + kotlin.math.cos(radians).toFloat() * 10f,
+                        12f + kotlin.math.sin(radians).toFloat() * 10f
+                    )
+                    drawLine(tint, start, end, stroke.width)
+                }
+                drawCircle(tint, radius = 7.5f * unit, center = center, style = stroke)
+                drawCircle(NL.Surface, radius = 3f * unit, center = center)
+                drawCircle(tint, radius = 3f * unit, center = center, style = stroke)
             }
         }
     }

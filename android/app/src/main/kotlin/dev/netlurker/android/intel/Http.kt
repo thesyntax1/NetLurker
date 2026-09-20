@@ -64,9 +64,14 @@ object Http {
         var connection: HttpURLConnection? = null
         return try {
             val endpoint = URL(url)
-            require(endpoint.protocol == "https" || ((headers.isEmpty() && body == null) ||
-                endpoint.host in setOf("localhost", "127.0.0.1", "::1", "[::1]"))) {
-                "HTTPS is required when sending credentials or a request body to a remote endpoint"
+            val host = endpoint.host.lowercase(java.util.Locale.ROOT)
+            val localEndpoint = host in setOf("localhost", "127.0.0.1", "::1", "[::1]")
+            // ip-api's free batch endpoint is the one documented cleartext exception.
+            // Keep this allowlist here as well as in network_security_config.xml: a future
+            // caller must not accidentally turn a plaintext GET/POST into a general policy.
+            val approvedCleartext = endpoint.protocol == "http" && host == "ip-api.com"
+            require(endpoint.protocol == "https" || localEndpoint || approvedCleartext) {
+                "HTTPS is required except for the approved ip-api.com free endpoint"
             }
             connection = endpoint.openConnection() as HttpURLConnection
             connection.requestMethod = method

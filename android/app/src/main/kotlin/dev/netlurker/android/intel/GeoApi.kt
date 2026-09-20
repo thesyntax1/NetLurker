@@ -1,6 +1,7 @@
 package dev.netlurker.android.intel
 
 import dev.netlurker.android.core.GeoInfo
+import dev.netlurker.android.core.Ip
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -66,7 +67,10 @@ object GeoApi {
         return out
     }
 
-    fun single(ip: String, timeoutMs: Int = 8_000): GeoInfo? = batch(listOf(ip), timeoutMs)[ip]
+    fun single(ip: String, timeoutMs: Int = 8_000): GeoInfo? =
+        batch(listOf(ip), timeoutMs).entries.firstOrNull {
+            it.key == ip || Ip.sameAddress(it.key, ip)
+        }?.value
 }
 
 /** Public egress address. Only queried when the user turns it on. */
@@ -82,7 +86,7 @@ object PublicIp {
             val response = Http.get(endpoint, timeoutMs = timeoutMs)
             if (!response.ok) continue
             val ip = runCatching { JSONObject(response.body).optString("ip") }.getOrNull()
-            if (!ip.isNullOrBlank()) return ip to null
+            if (!ip.isNullOrBlank() && Ip.isIp(ip)) return ip to null
         }
         return null to "no provider answered"
     }

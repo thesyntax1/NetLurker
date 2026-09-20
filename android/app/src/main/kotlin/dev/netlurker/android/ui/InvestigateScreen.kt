@@ -74,7 +74,8 @@ fun InvestigateScreen(viewModel: MainViewModel) {
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 keyboardActions = KeyboardActions(onDone = {
                     if (input.isNotBlank()) {
-                        viewModel.intel.addTarget(parseInput(input).first, parseInput(input).second)
+                        val (host, port) = parseInput(input)
+                        viewModel.intel.addTarget(host, port)
                         input = ""
                     }
                 }),
@@ -410,18 +411,26 @@ private fun TargetCard(
                     style = MaterialTheme.typography.labelSmall
                 )
             }
-            TextButton(onClick = { openBrowser(context, "https://www.virustotal.com/gui/ip-address/${target.ip ?: target.input}") }) {
+            TextButton(onClick = {
+                openBrowser(context, providerUrl("www.virustotal.com", "gui", "ip-address", target.ip ?: target.input))
+            }) {
                 Text("VirusTotal", color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }
-            TextButton(onClick = { openBrowser(context, "https://www.abuseipdb.com/check/${target.ip ?: target.input}") }) {
+            TextButton(onClick = {
+                openBrowser(context, providerUrl("www.abuseipdb.com", "check", target.ip ?: target.input))
+            }) {
                 Text("AbuseIPDB", color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }
         }
         FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            TextButton(onClick = { openBrowser(context, "https://cve.circl.lu/pdns/query/${target.ip ?: target.input}") }) {
+            TextButton(onClick = {
+                openBrowser(context, providerUrl("cve.circl.lu", "pdns", "query", target.ip ?: target.input))
+            }) {
                 Text(s("action.passive_dns"), color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }
-            TextButton(onClick = { openBrowser(context, "https://rdap.org/ip/${target.ip ?: target.input}") }) {
+            TextButton(onClick = {
+                openBrowser(context, providerUrl("rdap.org", "ip", target.ip ?: target.input))
+            }) {
                 Text("RDAP", color = NL.TextDim, style = MaterialTheme.typography.labelSmall)
             }
             TextButton(onClick = { viewModel.intel.removeTarget(target.key) }) {
@@ -481,6 +490,14 @@ private fun languageName(code: String): String = when (code) {
     "pt" -> "Portuguese"
     else -> "English"
 }
+
+private fun providerUrl(authority: String, vararg segments: String): String =
+    Uri.Builder()
+        .scheme("https")
+        .authority(authority)
+        .apply { segments.forEach { appendPath(it) } }
+        .build()
+        .toString()
 
 internal fun openBrowser(context: android.content.Context, url: String) {
     runCatching {

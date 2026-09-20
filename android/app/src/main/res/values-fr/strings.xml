@@ -367,6 +367,7 @@
     <string name="settings.banner.detail" formatted="false">Une requête HEAD vers la cible ; lit la ligne de statut et l\'en-tête Server.</string>
     <string name="settings.cache.detail" formatted="false">Seules les réponses réussies sont mises en cache, avec leur horodatage. Les échecs ne sont jamais stockés : un problème réseau ne devient pas un verdict permanent.</string>
     <string name="settings.error.endpoint" formatted="false">Saisissez une URL IA HTTPS valide sans identifiants ni fragment.</string>
+    <string name="settings.error.key" formatted="false">Les clés API ne peuvent pas contenir de caractères de contrôle.</string>
     <string name="settings.error.model" formatted="false">Saisissez un modèle IA ou retirez la clé pour une analyse locale.</string>
     <string name="settings.error.save" formatted="false">Enregistrement impossible. Vérifiez le stockage libre et réessayez. Vos modifications restent ici.</string>
     <string name="settings.geo" formatted="false">Géolocalisation IP (ip-api.com)</string>

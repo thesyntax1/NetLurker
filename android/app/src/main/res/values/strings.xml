@@ -367,6 +367,7 @@
     <string name="settings.banner.detail" formatted="false">One HEAD request to the target; reads the status line and Server header.</string>
     <string name="settings.cache.detail" formatted="false">Only successful answers are cached, with the time they were fetched. Failures are never stored, so a network problem cannot become a permanent verdict.</string>
     <string name="settings.error.endpoint" formatted="false">Enter a valid HTTPS AI endpoint without credentials or a fragment.</string>
+    <string name="settings.error.key" formatted="false">API keys cannot contain control characters.</string>
     <string name="settings.error.model" formatted="false">Enter an AI model name, or remove the key to use local analysis.</string>
     <string name="settings.error.save" formatted="false">Could not save settings. Check free storage and try again. Your changes are still here.</string>
     <string name="settings.geo" formatted="false">IP geolocation (ip-api.com)</string>

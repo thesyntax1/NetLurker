@@ -367,6 +367,7 @@
     <string name="settings.banner.detail" formatted="false">Um pedido HEAD ao destino; lê a linha de estado e o cabeçalho Server.</string>
     <string name="settings.cache.detail" formatted="false">Apenas respostas bem-sucedidas são guardadas, com a hora. As falhas nunca são guardadas, para que um problema de rede não vire veredicto permanente.</string>
     <string name="settings.error.endpoint" formatted="false">Insira uma URL HTTPS de IA válida sem credenciais ou fragmento.</string>
+    <string name="settings.error.key" formatted="false">As chaves API não podem conter caracteres de controlo.</string>
     <string name="settings.error.model" formatted="false">Insira um modelo de IA ou remova a chave para usar a análise local.</string>
     <string name="settings.error.save" formatted="false">Não foi possível salvar. Verifique o espaço livre e tente novamente. As alterações continuam aqui.</string>
     <string name="settings.geo" formatted="false">Geolocalização IP (ip-api.com)</string>

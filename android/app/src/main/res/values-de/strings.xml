@@ -367,6 +367,7 @@
     <string name="settings.banner.detail" formatted="false">Ein HEAD-Request an das Ziel; liest Statuszeile und Server-Header.</string>
     <string name="settings.cache.detail" formatted="false">Nur erfolgreiche Antworten werden mit Zeitstempel gespeichert. Fehler werden nie gespeichert, damit ein Netzwerkproblem kein dauerhaftes Urteil wird.</string>
     <string name="settings.error.endpoint" formatted="false">Gültige HTTPS-KI-Adresse ohne Zugangsdaten oder Fragment eingeben.</string>
+    <string name="settings.error.key" formatted="false">API-Schlüssel dürfen keine Steuerzeichen enthalten.</string>
     <string name="settings.error.model" formatted="false">KI-Modell eingeben oder den Schlüssel für lokale Analyse entfernen.</string>
     <string name="settings.error.save" formatted="false">Einstellungen nicht gespeichert. Freien Speicher prüfen und erneut versuchen. Die Änderungen bleiben im Dialog.</string>
     <string name="settings.geo" formatted="false">IP-Geolokalisierung (ip-api.com)</string>

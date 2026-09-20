@@ -19,6 +19,7 @@ class DiskCache(directory: File, private val fileName: String) {
     }
 
     private val file = File(directory, fileName)
+    private val temporaryFile = File(directory, "$fileName.tmp")
     private val entries = LinkedHashMap<String, Entry>()
     private var dirty = false
 
@@ -72,7 +73,7 @@ class DiskCache(directory: File, private val fileName: String) {
         if (!dirty) return
         runCatching {
             file.parentFile?.mkdirs()
-            file.printWriter(Charsets.UTF_8).use { writer ->
+            temporaryFile.printWriter(Charsets.UTF_8).use { writer ->
                 for ((key, entry) in entries) {
                     writer.write(key)
                     writer.write('\t'.code)
@@ -81,6 +82,12 @@ class DiskCache(directory: File, private val fileName: String) {
                     writer.write(entry.payload)
                     writer.write('\n'.code)
                 }
+            }
+            // A process kill during a direct write can leave a truncated cache. Replace the
+            // old snapshot only after the complete temporary file has been closed.
+            if (!temporaryFile.renameTo(file)) {
+                file.delete()
+                check(temporaryFile.renameTo(file)) { "could not replace cache ${file.name}" }
             }
             dirty = false
         }

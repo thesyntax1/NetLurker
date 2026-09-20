@@ -24,6 +24,12 @@ class SettingsTest {
         assertEquals("en", SettingsValues(language = "invalid").normalized().language)
     }
 
+    @Test fun controlCharactersCannotReachHTTPHeaders() {
+        assertEquals("settings.error.key", SettingsValues(aiKey = "safe\nnot-safe").validationError())
+        assertEquals("settings.error.key", SettingsValues(vtKey = "safe\rnot-safe").validationError())
+        assertNull(SettingsValues(aiKey = "safe-key").validationError())
+    }
+
     @Test fun onlyLocalAnalysisMayOmitEndpointAndModel() {
         assertNull(SettingsValues(aiEndpoint = "", aiModel = "").validationError())
         assertEquals("settings.error.model", SettingsValues(aiKey = "test", aiModel = " ").validationError())

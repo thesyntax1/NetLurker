@@ -6,8 +6,11 @@ import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
 import dev.netlurker.android.core.AppTraffic
+import java.io.ByteArrayInputStream
 import java.io.File
 import java.security.MessageDigest
+import java.security.cert.CertificateFactory
+import java.security.cert.X509Certificate
 
 /** Installed package metadata and APK signing certificates read through PackageManager. */
 class AppCatalog(private val context: Context) {
@@ -96,7 +99,13 @@ class AppCatalog(private val context: Context) {
 
         val certificate = certificates?.firstOrNull() ?: return null
         return runCatching {
-            val x509 = certificate as java.security.cert.X509Certificate
+            // PackageManager returns Android Signature objects, not X509Certificate
+            // instances. Parse the DER bytes before reading the subject/issuer; the old
+            // direct cast made signer metadata silently unavailable for every package.
+            val factory = CertificateFactory.getInstance("X.509")
+            val x509 = factory.generateCertificate(
+                ByteArrayInputStream(certificate.toByteArray())
+            ) as X509Certificate
             Triple(
                 x509.subjectX500Principal.name,
                 x509.issuerX500Principal.name,

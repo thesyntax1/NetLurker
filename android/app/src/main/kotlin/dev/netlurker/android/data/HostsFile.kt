@@ -1,6 +1,7 @@
 package dev.netlurker.android.data
 
 import dev.netlurker.android.core.Ip
+import java.io.ByteArrayOutputStream
 import java.io.File
 
 /**
@@ -47,9 +48,11 @@ object HostsFile {
             val line = rawLine.substringBefore('#').trim()
             if (line.isEmpty()) continue
             val tokens = line.split(Regex("\\s+")).filter { it.isNotEmpty() }
-            val address = tokens.firstOrNull() ?: continue
-            if (tokens.size < 2) continue
-            if (loopback.contains(address)) continue
+            val rawAddress = tokens.firstOrNull() ?: continue
+            if (tokens.size < 2 || !Ip.isIp(rawAddress)) continue
+            val address = Ip.stripZone(rawAddress)
+            if (loopback.contains(address) || Ip.sameAddress(address, "127.0.0.1") ||
+                Ip.sameAddress(address, "::1")) continue
             ips.add(address)
             names.getOrPut(address) { mutableListOf() }.addAll(tokens.drop(1))
             entries++
@@ -71,10 +74,19 @@ object HostsFile {
             } else if (!file.canRead()) {
                 Snapshot(readable = false, entries = 0, detail = "$path is not readable by this app")
             } else {
+                require(maxBytes in 1L..Int.MAX_VALUE.toLong()) { "invalid hosts-file size limit" }
                 val text = file.inputStream().use { stream ->
-                    val buffer = ByteArray(maxBytes.toInt())
-                    val read = stream.read(buffer)
-                    if (read <= 0) "" else String(buffer, 0, read, Charsets.UTF_8)
+                    val output = ByteArrayOutputStream(minOf(maxBytes, 8192L).toInt())
+                    val buffer = ByteArray(8192)
+                    var remaining = maxBytes
+                    while (remaining > 0) {
+                        val read = stream.read(buffer, 0, minOf(buffer.size.toLong(), remaining).toInt())
+                        if (read < 0) break
+                        if (read == 0) continue
+                        output.write(buffer, 0, read)
+                        remaining -= read
+                    }
+                    output.toString(Charsets.UTF_8.name())
                 }
                 parse(text)
             }
