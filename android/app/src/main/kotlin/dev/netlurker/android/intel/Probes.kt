@@ -196,6 +196,9 @@ object BannerProbe {
     // Deliberately scoped plaintext probe. No credentials/body, no redirects, and a
     // bounded header read; the app-wide cleartext policy remains closed for API clients.
     private fun plainHead(host: String, port: Int, timeoutMs: Int): Http.Response {
+        require(host.none { character -> character < ' ' || character == '\u007f' }) {
+            "invalid host header"
+        }
         val started = System.nanoTime()
         java.net.Socket().use { socket ->
             socket.connect(java.net.InetSocketAddress(host, port), timeoutMs)

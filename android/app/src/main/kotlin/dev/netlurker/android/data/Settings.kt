@@ -65,11 +65,11 @@ class Settings internal constructor(private val prefs: SharedPreferences) {
     }
 
     var abuseIpDbKey: String
-        get() = prefs.getString(KEY_ABUSE_KEY, "").orEmpty()
+        get() = safeHeaderValue(prefs.getString(KEY_ABUSE_KEY, "").orEmpty())
         set(value) = prefs.edit().putString(KEY_ABUSE_KEY, value.trim()).apply()
 
     var virusTotalKey: String
-        get() = prefs.getString(KEY_VT_KEY, "").orEmpty()
+        get() = safeHeaderValue(prefs.getString(KEY_VT_KEY, "").orEmpty())
         set(value) = prefs.edit().putString(KEY_VT_KEY, value.trim()).apply()
 
     var aiEndpoint: String
@@ -81,8 +81,16 @@ class Settings internal constructor(private val prefs: SharedPreferences) {
         set(value) = prefs.edit().putString(KEY_AI_MODEL, value.trim()).apply()
 
     var aiApiKey: String
-        get() = prefs.getString(KEY_AI_KEY, "").orEmpty()
+        get() = safeHeaderValue(prefs.getString(KEY_AI_KEY, "").orEmpty())
         set(value) = prefs.edit().putString(KEY_AI_KEY, value.trim()).apply()
+
+    /**
+     * Older installs may contain values written before header validation existed. Treat those
+     * values as absent at the read boundary too, so they can never reach an HTTP header before
+     * the user opens and saves Settings.
+     */
+    private fun safeHeaderValue(value: String): String =
+        value.takeUnless { it.any { character -> character < ' ' || character == '\u007f' } }.orEmpty()
 
     fun snapshot() = SettingsValues(
         geoEnabled, threatEnabled, rdapEnabled, vtEnabled, tlsEnabled, bannerEnabled,

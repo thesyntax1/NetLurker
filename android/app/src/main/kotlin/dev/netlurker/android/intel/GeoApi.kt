@@ -86,7 +86,10 @@ object PublicIp {
             val response = Http.get(endpoint, timeoutMs = timeoutMs)
             if (!response.ok) continue
             val ip = runCatching { JSONObject(response.body).optString("ip") }.getOrNull()
-            if (!ip.isNullOrBlank() && Ip.isIp(ip)) return ip to null
+            // This value is displayed as the device's public egress address. Reject a
+            // malformed or private provider response rather than presenting it as public
+            // network identity if a provider is intercepted or misconfigured.
+            if (!ip.isNullOrBlank() && Ip.isPublic(ip)) return ip to null
         }
         return null to "no provider answered"
     }

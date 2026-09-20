@@ -84,11 +84,10 @@ class AppCatalog(private val context: Context) {
                 )
                 val signingInfo = info.signingInfo
                     ?: return@runCatching emptyArray<android.content.pm.Signature>()
-                if (signingInfo.hasMultipleSigners()) {
-                    signingInfo.apkContentsSigners
-                } else {
-                    signingInfo.signingCertificateHistory
-                }
+                // apkContentsSigners is the certificate that signs the installed APK. The
+                // history also contains rotated, no-longer-current certificates; using its
+                // first entry would report an old signer after key rotation.
+                signingInfo.apkContentsSigners
             } else {
                 @Suppress("DEPRECATION")
                 val info = pm.getPackageInfo(packageName, PackageManager.GET_SIGNATURES)

@@ -30,6 +30,19 @@ class SettingsTest {
         assertNull(SettingsValues(aiKey = "safe-key").validationError())
     }
 
+    @Test fun legacyControlCharactersAreIgnoredBeforeARequestIsBuilt() {
+        val prefs = MemoryPreferences()
+        prefs.edit()
+            .putString("abuseipdb_key", "old\nkey")
+            .putString("virustotal_key", "old\rkey")
+            .putString("ai_key", "old\tkey")
+            .commit()
+        val settings = Settings(prefs)
+        assertEquals("", settings.abuseIpDbKey)
+        assertEquals("", settings.virusTotalKey)
+        assertEquals("", settings.aiApiKey)
+    }
+
     @Test fun onlyLocalAnalysisMayOmitEndpointAndModel() {
         assertNull(SettingsValues(aiEndpoint = "", aiModel = "").validationError())
         assertEquals("settings.error.model", SettingsValues(aiKey = "test", aiModel = " ").validationError())

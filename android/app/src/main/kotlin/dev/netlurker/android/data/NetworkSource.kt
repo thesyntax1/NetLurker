@@ -52,7 +52,7 @@ class NetworkSource(private val context: Context) {
             routes = link?.routes?.mapNotNull { route ->
                 val host = route.destination?.address?.hostAddress?.let(Ip::stripZone)
                 val prefixLength = route.destination?.prefixLength ?: 0
-                val gateway = route.gateway?.hostAddress
+                val gateway = route.gateway?.hostAddress?.let(Ip::stripZone)
                 val text = if (host == null) "default" else "$host/$prefixLength"
                 if (gateway.isNullOrBlank()) text else "$text via $gateway"
             }.orEmpty(),
@@ -134,7 +134,7 @@ class NetworkSource(private val context: Context) {
             ssid = ssid,
             bssid = info.bssid,
             rssi = info.rssi,
-            linkSpeedMbps = info.linkSpeed,
+            linkSpeedMbps = info.linkSpeed.takeIf { it >= 0 },
             frequencyMhz = frequency.takeIf { it > 0 },
             band = bandOf(frequency),
             security = null,

@@ -32,7 +32,7 @@ class DiskCache(directory: File, private val fileName: String) {
                 val parts = line.split('\t')
                 if (parts.size >= 3) {
                     val at = parts[1].toLongOrNull() ?: return@forEachLine
-                    entries[parts[0]] = Entry(at, parts.drop(2).joinToString("\t"))
+                    entries[decode(parts[0])] = Entry(at, parts.drop(2).joinToString("\t"))
                 }
             }
         }
@@ -75,7 +75,7 @@ class DiskCache(directory: File, private val fileName: String) {
             file.parentFile?.mkdirs()
             temporaryFile.printWriter(Charsets.UTF_8).use { writer ->
                 for ((key, entry) in entries) {
-                    writer.write(key)
+                    writer.write(encode(key))
                     writer.write('\t'.code)
                     writer.write(entry.atEpochSec.toString())
                     writer.write('\t'.code)
@@ -93,7 +93,7 @@ class DiskCache(directory: File, private val fileName: String) {
         }
     }
 
-    /** Payloads must stay on one line; tabs and newlines are escaped, not stripped. */
+    /** Keys and payloads must stay on one line; tabs and newlines are escaped, not stripped. */
     private fun encode(payload: String): String =
         payload.replace("\\", "\\\\").replace("\t", "\\t").replace("\n", "\\n").replace("\r", "\\r")
 

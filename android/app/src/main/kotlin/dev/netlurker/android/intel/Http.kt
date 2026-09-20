@@ -62,61 +62,93 @@ object Http {
     ): Response {
         val started = System.currentTimeMillis()
         var connection: HttpURLConnection? = null
+        var currentUrl = url
+        var redirects = 0
         return try {
-            val endpoint = URL(url)
-            val host = endpoint.host.lowercase(java.util.Locale.ROOT)
-            val localEndpoint = host in setOf("localhost", "127.0.0.1", "::1", "[::1]")
-            // ip-api's free batch endpoint is the one documented cleartext exception.
-            // Keep this allowlist here as well as in network_security_config.xml: a future
-            // caller must not accidentally turn a plaintext GET/POST into a general policy.
-            val approvedCleartext = endpoint.protocol == "http" && host == "ip-api.com"
-            require(endpoint.protocol == "https" || localEndpoint || approvedCleartext) {
-                "HTTPS is required except for the approved ip-api.com free endpoint"
-            }
-            connection = endpoint.openConnection() as HttpURLConnection
-            connection.requestMethod = method
-            connection.connectTimeout = timeoutMs
-            connection.readTimeout = timeoutMs
-            // Never forward an API key or request body to a redirected host.
-            connection.instanceFollowRedirects = headers.isEmpty() && body == null
-            connection.setRequestProperty("User-Agent", USER_AGENT)
-            connection.setRequestProperty("Accept", "application/json, text/plain, */*")
-            for ((k, v) in headers) connection.setRequestProperty(k, v)
-            if (body != null) {
-                connection.doOutput = true
-                if (contentType != null) connection.setRequestProperty("Content-Type", contentType)
-                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
-            }
-            val status = connection.responseCode
-            val stream = if (status in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.use {
-                val out = java.io.ByteArrayOutputStream()
-                val buffer = ByteArray(8192)
-                while (out.size() <= 2 * 1024 * 1024) {
-                    val read = it.read(buffer, 0, minOf(buffer.size, 2 * 1024 * 1024 + 1 - out.size()))
-                    if (read < 0) break
-                    out.write(buffer, 0, read)
+            while (true) {
+                val endpoint = URL(currentUrl)
+                val host = endpoint.host.lowercase(java.util.Locale.ROOT)
+                val localEndpoint = host in setOf("localhost", "127.0.0.1", "::1", "[::1]")
+                // ip-api's free batch endpoint is the one documented cleartext exception.
+                // Keep this allowlist here as well as in network_security_config.xml: a future
+                // caller must not accidentally turn a plaintext GET/POST into a general policy.
+                val approvedCleartext = endpoint.protocol == "http" && host == "ip-api.com"
+                require(endpoint.protocol == "https" || localEndpoint || approvedCleartext) {
+                    "HTTPS is required except for the approved ip-api.com free endpoint"
                 }
-                val bytes = out.toByteArray()
-                if (bytes.size > 2 * 1024 * 1024) throw IOException("response exceeds 2 MiB limit")
-                bytes.toString(Charsets.UTF_8)
-            } ?: ""
-            val responseHeaders = LinkedHashMap<String, String>()
-            for ((key, values) in connection.headerFields) {
-                if (key == null) {
-                    values?.firstOrNull()?.let { responseHeaders["statusLine"] = it }
-                } else {
-                    responseHeaders[key.lowercase()] = values.joinToString(", ")
+                connection = endpoint.openConnection() as HttpURLConnection
+                connection.requestMethod = method
+                connection.connectTimeout = timeoutMs
+                connection.readTimeout = timeoutMs
+                // Follow only a bounded, HTTPS-preserving redirect for credential-free GETs.
+                // HttpURLConnection otherwise follows redirects without giving this policy a
+                // chance to reject an HTTPS-to-HTTP downgrade.
+                connection.instanceFollowRedirects = false
+                connection.setRequestProperty("User-Agent", USER_AGENT)
+                connection.setRequestProperty("Accept", "application/json, text/plain, */*")
+                for ((k, v) in headers) {
+                    require(k.isNotBlank() && k.none { it < ' ' || it == '\u007f' }) {
+                        "invalid HTTP header name"
+                    }
+                    require(v.none { it < ' ' || it == '\u007f' }) {
+                        "invalid HTTP header value"
+                    }
+                    connection.setRequestProperty(k, v)
                 }
+                if (body != null) {
+                    connection.doOutput = true
+                    if (contentType != null) connection.setRequestProperty("Content-Type", contentType)
+                    connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
+                }
+                val status = connection.responseCode
+                if (status in 300..399) {
+                    val location = connection.getHeaderField("Location")
+                    if (location.isNullOrBlank() || headers.isNotEmpty() || body != null || redirects >= 3) {
+                        return Response(
+                            false, status, "", "HTTP $status redirect rejected",
+                            System.currentTimeMillis() - started
+                        )
+                    }
+                    val next = URL(endpoint, location)
+                    require(next.protocol == "https") {
+                        "HTTPS redirect rejected"
+                    }
+                    connection.disconnect()
+                    connection = null
+                    currentUrl = next.toString()
+                    redirects++
+                    continue
+                }
+                val stream = if (status in 200..299) connection.inputStream else connection.errorStream
+                val text = stream?.use {
+                    val out = java.io.ByteArrayOutputStream()
+                    val buffer = ByteArray(8192)
+                    while (out.size() <= 2 * 1024 * 1024) {
+                        val read = it.read(buffer, 0, minOf(buffer.size, 2 * 1024 * 1024 + 1 - out.size()))
+                        if (read < 0) break
+                        out.write(buffer, 0, read)
+                    }
+                    val bytes = out.toByteArray()
+                    if (bytes.size > 2 * 1024 * 1024) throw IOException("response exceeds 2 MiB limit")
+                    bytes.toString(Charsets.UTF_8)
+                } ?: ""
+                val responseHeaders = LinkedHashMap<String, String>()
+                for ((key, values) in connection.headerFields) {
+                    if (key == null) {
+                        values?.firstOrNull()?.let { responseHeaders["statusLine"] = it }
+                    } else {
+                        responseHeaders[key.lowercase()] = values.joinToString(", ")
+                    }
+                }
+                return Response(
+                    ok = status in 200..299,
+                    status = status,
+                    body = text,
+                    error = if (status in 200..299) null else "HTTP $status",
+                    elapsedMs = System.currentTimeMillis() - started,
+                    headers = responseHeaders
+                )
             }
-            Response(
-                ok = status in 200..299,
-                status = status,
-                body = text,
-                error = if (status in 200..299) null else "HTTP $status",
-                elapsedMs = System.currentTimeMillis() - started,
-                headers = responseHeaders
-            )
         } catch (e: SocketTimeoutException) {
             Response(false, 0, "", "timeout: ${describe(e)}", System.currentTimeMillis() - started)
         } catch (e: UnknownHostException) {

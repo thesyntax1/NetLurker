@@ -97,6 +97,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     private var pollJob: Job? = null
     private var networkJob: Job? = null
+    private var networkGeneration = 0L
     private var lastPollAtMs = 0L
     private var locationGranted = false
 
@@ -129,6 +130,11 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         _running.value = false
         pollJob?.cancel()
         pollJob = null
+        // Do not let a public-IP or network refresh continue after the activity leaves the
+        // foreground (including while an OS permission sheet is covering it).
+        networkGeneration++
+        networkJob?.cancel()
+        networkJob = null
         persist()
     }
 
@@ -167,6 +173,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
     /** Publish on Main after cancellable IO boundaries, never from a superseded blocking lookup. */
     fun refreshNetwork() {
+        val generation = ++networkGeneration
         networkJob?.cancel()
         if (!settings.publicIpEnabled) {
             _device.value = _device.value?.copy(
@@ -174,15 +181,29 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             )
         }
         networkJob = viewModelScope.launch {
-            _link.value = withContext(Dispatchers.IO) { runCatching { network.activeLink() }.getOrNull() }
-            _wifi.value = withContext(Dispatchers.IO) { runCatching { network.wifi(locationGranted) }.getOrNull() }
-            _cellular.value = withContext(Dispatchers.IO) { runCatching { network.cellular() }.getOrNull() }
-            _interfaces.value = withContext(Dispatchers.IO) { runCatching { network.interfaces() }.getOrDefault(emptyList()) }
-            _hosts.value = withContext(Dispatchers.IO) { HostsFile.read() }
+            val link = withContext(Dispatchers.IO) { runCatching { network.activeLink() }.getOrNull() }
+            if (generation != networkGeneration) return@launch
+            _link.value = link
+            val wifi = withContext(Dispatchers.IO) { runCatching { network.wifi(locationGranted) }.getOrNull() }
+            if (generation != networkGeneration) return@launch
+            _wifi.value = wifi
+            val cellular = withContext(Dispatchers.IO) { runCatching { network.cellular() }.getOrNull() }
+            if (generation != networkGeneration) return@launch
+            _cellular.value = cellular
+            val interfaces = withContext(Dispatchers.IO) {
+                runCatching { network.interfaces() }.getOrDefault(emptyList())
+            }
+            if (generation != networkGeneration) return@launch
+            _interfaces.value = interfaces
+            val hosts = withContext(Dispatchers.IO) { HostsFile.read() }
+            if (generation != networkGeneration) return@launch
+            _hosts.value = hosts
             if (settings.publicIpEnabled) {
-                _device.value = _device.value?.copy(publicIp = null, publicIpStatus = IntelStatus.PENDING, publicIpDetail = null)
+                _device.value = _device.value?.copy(
+                    publicIp = null, publicIpStatus = IntelStatus.PENDING, publicIpDetail = null
+                )
                 val (ip, error) = withContext(Dispatchers.IO) { PublicIp.lookup() }
-                if (settings.publicIpEnabled) {
+                if (generation == networkGeneration && settings.publicIpEnabled) {
                     _device.value = _device.value?.copy(
                         publicIp = ip,
                         publicIpStatus = if (ip != null) IntelStatus.OK else IntelStatus.FAILED,
@@ -351,11 +372,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     private fun writeBaselineCache(context: Context, lines: List<String>) {
+        val file = java.io.File(context.filesDir, "baseline.tsv")
+        val temporary = java.io.File(context.filesDir, "baseline.tsv.tmp")
         runCatching {
-            java.io.File(context.filesDir, "baseline.tsv")
-                .printWriter(Charsets.UTF_8).use { writer ->
-                    for (line in lines) writer.println(line)
-                }
+            file.parentFile?.mkdirs()
+            temporary.printWriter(Charsets.UTF_8).use { writer ->
+                for (line in lines) writer.println(line)
+            }
+            // Preserve the previous valid baseline if the process is killed during a write.
+            // The files live in the same private directory, so this is a same-filesystem move.
+            java.nio.file.Files.move(
+                temporary.toPath(), file.toPath(),
+                java.nio.file.StandardCopyOption.REPLACE_EXISTING
+            )
+        }.onFailure {
+            temporary.delete()
         }
     }
 
